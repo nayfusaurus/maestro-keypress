@@ -185,10 +185,12 @@ class Player:
         try:
             if modifier:
                 self.keyboard.press(modifier)
+                time.sleep(0.01)  # Small delay before key
             self.keyboard.press(key)
-            time.sleep(0.02)  # Brief hold
+            time.sleep(0.05)  # Longer hold for game to register
             self.keyboard.release(key)
             if modifier:
+                time.sleep(0.01)  # Small delay before releasing modifier
                 self.keyboard.release(modifier)
         except Exception:
             pass  # Ignore key errors
