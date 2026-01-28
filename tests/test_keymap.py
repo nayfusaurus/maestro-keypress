@@ -1,4 +1,8 @@
-from maestro.keymap import midi_note_to_key, OCTAVE_HIGH, OCTAVE_MID, OCTAVE_LOW
+from maestro.keymap import (
+    midi_note_to_key,
+    OCTAVE_HIGH, OCTAVE_MID, OCTAVE_LOW,
+    EXTENDED_HIGH, EXTENDED_LOW,
+)
 
 
 def test_midi_note_to_key_middle_c():
@@ -25,16 +29,28 @@ def test_midi_note_to_key_low_octave():
     assert key == "l"
 
 
+def test_midi_note_to_key_extended_high():
+    """C6 (MIDI 84) maps to extended high note (I key)."""
+    key = midi_note_to_key(84)
+    assert key == "i"
+
+
+def test_midi_note_to_key_extended_low():
+    """C2 (MIDI 36) maps to extended low note (, key)."""
+    key = midi_note_to_key(36)
+    assert key == ","
+
+
 def test_midi_note_to_key_transpose_too_high():
     """Notes above range get transposed down."""
-    key = midi_note_to_key(96)  # C7 - way too high
-    assert key in OCTAVE_HIGH.values()
+    key = midi_note_to_key(96)  # C7 - way too high, transposes to C6
+    assert key == "i"  # Extended high note
 
 
 def test_midi_note_to_key_transpose_too_low():
     """Notes below range get transposed up."""
-    key = midi_note_to_key(24)  # C1 - way too low
-    assert key in OCTAVE_LOW.values()
+    key = midi_note_to_key(24)  # C1 - way too low, transposes to C2
+    assert key == ","  # Extended low note
 
 
 def test_octave_mappings_complete():
@@ -42,3 +58,9 @@ def test_octave_mappings_complete():
     assert len(OCTAVE_HIGH) == 12
     assert len(OCTAVE_MID) == 12
     assert len(OCTAVE_LOW) == 12
+
+
+def test_low_octave_black_keys():
+    """Verify low octave black keys are correctly mapped."""
+    assert midi_note_to_key(54) == "0"  # F#3
+    assert midi_note_to_key(56) == "-"  # G#3

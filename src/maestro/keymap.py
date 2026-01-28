@@ -2,6 +2,13 @@
 
 Maps MIDI note numbers to keyboard keys for Heartopia's 3-octave piano.
 MIDI note 60 = Middle C = mid octave DO.
+
+The piano has 3 full octaves plus 2 extra notes:
+- Lowest: , (C2, MIDI 36)
+- Low octave: L to ] (C3-B3, MIDI 48-59)
+- Mid octave: Z to M (C4-B4, MIDI 60-71)
+- High octave: Q to U (C5-B5, MIDI 72-83)
+- Highest: I (C6, MIDI 84)
 """
 
 # Note offsets within an octave (0-11)
@@ -47,19 +54,25 @@ OCTAVE_LOW = {
     3: "'",   # RE# (D#)
     4: "/",   # MI (E)
     5: "o",   # FA (F)
-    6: "-",   # FA# (F#)
+    6: "0",   # FA# (F#) - between O and P
     7: "p",   # SOL (G)
-    8: "=",   # SOL# (G#)  -- Note: may need adjustment based on actual game
+    8: "-",   # SOL# (G#) - between P and [
     9: "[",   # LA (A)
-    10: "=",  # LA# (A#)   -- Note: keyboard limitation, same as G#
+    10: "=",  # LA# (A#)
     11: "]",  # SI (B)
 }
 
-# MIDI note ranges for each octave
-MIDI_LOW_START = 48   # C3
-MIDI_MID_START = 60   # C4 (Middle C)
-MIDI_HIGH_START = 72  # C5
-MIDI_HIGH_END = 83    # B5
+# Extended notes beyond the 3 main octaves
+EXTENDED_LOW = ","   # C2 (MIDI 36) - lowest DO with bottom dot
+EXTENDED_HIGH = "i"  # C6 (MIDI 84) - highest DO with 2 dots
+
+# MIDI note ranges
+MIDI_EXTENDED_LOW = 36   # C2 (lowest playable note)
+MIDI_LOW_START = 48      # C3
+MIDI_MID_START = 60      # C4 (Middle C)
+MIDI_HIGH_START = 72     # C5
+MIDI_HIGH_END = 83       # B5
+MIDI_EXTENDED_HIGH = 84  # C6 (highest playable note)
 
 
 def midi_note_to_key(midi_note: int) -> str:
@@ -71,11 +84,17 @@ def midi_note_to_key(midi_note: int) -> str:
     Returns:
         Keyboard key character to press
     """
-    # Transpose notes into our 3-octave range (48-83)
-    while midi_note < MIDI_LOW_START:
+    # Transpose notes into our playable range (36-84)
+    while midi_note < MIDI_EXTENDED_LOW:
         midi_note += 12
-    while midi_note > MIDI_HIGH_END:
+    while midi_note > MIDI_EXTENDED_HIGH:
         midi_note -= 12
+
+    # Handle extended notes
+    if midi_note == MIDI_EXTENDED_LOW:
+        return EXTENDED_LOW
+    if midi_note == MIDI_EXTENDED_HIGH:
+        return EXTENDED_HIGH
 
     # Determine which octave and note offset
     note_in_octave = midi_note % 12
