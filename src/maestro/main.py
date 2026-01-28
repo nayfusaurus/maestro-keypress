@@ -44,6 +44,7 @@ class Maestro:
             get_current_song=self._get_current_song_name,
             on_exit=self._exit,
             on_game_change=self._on_game_change,
+            get_last_key=lambda: self.player.last_key,
         )
 
         self._gui_thread: threading.Thread | None = None

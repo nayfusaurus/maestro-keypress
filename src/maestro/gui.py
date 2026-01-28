@@ -41,6 +41,7 @@ class SongPicker:
         get_current_song: Callable[[], str | None] | None = None,
         on_exit: Callable[[], None] | None = None,
         on_game_change: Callable[[GameMode], None] | None = None,
+        get_last_key: Callable[[], str] | None = None,
     ):
         """Initialize the song picker.
 
@@ -55,6 +56,7 @@ class SongPicker:
             get_current_song: Callback to get current song name
             on_exit: Callback when window is closed to exit app
             on_game_change: Callback when game mode is changed
+            get_last_key: Callback to get last key pressed
         """
         self.songs_folder = songs_folder
         self.on_play = on_play
@@ -66,6 +68,7 @@ class SongPicker:
         self.get_current_song = get_current_song
         self.on_exit = on_exit
         self.on_game_change = on_game_change
+        self.get_last_key = get_last_key
 
         self.window: tk.Tk | None = None
         self.song_listbox: tk.Listbox | None = None
@@ -76,6 +79,7 @@ class SongPicker:
         self.progress_label: tk.Label | None = None
         self.song_info_label: tk.Label | None = None
         self.game_mode_var: tk.StringVar | None = None
+        self.key_label: tk.Label | None = None
         self._songs: list[Path] = []
         self._filtered_songs: list[Path] = []
         self._update_job: str | None = None
@@ -169,12 +173,15 @@ class SongPicker:
         self.progress_label = ttk.Label(progress_frame, text="0:00 / 0:00")
         self.progress_label.pack(side=tk.RIGHT, padx=(10, 0))
 
-        # Status
+        # Status and Key display
         status_frame = ttk.Frame(self.window)
         status_frame.pack(fill=tk.X, padx=10, pady=5)
 
         self.status_label = ttk.Label(status_frame, text="Status: Stopped")
-        self.status_label.pack(anchor=tk.W)
+        self.status_label.pack(side=tk.LEFT)
+
+        self.key_label = ttk.Label(status_frame, text="Key: -", font=("TkDefaultFont", 10, "bold"))
+        self.key_label.pack(side=tk.RIGHT)
 
         self._refresh_songs()
         self._update_status()
@@ -308,6 +315,11 @@ class SongPicker:
         # Update status
         self._update_status()
 
+        # Update last key display
+        if self.key_label and self.get_last_key:
+            last_key = self.get_last_key()
+            self.key_label.config(text=f"Key: {last_key or '-'}")
+
         # Schedule next update
         self._update_job = self.window.after(200, self._update_progress)
 
@@ -328,6 +340,7 @@ class SongPicker:
             self.progress_label = None
             self.song_info_label = None
             self.game_mode_var = None
+            self.key_label = None
 
         # Exit the entire app
         if self.on_exit:

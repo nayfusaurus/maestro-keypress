@@ -41,6 +41,7 @@ class Player:
         self._start_time: float = 0.0
         self._elapsed_before_pause: float = 0.0
         self._game_mode = GameMode.HEARTOPIA
+        self._last_key: str = ""
 
     @property
     def game_mode(self) -> GameMode:
@@ -49,6 +50,11 @@ class Player:
     @game_mode.setter
     def game_mode(self, value: GameMode) -> None:
         self._game_mode = value
+
+    @property
+    def last_key(self) -> str:
+        """Last key pressed (for visual feedback)."""
+        return self._last_key
 
     @property
     def duration(self) -> float:
@@ -170,6 +176,12 @@ class Player:
 
     def _press_key(self, key: str, modifier: Key | None = None) -> None:
         """Simulate a keypress with optional modifier."""
+        # Update last key for visual feedback
+        if modifier:
+            self._last_key = f"Shift+{key.upper()}"
+        else:
+            self._last_key = key.upper()
+
         try:
             if modifier:
                 self.keyboard.press(modifier)
