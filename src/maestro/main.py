@@ -12,6 +12,7 @@ from pynput import keyboard
 
 from maestro.player import Player, PlaybackState
 from maestro.gui import SongPicker
+from maestro.game_mode import GameMode
 
 
 class Maestro:
@@ -31,15 +32,26 @@ class Maestro:
         self.songs_folder.mkdir(exist_ok=True)
 
         self.player = Player()
+        self._listener: keyboard.Listener | None = None
         self.picker = SongPicker(
             songs_folder=self.songs_folder,
             on_play=self._on_play,
             on_pause=self.toggle_pause,
             on_stop=self.stop,
             get_state=self._get_state_string,
+            get_position=lambda: self.player.position,
+            get_duration=lambda: self.player.duration,
+            get_current_song=self._get_current_song_name,
+            on_exit=self._exit,
+            on_game_change=self._on_game_change,
         )
 
         self._gui_thread: threading.Thread | None = None
+
+    def _on_game_change(self, mode: GameMode) -> None:
+        """Handle game mode change from GUI."""
+        self.player.game_mode = mode
+        print(f"Game mode: {mode.value}")
 
     def _on_play(self, song_path: Path) -> None:
         """Handle play request from GUI."""
@@ -58,6 +70,12 @@ class Maestro:
     def _get_state_string(self) -> str:
         """Get current playback state as string."""
         return self.player.state.name.capitalize()
+
+    def _get_current_song_name(self) -> str | None:
+        """Get current song name."""
+        if self.player.current_song:
+            return self.player.current_song.stem
+        return None
 
     def show_picker(self) -> None:
         """Show the song picker GUI."""
@@ -81,6 +99,13 @@ class Maestro:
         """Stop playback."""
         self.player.stop()
 
+    def _exit(self) -> None:
+        """Exit the application."""
+        print("\nExiting...")
+        self.stop()
+        if self._listener:
+            self._listener.stop()
+
     def start(self) -> None:
         """Start the application with hotkey listening."""
         print("Maestro ready!")
@@ -98,12 +123,12 @@ class Maestro:
             elif key == keyboard.Key.f3:
                 self.stop()
 
-        with keyboard.Listener(on_press=on_press) as listener:
-            try:
-                listener.join()
-            except KeyboardInterrupt:
-                print("\nExiting...")
-                self.stop()
+        self._listener = keyboard.Listener(on_press=on_press)
+        self._listener.start()
+        try:
+            self._listener.join()
+        except KeyboardInterrupt:
+            self._exit()
 
 
 def main():
