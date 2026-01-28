@@ -39,7 +39,6 @@ class Maestro:
             get_state=self._get_state_string,
         )
 
-        self._hotkey_listener: keyboard.GlobalHotKeys | None = None
         self._gui_thread: threading.Thread | None = None
 
     def _on_play(self, song_path: Path) -> None:
@@ -85,24 +84,18 @@ class Maestro:
     def start(self) -> None:
         """Start the application with hotkey listening."""
         print("Maestro ready!")
-        print("  Alt+N: Open song picker")
-        print("  Alt+M: Play/Pause")
-        print("  Escape: Stop playback")
+        print("  F1: Open song picker")
+        print("  F2: Play/Pause")
+        print("  F3: Stop playback")
         print("  Ctrl+C: Exit")
         print()
 
-        # Set up global hotkeys
-        hotkeys = {
-            '<alt>+n': self.show_picker,
-            '<alt>+m': self.toggle_pause,
-        }
-
-        self._hotkey_listener = keyboard.GlobalHotKeys(hotkeys)
-        self._hotkey_listener.start()
-
-        # Also listen for Escape key
         def on_press(key):
-            if key == keyboard.Key.esc:
+            if key == keyboard.Key.f1:
+                self.show_picker()
+            elif key == keyboard.Key.f2:
+                self.toggle_pause()
+            elif key == keyboard.Key.f3:
                 self.stop()
 
         with keyboard.Listener(on_press=on_press) as listener:
@@ -111,8 +104,6 @@ class Maestro:
             except KeyboardInterrupt:
                 print("\nExiting...")
                 self.stop()
-                if self._hotkey_listener:
-                    self._hotkey_listener.stop()
 
 
 def main():

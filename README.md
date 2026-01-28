@@ -17,9 +17,9 @@ uv sync
 1. Drop `.mid` files into the `songs/` folder
 2. Run: `uv run maestro`
 3. Use hotkeys:
-   - **Alt+N** - Open song picker
-   - **Alt+M** - Play/Pause
-   - **Escape** - Stop playback
+   - **F1** - Open song picker
+   - **F2** - Play/Pause
+   - **F3** - Stop playback
    - **Ctrl+C** - Exit
 
 After selecting a song, you have 3 seconds to switch to Heartopia before playback starts.

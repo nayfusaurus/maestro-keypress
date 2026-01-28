@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Maestro is a Python CLI app that auto-plays MIDI songs on Heartopia's in-game piano by simulating keyboard presses. Users press Alt+N to open a song picker, select a MIDI file, and the app plays it by pressing the appropriate keys.
+Maestro is a Python CLI app that auto-plays MIDI songs on Heartopia's in-game piano by simulating keyboard presses. Users press F1 to open a song picker, select a MIDI file, and the app plays it by pressing the appropriate keys.
 
 ## Tech Stack
 
@@ -40,9 +40,9 @@ uv sync                 # Install dependencies
 
 ## Hotkeys
 
-- Alt+N: Open song picker
-- Alt+M: Play/Pause toggle
-- Escape: Stop playback
+- F1: Open song picker
+- F2: Play/Pause toggle
+- F3: Stop playback
 - Ctrl+C: Exit app
 
 ## Testing
