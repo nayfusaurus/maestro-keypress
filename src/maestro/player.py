@@ -10,7 +10,9 @@ from pathlib import Path
 
 from pynput.keyboard import Controller, Key
 
+from maestro.game_mode import GameMode
 from maestro.keymap import midi_note_to_key
+from maestro.keymap_wwm import midi_note_to_key_wwm
 from maestro.parser import parse_midi, Note
 
 
@@ -36,6 +38,35 @@ class Player:
         self._pause_event = threading.Event()
         self._note_index = 0
         self._pause_time: float = 0.0
+        self._start_time: float = 0.0
+        self._elapsed_before_pause: float = 0.0
+        self._game_mode = GameMode.HEARTOPIA
+
+    @property
+    def game_mode(self) -> GameMode:
+        return self._game_mode
+
+    @game_mode.setter
+    def game_mode(self, value: GameMode) -> None:
+        self._game_mode = value
+
+    @property
+    def duration(self) -> float:
+        """Total duration of current song in seconds."""
+        if not self._notes:
+            return 0.0
+        return self._notes[-1].time
+
+    @property
+    def position(self) -> float:
+        """Current playback position in seconds."""
+        if self.state == PlaybackState.STOPPED or not self._notes:
+            return 0.0
+        if self.state == PlaybackState.PAUSED:
+            return self._elapsed_before_pause
+        if self._start_time == 0:
+            return 0.0
+        return time.time() - self._start_time
 
     def load(self, midi_path: Path) -> None:
         """Load a MIDI file for playback."""
@@ -49,7 +80,8 @@ class Player:
             return
 
         if self.state == PlaybackState.PAUSED:
-            # Resume from pause
+            # Resume from pause - adjust start time to maintain position
+            self._start_time = time.time() - self._elapsed_before_pause
             self._pause_event.set()
             self.state = PlaybackState.PLAYING
             return
@@ -61,6 +93,8 @@ class Player:
         self._stop_event.clear()
         self._pause_event.clear()
         self._note_index = 0
+        self._start_time = time.time()
+        self._elapsed_before_pause = 0.0
         self.state = PlaybackState.PLAYING
 
         self._playback_thread = threading.Thread(target=self._playback_loop, daemon=True)
@@ -69,6 +103,7 @@ class Player:
     def pause(self) -> None:
         """Pause playback."""
         if self.state == PlaybackState.PLAYING:
+            self._elapsed_before_pause = time.time() - self._start_time
             self._pause_event.clear()
             self.state = PlaybackState.PAUSED
 
@@ -78,6 +113,8 @@ class Player:
         self._pause_event.set()  # Unblock if paused
         self.state = PlaybackState.STOPPED
         self._note_index = 0
+        self._start_time = 0.0
+        self._elapsed_before_pause = 0.0
 
         if self._playback_thread and self._playback_thread.is_alive():
             self._playback_thread.join(timeout=1.0)
@@ -91,23 +128,18 @@ class Player:
 
     def _playback_loop(self) -> None:
         """Main playback loop running in separate thread."""
-        start_time = time.time()
-
         while self._note_index < len(self._notes):
             if self._stop_event.is_set():
                 break
 
             # Handle pause
             if self.state == PlaybackState.PAUSED:
-                pause_start = time.time()
                 self._pause_event.wait()  # Block until unpaused
                 if self._stop_event.is_set():
                     break
-                # Adjust start time to account for pause duration
-                start_time += time.time() - pause_start
 
             note = self._notes[self._note_index]
-            current_time = time.time() - start_time
+            current_time = time.time() - self._start_time
 
             # Wait until it's time to play this note
             if note.time > current_time:
@@ -115,7 +147,7 @@ class Player:
                 # Sleep in small increments to stay responsive
                 while sleep_time > 0 and not self._stop_event.is_set():
                     time.sleep(min(0.01, sleep_time))
-                    sleep_time = note.time - (time.time() - start_time)
+                    sleep_time = note.time - (time.time() - self._start_time)
                     if self.state == PlaybackState.PAUSED:
                         break
 
@@ -123,8 +155,12 @@ class Player:
                     continue
 
             # Play the note
-            key = midi_note_to_key(note.midi_note)
-            self._press_key(key)
+            if self._game_mode == GameMode.WHERE_WINDS_MEET:
+                key, modifier = midi_note_to_key_wwm(note.midi_note)
+                self._press_key(key, modifier)
+            else:
+                key = midi_note_to_key(note.midi_note)
+                self._press_key(key)
 
             self._note_index += 1
 
@@ -132,11 +168,15 @@ class Player:
         if not self._stop_event.is_set():
             self.state = PlaybackState.STOPPED
 
-    def _press_key(self, key: str) -> None:
-        """Simulate a keypress."""
+    def _press_key(self, key: str, modifier: Key | None = None) -> None:
+        """Simulate a keypress with optional modifier."""
         try:
+            if modifier:
+                self.keyboard.press(modifier)
             self.keyboard.press(key)
             time.sleep(0.02)  # Brief hold
             self.keyboard.release(key)
+            if modifier:
+                self.keyboard.release(modifier)
         except Exception:
             pass  # Ignore key errors
