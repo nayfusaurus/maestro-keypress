@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Callable
 
 from maestro.game_mode import GameMode
+from maestro.logger import open_log_file
 
 
 def get_songs_from_folder(folder: Path) -> list[Path]:
@@ -85,6 +86,11 @@ class SongPicker:
         self._songs: list[Path] = []
         self._filtered_songs: list[Path] = []
         self._update_job: str | None = None
+        self._last_error: str = ""
+
+    def set_error(self, message: str) -> None:
+        """Set error message to display in status."""
+        self._last_error = message
 
     def show(self) -> None:
         """Show the song picker window."""
@@ -199,8 +205,10 @@ class SongPicker:
         self.status_label = ttk.Label(status_frame, text="Status: Stopped")
         self.status_label.pack(side=tk.LEFT)
 
+        ttk.Button(status_frame, text="Open Log", command=self._on_open_log_click).pack(side=tk.RIGHT, padx=2)
+
         self.key_label = ttk.Label(status_frame, text="Key: -", font=("TkDefaultFont", 10, "bold"))
-        self.key_label.pack(side=tk.RIGHT)
+        self.key_label.pack(side=tk.RIGHT, padx=(0, 10))
 
         self._refresh_songs()
         self._update_status()
@@ -246,6 +254,7 @@ class SongPicker:
 
     def _on_play_click(self) -> None:
         """Handle play button click."""
+        self._last_error = ""
         song = self._get_selected_song()
         if song:
             self.on_play(song)
@@ -289,11 +298,18 @@ class SongPicker:
         if self.on_speed_change:
             self.on_speed_change(speed)
 
+    def _on_open_log_click(self) -> None:
+        """Handle Open Log button click."""
+        open_log_file()
+
     def _update_status(self) -> None:
         """Update the status label."""
         if self.status_label:
-            state = self.get_state()
-            self.status_label.config(text=f"Status: {state}")
+            if self._last_error:
+                self.status_label.config(text=f"Status: {self._last_error}", foreground="red")
+            else:
+                state = self.get_state()
+                self.status_label.config(text=f"Status: {state}", foreground="black")
 
     def _format_time(self, seconds: float) -> str:
         """Format seconds as M:SS."""
