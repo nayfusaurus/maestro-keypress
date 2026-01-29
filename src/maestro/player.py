@@ -22,6 +22,7 @@ else:
     pydirectinput = None  # type: ignore
 from maestro.keymap import midi_note_to_key
 from maestro.keymap_wwm import midi_note_to_key_wwm
+from maestro.logger import setup_logger
 from maestro.parser import parse_midi, Note
 
 
@@ -69,7 +70,7 @@ class Player:
 
     @speed.setter
     def speed(self, value: float) -> None:
-        self._speed = max(0.1, min(2.0, value))  # Clamp between 0.1 and 2.0
+        self._speed = max(0.25, min(1.5, value))  # Clamp between 0.25 and 1.5
 
     @property
     def duration(self) -> float:
