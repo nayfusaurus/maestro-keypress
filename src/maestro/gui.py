@@ -43,6 +43,9 @@ class SongPicker:
         on_game_change: Callable[[GameMode], None] | None = None,
         get_last_key: Callable[[], str] | None = None,
         on_speed_change: Callable[[float], None] | None = None,
+        get_upcoming_notes: Callable[[float], list] | None = None,
+        on_lookahead_change: Callable[[int], None] | None = None,
+        initial_lookahead: int = 5,
     ):
         """Initialize the song picker.
 
@@ -58,6 +61,9 @@ class SongPicker:
             on_game_change: Callback when game mode is changed
             get_last_key: Callback to get last key pressed
             on_speed_change: Callback when playback speed is changed
+            get_upcoming_notes: Callback to get upcoming notes for preview
+            on_lookahead_change: Callback when lookahead is changed
+            initial_lookahead: Initial lookahead value in seconds
         """
         self.songs_folder = songs_folder
         self.on_play = on_play
@@ -70,6 +76,9 @@ class SongPicker:
         self.on_game_change = on_game_change
         self.get_last_key = get_last_key
         self.on_speed_change = on_speed_change
+        self.get_upcoming_notes = get_upcoming_notes
+        self.on_lookahead_change = on_lookahead_change
+        self._lookahead = initial_lookahead
 
         self.window: tk.Tk | None = None
         self.song_listbox: tk.Listbox | None = None
@@ -83,6 +92,8 @@ class SongPicker:
         self.key_label: tk.Label | None = None
         self.speed_var: tk.DoubleVar | None = None
         self.speed_label: tk.Label | None = None
+        self.preview_canvas: tk.Canvas | None = None
+        self.lookahead_var: tk.IntVar | None = None
         self._songs: list[Path] = []
         self._filtered_songs: list[Path] = []
         self._update_job: str | None = None
@@ -102,7 +113,7 @@ class SongPicker:
 
         self.window = tk.Tk()
         self.window.title("Maestro - Song Picker")
-        self.window.geometry("400x550")
+        self.window.geometry("400x700")
         self.window.attributes("-topmost", True)
         self.window.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -197,6 +208,31 @@ class SongPicker:
 
         self.progress_label = ttk.Label(progress_frame, text="0:00 / 0:00")
         self.progress_label.pack(side=tk.RIGHT, padx=(10, 0))
+
+        # Note Preview
+        preview_frame = ttk.LabelFrame(self.window, text="Note Preview")
+        preview_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        # Lookahead selector
+        lookahead_row = ttk.Frame(preview_frame)
+        lookahead_row.pack(fill=tk.X, padx=5, pady=(5, 0))
+
+        ttk.Label(lookahead_row, text="Lookahead:").pack(side=tk.LEFT)
+        self.lookahead_var = tk.IntVar(value=self._lookahead)
+        lookahead_dropdown = ttk.Combobox(
+            lookahead_row,
+            textvariable=self.lookahead_var,
+            values=["2", "5", "10"],
+            state="readonly",
+            width=5,
+        )
+        lookahead_dropdown.pack(side=tk.LEFT, padx=(5, 0))
+        lookahead_dropdown.bind("<<ComboboxSelected>>", self._on_lookahead_change)
+        ttk.Label(lookahead_row, text="seconds").pack(side=tk.LEFT, padx=(5, 0))
+
+        # Canvas for piano roll
+        self.preview_canvas = tk.Canvas(preview_frame, height=80, bg="black")
+        self.preview_canvas.pack(fill=tk.X, padx=5, pady=5)
 
         # Status and Key display
         status_frame = ttk.Frame(self.window)
@@ -298,6 +334,13 @@ class SongPicker:
         if self.on_speed_change:
             self.on_speed_change(speed)
 
+    def _on_lookahead_change(self, event=None) -> None:
+        """Handle lookahead dropdown change."""
+        if self.lookahead_var:
+            self._lookahead = self.lookahead_var.get()
+            if self.on_lookahead_change:
+                self.on_lookahead_change(self._lookahead)
+
     def _on_open_log_click(self) -> None:
         """Handle Open Log button click."""
         open_log_file()
@@ -358,8 +401,58 @@ class SongPicker:
             last_key = self.get_last_key()
             self.key_label.config(text=f"Key: {last_key or '-'}")
 
+        # Update piano roll
+        self._draw_piano_roll()
+
         # Schedule next update
         self._update_job = self.window.after(200, self._update_progress)
+
+    def _draw_piano_roll(self) -> None:
+        """Draw upcoming notes on the preview canvas."""
+        if not self.preview_canvas or not self.get_upcoming_notes:
+            return
+
+        self.preview_canvas.delete("all")
+
+        canvas_width = self.preview_canvas.winfo_width()
+        canvas_height = self.preview_canvas.winfo_height()
+
+        if canvas_width < 10:  # Not yet rendered
+            return
+
+        # Draw playhead line
+        self.preview_canvas.create_line(2, 0, 2, canvas_height, fill="red", width=2)
+
+        lookahead = self._lookahead
+        notes = self.get_upcoming_notes(float(lookahead))
+
+        if not notes:
+            return
+
+        # Find note range for vertical scaling
+        min_note = min(n.midi_note for n in notes)
+        max_note = max(n.midi_note for n in notes)
+        note_range = max(max_note - min_note, 12)  # At least one octave
+
+        current_pos = self.get_position() if self.get_position else 0.0
+
+        for note in notes:
+            # X position based on time
+            time_offset = note.time - current_pos
+            x = 5 + (time_offset / lookahead) * (canvas_width - 10)
+
+            # Width based on duration (min 3px)
+            width = max(3, (note.duration / lookahead) * (canvas_width - 10))
+
+            # Y position based on pitch (higher = top)
+            y_ratio = 1 - ((note.midi_note - min_note) / note_range)
+            y = 5 + y_ratio * (canvas_height - 10)
+
+            # Draw note rectangle
+            self.preview_canvas.create_rectangle(
+                x, y - 3, x + width, y + 3,
+                fill="#4CAF50", outline="#2E7D32"
+            )
 
     def _on_close(self) -> None:
         """Handle window close."""
@@ -381,6 +474,8 @@ class SongPicker:
             self.key_label = None
             self.speed_var = None
             self.speed_label = None
+            self.preview_canvas = None
+            self.lookahead_var = None
 
         # Exit the entire app
         if self.on_exit:

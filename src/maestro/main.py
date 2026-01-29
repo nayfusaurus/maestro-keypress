@@ -61,6 +61,7 @@ class Maestro:
             on_game_change=self._on_game_change,
             get_last_key=lambda: self.player.last_key,
             on_speed_change=self._on_speed_change,
+            get_upcoming_notes=self.player.get_upcoming_notes,
         )
 
         self._gui_thread: threading.Thread | None = None
