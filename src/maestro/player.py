@@ -49,6 +49,8 @@ class Player:
         self._game_mode = GameMode.HEARTOPIA
         self._last_key: str = ""
         self._speed: float = 1.0  # 1.0 = normal, 0.5 = half speed, 2.0 = double
+        self._logger = setup_logger()
+        self._last_error: str = ""
 
     @property
     def game_mode(self) -> GameMode:
@@ -62,6 +64,11 @@ class Player:
     def last_key(self) -> str:
         """Last key pressed (for visual feedback)."""
         return self._last_key
+
+    @property
+    def last_error(self) -> str:
+        """Last error message."""
+        return self._last_error
 
     @property
     def speed(self) -> float:
@@ -193,5 +200,6 @@ class Player:
                 if modifier:
                     time.sleep(0.01)
                     self.keyboard.release(modifier)
-        except Exception:
-            pass  # Ignore key errors
+        except Exception as e:
+            self._logger.error(f"Key press failed for '{key}': {e}")
+            self._last_error = f"Key simulation failed: {e}"
