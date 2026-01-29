@@ -8,6 +8,8 @@ from pathlib import Path
 
 import mido
 
+from maestro.logger import setup_logger
+
 
 @dataclass
 class Note:
@@ -30,12 +32,16 @@ def parse_midi(midi_path: Path) -> list[Note]:
         ValueError: If file is not a valid MIDI file
         FileNotFoundError: If file doesn't exist
     """
+    logger = setup_logger()
+
     if not midi_path.exists():
+        logger.error(f"MIDI file not found: {midi_path}")
         raise FileNotFoundError(f"MIDI file not found: {midi_path}")
 
     try:
         mid = mido.MidiFile(midi_path)
     except Exception as e:
+        logger.error(f"Invalid MIDI file '{midi_path}': {e}")
         raise ValueError(f"Invalid MIDI file: {e}")
 
     notes = []
