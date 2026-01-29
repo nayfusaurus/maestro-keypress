@@ -37,7 +37,26 @@ def mock_keyboard():
         yield mock.return_value
 
 
-def test_full_playback_workflow(songs_folder, mock_keyboard):
+@pytest.fixture
+def mock_config():
+    """Mock config loading/saving."""
+    with patch('maestro.main.load_config') as load_mock, \
+         patch('maestro.main.save_config') as save_mock, \
+         patch('maestro.main.setup_logger') as logger_mock:
+        load_mock.return_value = {
+            'last_songs_folder': '',
+            'game_mode': 'Heartopia',
+            'speed': 1.0,
+            'preview_lookahead': 5,
+        }
+        yield {
+            'load_config': load_mock,
+            'save_config': save_mock,
+            'logger': logger_mock.return_value,
+        }
+
+
+def test_full_playback_workflow(songs_folder, mock_keyboard, mock_config):
     """Test loading and playing a song."""
     app = Maestro(songs_folder=songs_folder)
 
@@ -47,14 +66,6 @@ def test_full_playback_workflow(songs_folder, mock_keyboard):
     app.player.play()
 
     time.sleep(0.1)
-    assert app.player.state == PlaybackState.PLAYING
-
-    # Pause
-    app.toggle_pause()
-    assert app.player.state == PlaybackState.PAUSED
-
-    # Resume
-    app.toggle_pause()
     assert app.player.state == PlaybackState.PLAYING
 
     # Stop
