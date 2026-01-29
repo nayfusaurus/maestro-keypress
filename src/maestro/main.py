@@ -62,6 +62,8 @@ class Maestro:
             get_last_key=lambda: self.player.last_key,
             on_speed_change=self._on_speed_change,
             get_upcoming_notes=self.player.get_upcoming_notes,
+            on_lookahead_change=self._on_lookahead_change,
+            initial_lookahead=self._config.get("preview_lookahead", 5),
         )
 
         self._gui_thread: threading.Thread | None = None
@@ -82,6 +84,11 @@ class Maestro:
     def _on_speed_change(self, speed: float) -> None:
         """Handle speed change from GUI."""
         self.player.speed = speed
+        self._save_config()
+
+    def _on_lookahead_change(self, lookahead: int) -> None:
+        """Handle lookahead change from GUI."""
+        self._config["preview_lookahead"] = lookahead
         self._save_config()
 
     def _on_play(self, song_path: Path) -> None:
