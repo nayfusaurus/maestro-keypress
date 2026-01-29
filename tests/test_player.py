@@ -20,10 +20,8 @@ def sample_midi(tmp_path):
     mid = mido.MidiFile()
     track = mido.MidiTrack()
     mid.tracks.append(track)
-    # Add multiple notes with delays to ensure playback lasts long enough for tests
-    # 480 ticks = 1 second at 120 BPM with 480 ticks per beat (2 beats per second)
     for i in range(5):
-        track.append(mido.Message('note_on', note=60, velocity=64, time=480))  # 1 second delay
+        track.append(mido.Message('note_on', note=60, velocity=64, time=480))
         track.append(mido.Message('note_off', note=60, velocity=64, time=240))
     midi_path = tmp_path / "test.mid"
     mid.save(midi_path)
@@ -53,17 +51,6 @@ def test_player_play_changes_state(sample_midi, mock_keyboard):
     player.stop()
 
 
-def test_player_pause_changes_state(sample_midi, mock_keyboard):
-    """Pausing should change state to PAUSED."""
-    player = Player()
-    player.load(sample_midi)
-    player.play()
-    time.sleep(0.1)
-    player.pause()
-    assert player.state == PlaybackState.PAUSED
-    player.stop()
-
-
 def test_player_stop_changes_state(sample_midi, mock_keyboard):
     """Stopping should change state to STOPPED."""
     player = Player()
@@ -72,3 +59,11 @@ def test_player_stop_changes_state(sample_midi, mock_keyboard):
     time.sleep(0.1)
     player.stop()
     assert player.state == PlaybackState.STOPPED
+
+
+def test_playback_state_has_no_paused():
+    """PlaybackState should only have STOPPED and PLAYING."""
+    states = [s.name for s in PlaybackState]
+    assert 'STOPPED' in states
+    assert 'PLAYING' in states
+    assert 'PAUSED' not in states

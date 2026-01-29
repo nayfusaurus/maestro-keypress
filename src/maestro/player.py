@@ -3,6 +3,7 @@
 Handles playing MIDI notes via keyboard simulation.
 """
 
+import sys
 import threading
 import time
 from enum import Enum, auto
@@ -11,6 +12,14 @@ from pathlib import Path
 from pynput.keyboard import Controller, Key
 
 from maestro.game_mode import GameMode
+
+# pydirectinput is Windows-only (uses ctypes.windll)
+# Import conditionally and provide fallback
+if sys.platform == "win32":
+    import pydirectinput
+    pydirectinput.PAUSE = 0  # Disable default 0.1s delay
+else:
+    pydirectinput = None  # type: ignore
 from maestro.keymap import midi_note_to_key
 from maestro.keymap_wwm import midi_note_to_key_wwm
 from maestro.parser import parse_midi, Note
@@ -20,7 +29,6 @@ class PlaybackState(Enum):
     """Player state machine states."""
     STOPPED = auto()
     PLAYING = auto()
-    PAUSED = auto()
 
 
 class Player:
@@ -35,13 +43,11 @@ class Player:
         self._notes: list[Note] = []
         self._playback_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
-        self._pause_event = threading.Event()
         self._note_index = 0
-        self._pause_time: float = 0.0
         self._start_time: float = 0.0
-        self._elapsed_before_pause: float = 0.0
         self._game_mode = GameMode.HEARTOPIA
         self._last_key: str = ""
+        self._speed: float = 1.0  # 1.0 = normal, 0.5 = half speed, 2.0 = double
 
     @property
     def game_mode(self) -> GameMode:
@@ -57,6 +63,15 @@ class Player:
         return self._last_key
 
     @property
+    def speed(self) -> float:
+        """Playback speed multiplier (1.0 = normal, 0.5 = half speed)."""
+        return self._speed
+
+    @speed.setter
+    def speed(self, value: float) -> None:
+        self._speed = max(0.1, min(2.0, value))  # Clamp between 0.1 and 2.0
+
+    @property
     def duration(self) -> float:
         """Total duration of current song in seconds."""
         if not self._notes:
@@ -65,14 +80,13 @@ class Player:
 
     @property
     def position(self) -> float:
-        """Current playback position in seconds."""
+        """Current playback position in seconds (in song time, not real time)."""
         if self.state == PlaybackState.STOPPED or not self._notes:
             return 0.0
-        if self.state == PlaybackState.PAUSED:
-            return self._elapsed_before_pause
         if self._start_time == 0:
             return 0.0
-        return time.time() - self._start_time
+        # Scale by speed so position reflects song time, not real time
+        return (time.time() - self._start_time) * self._speed
 
     def load(self, midi_path: Path) -> None:
         """Load a MIDI file for playback."""
@@ -81,15 +95,8 @@ class Player:
         self._note_index = 0
 
     def play(self) -> None:
-        """Start or resume playback."""
+        """Start playback."""
         if self.state == PlaybackState.PLAYING:
-            return
-
-        if self.state == PlaybackState.PAUSED:
-            # Resume from pause - adjust start time to maintain position
-            self._start_time = time.time() - self._elapsed_before_pause
-            self._pause_event.set()
-            self.state = PlaybackState.PLAYING
             return
 
         if not self._notes:
@@ -97,40 +104,22 @@ class Player:
 
         # Start fresh playback
         self._stop_event.clear()
-        self._pause_event.clear()
         self._note_index = 0
         self._start_time = time.time()
-        self._elapsed_before_pause = 0.0
         self.state = PlaybackState.PLAYING
 
         self._playback_thread = threading.Thread(target=self._playback_loop, daemon=True)
         self._playback_thread.start()
 
-    def pause(self) -> None:
-        """Pause playback."""
-        if self.state == PlaybackState.PLAYING:
-            self._elapsed_before_pause = time.time() - self._start_time
-            self._pause_event.clear()
-            self.state = PlaybackState.PAUSED
-
     def stop(self) -> None:
         """Stop playback completely."""
         self._stop_event.set()
-        self._pause_event.set()  # Unblock if paused
         self.state = PlaybackState.STOPPED
         self._note_index = 0
         self._start_time = 0.0
-        self._elapsed_before_pause = 0.0
 
         if self._playback_thread and self._playback_thread.is_alive():
             self._playback_thread.join(timeout=1.0)
-
-    def toggle_pause(self) -> None:
-        """Toggle between playing and paused."""
-        if self.state == PlaybackState.PLAYING:
-            self.pause()
-        elif self.state == PlaybackState.PAUSED:
-            self.play()
 
     def _playback_loop(self) -> None:
         """Main playback loop running in separate thread."""
@@ -138,26 +127,21 @@ class Player:
             if self._stop_event.is_set():
                 break
 
-            # Handle pause
-            if self.state == PlaybackState.PAUSED:
-                self._pause_event.wait()  # Block until unpaused
-                if self._stop_event.is_set():
-                    break
-
             note = self._notes[self._note_index]
-            current_time = time.time() - self._start_time
+            # Scale elapsed time by speed to get song position
+            current_time = (time.time() - self._start_time) * self._speed
 
             # Wait until it's time to play this note
             if note.time > current_time:
-                sleep_time = note.time - current_time
+                # Convert song time difference to real time for sleeping
+                sleep_time = (note.time - current_time) / self._speed
                 # Sleep in small increments to stay responsive
                 while sleep_time > 0 and not self._stop_event.is_set():
                     time.sleep(min(0.01, sleep_time))
-                    sleep_time = note.time - (time.time() - self._start_time)
-                    if self.state == PlaybackState.PAUSED:
-                        break
+                    current_time = (time.time() - self._start_time) * self._speed
+                    sleep_time = (note.time - current_time) / self._speed
 
-                if self._stop_event.is_set() or self.state == PlaybackState.PAUSED:
+                if self._stop_event.is_set():
                     continue
 
             # Play the note
@@ -175,7 +159,10 @@ class Player:
             self.state = PlaybackState.STOPPED
 
     def _press_key(self, key: str, modifier: Key | None = None) -> None:
-        """Simulate a keypress with optional modifier."""
+        """Simulate a keypress with optional modifier.
+
+        Uses pydirectinput for WWM mode (DirectInput) and pynput for Heartopia.
+        """
         # Update last key for visual feedback
         if modifier:
             self._last_key = f"Shift+{key.upper()}"
@@ -183,14 +170,27 @@ class Player:
             self._last_key = key.upper()
 
         try:
-            if modifier:
-                self.keyboard.press(modifier)
-                time.sleep(0.01)  # Small delay before key
-            self.keyboard.press(key)
-            time.sleep(0.05)  # Longer hold for game to register
-            self.keyboard.release(key)
-            if modifier:
-                time.sleep(0.01)  # Small delay before releasing modifier
-                self.keyboard.release(modifier)
+            if self._game_mode == GameMode.WHERE_WINDS_MEET and pydirectinput is not None:
+                # Use DirectInput for WWM (game requires it)
+                if modifier:
+                    pydirectinput.keyDown('shift')
+                    time.sleep(0.01)
+                pydirectinput.keyDown(key)
+                time.sleep(0.05)
+                pydirectinput.keyUp(key)
+                if modifier:
+                    time.sleep(0.01)
+                    pydirectinput.keyUp('shift')
+            else:
+                # Use pynput for Heartopia (or as fallback on non-Windows)
+                if modifier:
+                    self.keyboard.press(modifier)
+                    time.sleep(0.01)
+                self.keyboard.press(key)
+                time.sleep(0.05)
+                self.keyboard.release(key)
+                if modifier:
+                    time.sleep(0.01)
+                    self.keyboard.release(modifier)
         except Exception:
             pass  # Ignore key errors
