@@ -33,7 +33,6 @@ class SongPicker:
         self,
         songs_folder: Path,
         on_play: Callable[[Path], None],
-        on_pause: Callable[[], None],
         on_stop: Callable[[], None],
         get_state: Callable[[], str],
         get_position: Callable[[], float] | None = None,
@@ -42,13 +41,13 @@ class SongPicker:
         on_exit: Callable[[], None] | None = None,
         on_game_change: Callable[[GameMode], None] | None = None,
         get_last_key: Callable[[], str] | None = None,
+        on_speed_change: Callable[[float], None] | None = None,
     ):
         """Initialize the song picker.
 
         Args:
             songs_folder: Path to folder containing MIDI files
             on_play: Callback when play is clicked with selected song path
-            on_pause: Callback when pause is clicked
             on_stop: Callback when stop is clicked
             get_state: Callback to get current playback state string
             get_position: Callback to get current playback position in seconds
@@ -57,10 +56,10 @@ class SongPicker:
             on_exit: Callback when window is closed to exit app
             on_game_change: Callback when game mode is changed
             get_last_key: Callback to get last key pressed
+            on_speed_change: Callback when playback speed is changed
         """
         self.songs_folder = songs_folder
         self.on_play = on_play
-        self.on_pause = on_pause
         self.on_stop = on_stop
         self.get_state = get_state
         self.get_position = get_position
@@ -69,6 +68,7 @@ class SongPicker:
         self.on_exit = on_exit
         self.on_game_change = on_game_change
         self.get_last_key = get_last_key
+        self.on_speed_change = on_speed_change
 
         self.window: tk.Tk | None = None
         self.song_listbox: tk.Listbox | None = None
@@ -80,6 +80,8 @@ class SongPicker:
         self.song_info_label: tk.Label | None = None
         self.game_mode_var: tk.StringVar | None = None
         self.key_label: tk.Label | None = None
+        self.speed_var: tk.DoubleVar | None = None
+        self.speed_label: tk.Label | None = None
         self._songs: list[Path] = []
         self._filtered_songs: list[Path] = []
         self._update_job: str | None = None
@@ -123,6 +125,24 @@ class SongPicker:
         game_dropdown.pack(side=tk.LEFT, padx=(5, 0))
         game_dropdown.bind("<<ComboboxSelected>>", self._on_game_mode_change)
 
+        # Speed control
+        speed_frame = ttk.Frame(self.window)
+        speed_frame.pack(fill=tk.X, padx=10, pady=(10, 0))
+
+        ttk.Label(speed_frame, text="Speed:").pack(side=tk.LEFT)
+        self.speed_var = tk.DoubleVar(value=1.0)
+        speed_slider = ttk.Scale(
+            speed_frame,
+            from_=0.25,
+            to=1.5,
+            variable=self.speed_var,
+            orient=tk.HORIZONTAL,
+            command=self._on_speed_change,
+        )
+        speed_slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 5))
+        self.speed_label = ttk.Label(speed_frame, text="1.0x", width=5)
+        self.speed_label.pack(side=tk.LEFT)
+
         # Search bar
         search_frame = ttk.Frame(self.window)
         search_frame.pack(fill=tk.X, padx=10, pady=(10, 0))
@@ -152,7 +172,6 @@ class SongPicker:
         btn_frame.pack(fill=tk.X, padx=10, pady=5)
 
         ttk.Button(btn_frame, text="Play", command=self._on_play_click).pack(side=tk.LEFT, padx=2)
-        ttk.Button(btn_frame, text="Pause", command=self._on_pause_click).pack(side=tk.LEFT, padx=2)
         ttk.Button(btn_frame, text="Stop", command=self._on_stop_click).pack(side=tk.LEFT, padx=2)
         ttk.Button(btn_frame, text="Refresh", command=self._refresh_songs).pack(side=tk.RIGHT, padx=2)
 
@@ -232,11 +251,6 @@ class SongPicker:
             self.on_play(song)
             self._update_status()
 
-    def _on_pause_click(self) -> None:
-        """Handle pause button click."""
-        self.on_pause()
-        self._update_status()
-
     def _on_stop_click(self) -> None:
         """Handle stop button click."""
         self.on_stop()
@@ -266,6 +280,14 @@ class SongPicker:
                 if mode.value == selected:
                     self.on_game_change(mode)
                     break
+
+    def _on_speed_change(self, value: str) -> None:
+        """Handle speed slider change."""
+        speed = float(value)
+        if self.speed_label:
+            self.speed_label.config(text=f"{speed:.2f}x")
+        if self.on_speed_change:
+            self.on_speed_change(speed)
 
     def _update_status(self) -> None:
         """Update the status label."""
@@ -341,6 +363,8 @@ class SongPicker:
             self.song_info_label = None
             self.game_mode_var = None
             self.key_label = None
+            self.speed_var = None
+            self.speed_label = None
 
         # Exit the entire app
         if self.on_exit:
