@@ -19,14 +19,13 @@ uv sync
 
 1. Drop `.mid` files into the `songs/` folder (or use Browse to select any folder)
 2. Run: `uv run maestro`
-3. Press **F1** to open the song picker
+3. The song picker opens automatically
 4. Select a song and click Play (or double-click)
-5. Switch to Heartopia within 3 seconds - playback starts automatically
+5. Switch to your game within 3 seconds - playback starts after countdown
 
 **Hotkeys:**
 
-- **F1** - Open song picker
-- **F2** - Play/Pause
+- **F2** - Play
 - **F3** - Stop playback
 - **Ctrl+C** - Exit
 
@@ -34,10 +33,10 @@ uv sync
 
 Use the dropdown in the song picker to switch between games:
 
-- **Heartopia** - Default. Uses dedicated black keys for sharps.
-- **Where Winds Meet** - Uses Shift modifier for sharps.
+- **Heartopia** - Default. Uses dedicated black keys for sharps. Uses pynput for keyboard simulation.
+- **Where Winds Meet** - Uses Shift modifier for sharps. Uses DirectInput (pydirectinput) for keyboard simulation.
 
-The game mode affects which keyboard layout is used for playback.
+The game mode affects which keyboard layout and input method is used for playback.
 
 **Song Picker Features:**
 
@@ -45,6 +44,11 @@ The game mode affects which keyboard layout is used for playback.
 - Progress bar with time display
 - Now Playing panel with current song name
 - Browse button to change folders
+- Speed slider (0.25x - 1.5x)
+- Visual countdown before playback
+- Error display in status bar
+- Open Log button for debugging
+- Settings persist between sessions (folder, game mode, speed)
 - Closing the window exits the app
 
 ## Heartopia Key Mapping
@@ -77,12 +81,16 @@ Notes outside MIDI 48-83 are automatically transposed.
 
 ## Building for Windows
 
-The app requires native Windows Python to capture global hotkeys (WSL won't work).
+The app requires native Windows to capture global hotkeys (WSL won't work).
 
 ### Prerequisites
 
-1. Install Python 3.11+ from [python.org](https://www.python.org/downloads/)
-   - Check "Add Python to PATH" during installation
+1. Install [uv](https://docs.astral.sh/uv/):
+
+   ```powershell
+   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+   ```
+
 2. Open PowerShell or Command Prompt
 
 ### Option 1: Using build.bat (Recommended)
@@ -99,10 +107,11 @@ This automatically installs dependencies and builds the exe.
 
 ```powershell
 # Install dependencies
-pip install mido pynput pyinstaller
+uv sync
+uv add pyinstaller --dev
 
 # Build the exe
-pyinstaller Maestro.spec --noconfirm
+uv run pyinstaller Maestro.spec --noconfirm
 ```
 
 ### Output
@@ -139,7 +148,9 @@ maestro-keypress/
 │   ├── keymap.py      # Heartopia key mapping
 │   ├── keymap_wwm.py  # Where Winds Meet key mapping
 │   ├── game_mode.py   # Game selection enum
-│   └── gui.py         # Tkinter song picker
+│   ├── gui.py         # Tkinter song picker
+│   ├── config.py      # Settings persistence
+│   └── logger.py      # Error logging
 ├── tests/             # Test suite
 ├── songs/             # MIDI files go here
 └── pyproject.toml     # Project config
