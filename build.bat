@@ -9,31 +9,34 @@ echo Building Maestro for Windows
 echo ========================================
 echo.
 
-:: Check if Python is installed
-python --version
+:: Check if uv is installed
+uv --version >nul 2>&1
 if errorlevel 1 (
     echo.
-    echo ERROR: Python not found!
-    echo Please install from https://www.python.org/downloads/
-    echo Make sure to check "Add Python to PATH" during installation.
+    echo ERROR: uv not found!
+    echo Please install from https://docs.astral.sh/uv/
+    echo   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
     goto :end
 )
 
-:: Check if pyinstaller is installed
-pyinstaller --version >nul 2>&1
+echo Installing dependencies...
+uv sync
 if errorlevel 1 (
-    echo.
-    echo Installing dependencies...
-    pip install mido pynput pyinstaller
-    if errorlevel 1 (
-        echo ERROR: Failed to install dependencies.
-        goto :end
-    )
+    echo ERROR: Failed to install dependencies.
+    goto :end
+)
+
+echo.
+echo Adding pyinstaller...
+uv add pyinstaller --dev
+if errorlevel 1 (
+    echo ERROR: Failed to add pyinstaller.
+    goto :end
 )
 
 echo.
 echo Building executable...
-pyinstaller Maestro.spec --noconfirm
+uv run pyinstaller Maestro.spec --noconfirm
 if errorlevel 1 (
     echo.
     echo ERROR: Build failed.
