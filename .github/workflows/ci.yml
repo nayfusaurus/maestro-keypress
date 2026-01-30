@@ -48,7 +48,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb python3-tk
 
       - name: Install dependencies
         run: uv sync
