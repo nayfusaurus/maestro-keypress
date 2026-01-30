@@ -42,14 +42,14 @@ def test_midi_note_to_key_extended_low():
 
 
 def test_midi_note_to_key_transpose_too_high():
-    """Notes above range get transposed down."""
-    key = midi_note_to_key(96)  # C7 - way too high, transposes to C6
+    """Notes above range get transposed down when transpose=True."""
+    key = midi_note_to_key(96, transpose=True)  # C7 - way too high, transposes to C6
     assert key == "i"  # Extended high note
 
 
 def test_midi_note_to_key_transpose_too_low():
-    """Notes below range get transposed up."""
-    key = midi_note_to_key(24)  # C1 - way too low, transposes to C2
+    """Notes below range get transposed up when transpose=True."""
+    key = midi_note_to_key(24, transpose=True)  # C1 - way too low, transposes to C2
     assert key == ","  # Extended low note
 
 
@@ -64,3 +64,38 @@ def test_low_octave_black_keys():
     """Verify low octave black keys are correctly mapped."""
     assert midi_note_to_key(54) == "0"  # F#3
     assert midi_note_to_key(56) == "-"  # G#3
+
+
+class TestTransposeParameter:
+    """Tests for the transpose parameter."""
+
+    def test_transpose_true_transposes_high_note(self):
+        """With transpose=True, notes above range get transposed down."""
+        key = midi_note_to_key(96, transpose=True)  # C7
+        assert key == "i"  # Transposed to C6
+
+    def test_transpose_true_transposes_low_note(self):
+        """With transpose=True, notes below range get transposed up."""
+        key = midi_note_to_key(24, transpose=True)  # C1
+        assert key == ","  # Transposed to C2
+
+    def test_transpose_false_returns_none_for_high_note(self):
+        """With transpose=False, notes above range return None."""
+        key = midi_note_to_key(96, transpose=False)  # C7
+        assert key is None
+
+    def test_transpose_false_returns_none_for_low_note(self):
+        """With transpose=False, notes below range return None."""
+        key = midi_note_to_key(24, transpose=False)  # C1
+        assert key is None
+
+    def test_transpose_false_returns_key_for_in_range_note(self):
+        """With transpose=False, notes in range still return keys."""
+        key = midi_note_to_key(60, transpose=False)  # Middle C
+        assert key == "z"
+
+    def test_transpose_defaults_to_false(self):
+        """Default behavior should be transpose=False (returns None for out-of-range)."""
+        # This test documents the NEW default behavior
+        key = midi_note_to_key(96)  # C7, no transpose param
+        assert key is None

@@ -48,6 +48,7 @@ class Maestro:
                 self.player.game_mode = mode
                 break
         self.player.speed = self._config.get("speed", 1.0)
+        self.player.transpose = self._config.get("transpose", False)
 
         self.picker = SongPicker(
             songs_folder=self.songs_folder,
@@ -64,6 +65,10 @@ class Maestro:
             get_upcoming_notes=self.player.get_upcoming_notes,
             on_lookahead_change=self._on_lookahead_change,
             initial_lookahead=self._config.get("preview_lookahead", 5),
+            initial_transpose=self._config.get("transpose", False),
+            initial_show_preview=self._config.get("show_preview", False),
+            on_transpose_change=self._on_transpose_change,
+            on_show_preview_change=self._on_show_preview_change,
         )
 
         self._gui_thread: threading.Thread | None = None
@@ -91,13 +96,26 @@ class Maestro:
         self._config["preview_lookahead"] = lookahead
         self._save_config()
 
+    def _on_transpose_change(self, transpose: bool) -> None:
+        """Handle transpose setting change from GUI."""
+        self.player.transpose = transpose
+        self._config["transpose"] = transpose
+        self._save_config()
+
+    def _on_show_preview_change(self, show_preview: bool) -> None:
+        """Handle show preview setting change from GUI."""
+        self._config["show_preview"] = show_preview
+        self._save_config()
+
     def _on_play(self, song_path: Path) -> None:
         """Handle play request from GUI."""
         self.player.stop()
         try:
             self.player.load(song_path)
         except Exception as e:
+            error_msg = f"Cannot play {song_path.name}: {e}"
             self.logger.error(f"Failed to load '{song_path}': {e}")
+            self.picker.set_error(error_msg)
             return
 
         # Start playback after countdown

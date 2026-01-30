@@ -15,6 +15,8 @@ DEFAULT_CONFIG = {
     "game_mode": "Heartopia",
     "speed": 1.0,
     "preview_lookahead": 5,
+    "transpose": False,
+    "show_preview": False,
 }
 
 

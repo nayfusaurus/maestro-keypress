@@ -70,20 +70,27 @@ MIDI_HIGH_START = 72  # C5
 MIDI_HIGH_END = 83    # B5
 
 
-def midi_note_to_key_wwm(midi_note: int) -> tuple[str, Key | None]:
+def midi_note_to_key_wwm(midi_note: int, transpose: bool = False) -> tuple[str, Key | None] | None:
     """Convert MIDI note to WWM key + optional Shift modifier.
 
     Args:
         midi_note: MIDI note number (0-127, where 60 = Middle C)
+        transpose: If True, transpose out-of-range notes into range.
+                   If False (default), return None for out-of-range notes.
 
     Returns:
-        Tuple of (key_character, modifier) where modifier is Key.shift or None
+        Tuple of (key_character, modifier) where modifier is Key.shift or None,
+        or None if out of range and transpose=False
     """
-    # Transpose notes into our playable range (48-83)
-    while midi_note < MIDI_LOW_START:
-        midi_note += 12
-    while midi_note > MIDI_HIGH_END:
-        midi_note -= 12
+    # Check if note is out of range
+    if midi_note < MIDI_LOW_START or midi_note > MIDI_HIGH_END:
+        if not transpose:
+            return None
+        # Transpose notes into our playable range (48-83)
+        while midi_note < MIDI_LOW_START:
+            midi_note += 12
+        while midi_note > MIDI_HIGH_END:
+            midi_note -= 12
 
     # Determine note offset within octave (0-11)
     note_in_octave = midi_note % 12

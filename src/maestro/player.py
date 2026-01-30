@@ -51,6 +51,7 @@ class Player:
         self._speed: float = 1.0  # 1.0 = normal, 0.5 = half speed, 2.0 = double
         self._logger = setup_logger()
         self._last_error: str = ""
+        self._transpose: bool = False
 
     @property
     def game_mode(self) -> GameMode:
@@ -71,6 +72,15 @@ class Player:
         return self._last_error
 
     @property
+    def transpose(self) -> bool:
+        """Whether to transpose out-of-range notes into playable range."""
+        return self._transpose
+
+    @transpose.setter
+    def transpose(self, value: bool) -> None:
+        self._transpose = value
+
+    @property
     def speed(self) -> float:
         """Playback speed multiplier (1.0 = normal, 0.5 = half speed)."""
         return self._speed
@@ -84,7 +94,8 @@ class Player:
         """Total duration of current song in seconds."""
         if not self._notes:
             return 0.0
-        return self._notes[-1].time
+        last_note = self._notes[-1]
+        return last_note.time + last_note.duration
 
     @property
     def position(self) -> float:
@@ -129,6 +140,30 @@ class Player:
         if self._playback_thread and self._playback_thread.is_alive():
             self._playback_thread.join(timeout=1.0)
 
+    def get_upcoming_notes(self, lookahead: float) -> list[Note]:
+        """Return notes within lookahead seconds from current position.
+
+        Args:
+            lookahead: How many seconds ahead to look
+
+        Returns:
+            List of Note objects within the lookahead window
+        """
+        if self.state == PlaybackState.STOPPED or not self._notes:
+            return []
+
+        current_pos = self.position
+        end_pos = current_pos + lookahead
+
+        upcoming = []
+        for note in self._notes[self._note_index:]:
+            if note.time > end_pos:
+                break
+            if note.time >= current_pos:
+                upcoming.append(note)
+
+        return upcoming
+
     def _playback_loop(self) -> None:
         """Main playback loop running in separate thread."""
         while self._note_index < len(self._notes):
@@ -154,11 +189,14 @@ class Player:
 
             # Play the note
             if self._game_mode == GameMode.WHERE_WINDS_MEET:
-                key, modifier = midi_note_to_key_wwm(note.midi_note)
-                self._press_key(key, modifier)
+                result = midi_note_to_key_wwm(note.midi_note, transpose=self._transpose)
+                if result is not None:
+                    key, modifier = result
+                    self._press_key(key, modifier)
             else:
-                key = midi_note_to_key(note.midi_note)
-                self._press_key(key)
+                key = midi_note_to_key(note.midi_note, transpose=self._transpose)
+                if key is not None:
+                    self._press_key(key)
 
             self._note_index += 1
 

@@ -145,3 +145,44 @@ class TestSaveAndLoadRoundtrip:
                 assert loaded["game_mode"] == original["game_mode"]
                 assert loaded["speed"] == original["speed"]
                 assert loaded["preview_lookahead"] == original["preview_lookahead"]
+
+
+class TestNewSettings:
+    """Tests for new transpose and show_preview settings."""
+
+    def test_default_transpose_is_false(self):
+        """Default config should have transpose=False."""
+        assert DEFAULT_CONFIG["transpose"] is False
+
+    def test_default_show_preview_is_false(self):
+        """Default config should have show_preview=False."""
+        assert DEFAULT_CONFIG["show_preview"] is False
+
+    def test_load_config_includes_new_defaults(self, tmp_path):
+        """Loading config without new keys should get default values."""
+        config_path = tmp_path / "config.json"
+        # Old config without new keys
+        old_config = {"last_songs_folder": "/songs", "speed": 1.0}
+        config_path.write_text(json.dumps(old_config))
+
+        with patch("maestro.config.get_config_path", return_value=config_path):
+            config = load_config()
+            assert config["transpose"] is False
+            assert config["show_preview"] is False
+
+    def test_save_and_load_new_settings(self, tmp_path):
+        """New settings survive roundtrip save and load."""
+        config_dir = tmp_path / "maestro"
+        config_path = config_dir / "config.json"
+
+        with patch("maestro.config.get_config_dir", return_value=config_dir):
+            with patch("maestro.config.get_config_path", return_value=config_path):
+                original = {
+                    "transpose": True,
+                    "show_preview": True,
+                }
+                save_config(original)
+                loaded = load_config()
+
+                assert loaded["transpose"] is True
+                assert loaded["show_preview"] is True

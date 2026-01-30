@@ -75,20 +75,26 @@ MIDI_HIGH_END = 83       # B5
 MIDI_EXTENDED_HIGH = 84  # C6 (highest playable note)
 
 
-def midi_note_to_key(midi_note: int) -> str:
+def midi_note_to_key(midi_note: int, transpose: bool = False) -> str | None:
     """Convert a MIDI note number to a Heartopia keyboard key.
 
     Args:
         midi_note: MIDI note number (0-127, where 60 = Middle C)
+        transpose: If True, transpose out-of-range notes into range.
+                   If False (default), return None for out-of-range notes.
 
     Returns:
-        Keyboard key character to press
+        Keyboard key character to press, or None if out of range and transpose=False
     """
-    # Transpose notes into our playable range (36-84)
-    while midi_note < MIDI_EXTENDED_LOW:
-        midi_note += 12
-    while midi_note > MIDI_EXTENDED_HIGH:
-        midi_note -= 12
+    # Check if note is out of range
+    if midi_note < MIDI_EXTENDED_LOW or midi_note > MIDI_EXTENDED_HIGH:
+        if not transpose:
+            return None
+        # Transpose notes into our playable range (36-84)
+        while midi_note < MIDI_EXTENDED_LOW:
+            midi_note += 12
+        while midi_note > MIDI_EXTENDED_HIGH:
+            midi_note -= 12
 
     # Handle extended notes
     if midi_note == MIDI_EXTENDED_LOW:

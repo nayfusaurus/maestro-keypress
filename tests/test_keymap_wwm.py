@@ -164,45 +164,79 @@ class TestSharpNotes:
 
 
 class TestTransposition:
-    """Test notes outside range (MIDI 48-83) are transposed into range."""
+    """Test notes outside range (MIDI 48-83) with transpose=True."""
 
     def test_transpose_too_low_one_octave(self):
         """C2 (MIDI 36) should transpose up to C3 (Z key)."""
-        assert midi_note_to_key_wwm(36) == ("z", None)
+        assert midi_note_to_key_wwm(36, transpose=True) == ("z", None)
 
     def test_transpose_too_low_two_octaves(self):
         """C1 (MIDI 24) should transpose up to C3 (Z key)."""
-        assert midi_note_to_key_wwm(24) == ("z", None)
+        assert midi_note_to_key_wwm(24, transpose=True) == ("z", None)
 
     def test_transpose_too_high_one_octave(self):
         """C6 (MIDI 84) should transpose down to C5 (Q key)."""
-        assert midi_note_to_key_wwm(84) == ("q", None)
+        assert midi_note_to_key_wwm(84, transpose=True) == ("q", None)
 
     def test_transpose_too_high_two_octaves(self):
         """C7 (MIDI 96) should transpose down to C5 (Q key)."""
-        assert midi_note_to_key_wwm(96) == ("q", None)
+        assert midi_note_to_key_wwm(96, transpose=True) == ("q", None)
 
     def test_transpose_sharp_note_too_low(self):
         """C#2 (MIDI 37) should transpose to C#3 (Z + Shift)."""
-        assert midi_note_to_key_wwm(37) == ("z", Key.shift)
+        assert midi_note_to_key_wwm(37, transpose=True) == ("z", Key.shift)
 
     def test_transpose_sharp_note_too_high(self):
         """C#6 (MIDI 85) should transpose to C#5 (Q + Shift)."""
-        assert midi_note_to_key_wwm(85) == ("q", Key.shift)
+        assert midi_note_to_key_wwm(85, transpose=True) == ("q", Key.shift)
 
     def test_transpose_very_low_note(self):
         """MIDI 0 (way below range) should transpose into range."""
-        key, modifier = midi_note_to_key_wwm(0)
+        key, modifier = midi_note_to_key_wwm(0, transpose=True)
         # MIDI 0 is C, should end up as C in one of our octaves
         assert key in ("z", "a", "q")
         assert modifier is None
 
     def test_transpose_very_high_note(self):
         """MIDI 127 (way above range) should transpose into range."""
-        key, modifier = midi_note_to_key_wwm(127)
+        key, modifier = midi_note_to_key_wwm(127, transpose=True)
         # MIDI 127 is G, should end up as G in one of our octaves
         assert key in ("b", "g", "t")
         assert modifier is None
+
+
+class TestTransposeParameter:
+    """Tests for the transpose parameter."""
+
+    def test_transpose_true_transposes_high_note(self):
+        """With transpose=True, notes above range get transposed down."""
+        result = midi_note_to_key_wwm(96, transpose=True)  # C7
+        assert result == ("q", None)  # Transposed to C5
+
+    def test_transpose_true_transposes_low_note(self):
+        """With transpose=True, notes below range get transposed up."""
+        result = midi_note_to_key_wwm(36, transpose=True)  # C2
+        assert result == ("z", None)  # Transposed to C3
+
+    def test_transpose_false_returns_none_for_high_note(self):
+        """With transpose=False, notes above range return None."""
+        result = midi_note_to_key_wwm(96, transpose=False)  # C7
+        assert result is None
+
+    def test_transpose_false_returns_none_for_low_note(self):
+        """With transpose=False, notes below range return None."""
+        result = midi_note_to_key_wwm(36, transpose=False)  # C2
+        assert result is None
+
+    def test_transpose_false_returns_tuple_for_in_range_note(self):
+        """With transpose=False, notes in range still return (key, modifier)."""
+        result = midi_note_to_key_wwm(60, transpose=False)  # Middle C
+        assert result == ("a", None)
+
+    def test_transpose_defaults_to_false(self):
+        """Default behavior should be transpose=False (returns None for out-of-range)."""
+        result = midi_note_to_key_wwm(96)  # C7, no transpose param
+        assert result is None
 
 
 class TestExampleCases:
