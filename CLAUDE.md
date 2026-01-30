@@ -55,20 +55,22 @@ uv sync                 # Install dependencies
 
 ## Testing
 
-~100 tests across multiple test files covering all modules. Run with `uv run pytest -v`.
+122 tests across multiple test files covering all modules. Run with `uv run pytest -v`.
 
 ## GUI Features
 
 - **Auto-open**: GUI opens immediately on startup
+- **Menu bar**: File menu (Open Log, Settings, Exit) and Help menu (About)
+- **Settings dialog**: Modal dialog with transpose and preview panel toggles
 - **Search bar**: Filter songs by name in real-time
 - **Progress bar**: Visual playback position with time display (M:SS / M:SS)
 - **Now Playing panel**: Shows current song name
+- **Error display**: Shows errors prominently in red label above Now Playing panel
 - **Browse button**: Change songs folder without restarting
 - **Speed slider**: Adjust playback speed (0.25x - 1.5x)
 - **Countdown display**: Shows "Starting in 3..." before playback
-- **Error display**: Shows errors in red in status bar
-- **Open Log button**: Opens log file for debugging
-- **Settings persistence**: Folder, game mode, speed saved between sessions
+- **Piano roll preview**: Optional lookahead panel showing upcoming notes (hidden by default)
+- **Settings persistence**: Folder, game mode, speed, transpose, preview visibility saved between sessions
 
 ## Design Decisions
 
@@ -77,11 +79,13 @@ uv sync                 # Install dependencies
 - **3-second countdown**: After selecting a song, visual countdown before playback starts
 - **Settings persistence**: Config stored in AppData (Windows) or ~/.maestro (Linux/Mac)
 - **Error logging**: Rotating log file (1MB max, 3 backups) for debugging
-- **Transposition**: Notes outside the playable range are transposed into range
+- **Transposition**: Optional (off by default). When enabled, notes outside the playable range are transposed into range. When disabled, out-of-range notes are skipped.
+- **Preview panel**: Optional piano roll showing upcoming notes (hidden by default)
 - **Threading**: Player runs in daemon thread; GUI runs in separate thread
 - **Minimum keypress timing**: 50ms minimum between keypresses for game registration
 - **Speed range**: 0.25x - 1.5x playback speed
 - **DirectInput for WWM**: Where Winds Meet requires DirectInput; uses pydirectinput (Windows-only, falls back to pynput elsewhere)
+- **Duration calculation**: Includes note duration so timer completes when last note finishes, not when it starts
 
 ## Building Windows Exe
 

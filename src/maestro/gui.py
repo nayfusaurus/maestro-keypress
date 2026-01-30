@@ -494,7 +494,7 @@ class SongPicker:
         ).pack(pady=(5, 15))
 
         # Credits
-        ttk.Label(about, text="Created by Yannick Wurm").pack()
+        ttk.Label(about, text="Created by nayfusaurus").pack()
 
         # Separator
         ttk.Separator(about, orient=tk.HORIZONTAL).pack(fill=tk.X, padx=20, pady=15)
