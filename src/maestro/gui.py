@@ -473,7 +473,7 @@ class SongPicker:
         # Center on parent window
         about.update_idletasks()
         x = self.window.winfo_x() + (self.window.winfo_width() - 300) // 2
-        y = self.window.winfo_y() + (self.window.winfo_height() - 220) // 2
+        y = self.window.winfo_y() + (self.window.winfo_height() - 120) // 2
         about.geometry(f"+{x}+{y}")
 
         # Title
