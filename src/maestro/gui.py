@@ -13,7 +13,7 @@ from maestro.game_mode import GameMode
 from maestro.logger import open_log_file
 
 # App info
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.2"
 KOFI_URL = "https://ko-fi.com/nayfusaurus"
 
 
@@ -465,7 +465,7 @@ class SongPicker:
 
         about = tk.Toplevel(self.window)
         about.title("About Maestro")
-        about.geometry("300x220")
+        about.geometry("300x270")
         about.resizable(False, False)
         about.transient(self.window)
         about.grab_set()
