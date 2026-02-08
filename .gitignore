@@ -24,6 +24,9 @@ htmlcov/
 *:Zone.Identifier
 Thumbs.db
 
+# Docs
+docs/
+
 # Build
 dist/
 build/

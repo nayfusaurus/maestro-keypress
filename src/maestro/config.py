@@ -17,6 +17,13 @@ DEFAULT_CONFIG = {
     "preview_lookahead": 5,
     "transpose": False,
     "show_preview": False,
+    "key_layout": "22-key (Full)",
+    "sharp_handling": "skip",
+    "favorites": [],
+    "recently_played": [],
+    "play_key": "f2",
+    "stop_key": "f3",
+    "emergency_stop_key": "escape",
 }
 
 
@@ -38,6 +45,66 @@ def get_config_path() -> Path:
     return get_config_dir() / "config.json"
 
 
+def validate_config(config: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """Validate config values, reset invalid ones to defaults.
+
+    Args:
+        config: Config dict to validate
+
+    Returns:
+        Tuple of (validated config, list of warning messages)
+    """
+    warnings = []
+
+    # Validate game_mode
+    valid_game_modes = ["Heartopia", "Where Winds Meet"]
+    if config.get("game_mode") not in valid_game_modes:
+        warnings.append(f"Invalid game_mode '{config.get('game_mode')}', reset to default")
+        config["game_mode"] = DEFAULT_CONFIG["game_mode"]
+
+    # Validate speed (float, 0.25-1.5)
+    speed = config.get("speed")
+    if not isinstance(speed, (int, float)) or speed < 0.25 or speed > 1.5:
+        warnings.append(f"Invalid speed '{speed}', reset to default")
+        config["speed"] = DEFAULT_CONFIG["speed"]
+
+    # Validate preview_lookahead (int, 2/5/10)
+    if config.get("preview_lookahead") not in [2, 5, 10]:
+        warnings.append(f"Invalid preview_lookahead '{config.get('preview_lookahead')}', reset to default")
+        config["preview_lookahead"] = DEFAULT_CONFIG["preview_lookahead"]
+
+    # Validate booleans
+    for key in ["transpose", "show_preview"]:
+        if not isinstance(config.get(key), bool):
+            warnings.append(f"Invalid {key} '{config.get(key)}', reset to default")
+            config[key] = DEFAULT_CONFIG[key]
+
+    # Validate key_layout
+    valid_layouts = ["22-key (Full)", "15-key (Double Row)", "15-key (Triple Row)"]
+    if config.get("key_layout") not in valid_layouts:
+        warnings.append(f"Invalid key_layout '{config.get('key_layout')}', reset to default")
+        config["key_layout"] = DEFAULT_CONFIG["key_layout"]
+
+    # Validate sharp_handling
+    if config.get("sharp_handling") not in ["skip", "snap"]:
+        warnings.append(f"Invalid sharp_handling '{config.get('sharp_handling')}', reset to default")
+        config["sharp_handling"] = DEFAULT_CONFIG["sharp_handling"]
+
+    # Validate lists
+    for key in ["favorites", "recently_played"]:
+        if not isinstance(config.get(key), list):
+            warnings.append(f"Invalid {key}, reset to default")
+            config[key] = DEFAULT_CONFIG[key]
+
+    # Validate hotkey strings
+    for key in ["play_key", "stop_key", "emergency_stop_key"]:
+        if not isinstance(config.get(key), str) or not config[key]:
+            warnings.append(f"Invalid {key} '{config.get(key)}', reset to default")
+            config[key] = DEFAULT_CONFIG[key]
+
+    return config, warnings
+
+
 def load_config() -> dict[str, Any]:
     """Load config from JSON file. Returns defaults for missing keys."""
     config_path = get_config_path()
@@ -50,6 +117,11 @@ def load_config() -> dict[str, Any]:
                 config.update(saved)
         except (json.JSONDecodeError, IOError):
             pass
+
+    config, warnings = validate_config(config)
+    for warning in warnings:
+        # Use print since logger may not be initialized yet
+        print(f"Config warning: {warning}")
 
     return config
 

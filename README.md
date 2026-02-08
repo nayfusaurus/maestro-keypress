@@ -2,7 +2,7 @@
 
 Auto-play MIDI songs on in-game pianos by simulating keyboard presses. Supports:
 
-- **Heartopia**
+- **Heartopia** (22-key, 15-key Double Row, 15-key Triple Row)
 - **Where Winds Meet**
 
 ## Installation
@@ -12,6 +12,7 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 ```bash
 git clone <repo-url>
 cd maestro-keypress
+uv venv
 uv sync
 ```
 
@@ -21,19 +22,23 @@ uv sync
 2. Run: `uv run maestro`
 3. The song picker opens automatically
 4. Select a song and click Play (or double-click)
-5. Switch to your game within 3 seconds - playback starts after countdown
+5. The window auto-minimizes and playback starts after a 3-second countdown
 
-**Hotkeys:**
+**Hotkeys (configurable in Settings):**
 
 - **F2** - Play
 - **F3** - Stop playback
+- **Escape** - Emergency stop (always active)
 - **Ctrl+C** - Exit
 
 ## Game Selection
 
 Use the dropdown in the song picker to switch between games:
 
-- **Heartopia** - Default. Uses dedicated black keys for sharps. Uses pynput for keyboard simulation.
+- **Heartopia** - Default. Uses pynput for keyboard simulation. Supports 3 key layouts:
+  - **22-key (Full)** - 3 octaves (C3-C6) with sharps
+  - **15-key (Double Row)** - 2 octaves (C4-C6), naturals only, keys A-J + Q-I
+  - **15-key (Triple Row)** - 2 octaves (C4-C6), naturals only, keys Y-P / H-; / N-/
 - **Where Winds Meet** - Uses Shift modifier for sharps. Uses DirectInput (pydirectinput) for keyboard simulation.
 
 The game mode affects which keyboard layout and input method is used for playback.
@@ -47,23 +52,38 @@ The game mode affects which keyboard layout and input method is used for playbac
 - Speed slider (0.25x - 1.5x)
 - Visual countdown before playback
 - Error display in status bar
-- Open Log button for debugging
-- Settings persist between sessions (folder, game mode, speed)
+- MIDI validation with color-coded status (green/red/gray)
+- Song info display (duration, BPM, note count)
+- Note compatibility percentage for current layout
+- Favorites with star toggle (sorted first)
+- Recently played tracking
+- Song finished notification (title flash + green status)
+- Sharp handling setting (skip or snap to nearest natural)
+- Hotkey remapping (press-to-bind in Settings)
+- Auto-minimize on play
+- Optional piano roll preview panel
+- Settings persist between sessions
 - Closing the window exits the app
 
 ## Heartopia Key Mapping
 
-The app maps MIDI notes to Heartopia's piano (3 octaves + 2 extended notes):
+### 22-key (Full) Layout
+
+Maps MIDI notes to Heartopia's piano (3 octaves, C3-C6):
 
 | Octave | DO  | DO# | RE  | RE# | MI  | FA  | FA# | SOL | SOL# | LA  | LA# | SI  |
 |--------|-----|-----|-----|-----|-----|-----|-----|-----|------|-----|-----|-----|
 | High   | Q   | 2   | W   | 3   | E   | R   | 5   | T   | 6    | Y   | 7   | U   |
 | Mid    | Z   | S   | X   | D   | C   | V   | G   | B   | H    | N   | J   | M   |
-| Low    | L   | .   | ;   | '   | /   | O   | 0   | P   | -    | [   | =   | ]   |
+| Low    | ,   | L   | .   | ;   | /   | O   | 0   | P   | -    | [   | =   | ]   |
 
-Extended: `,` (lowest DO) and `I` (highest DO)
+Plus `I` for the highest DO (C6).
 
-Notes outside this range are automatically transposed.
+### 15-key Layouts
+
+For Heartopia's 15-key piano modes, only natural notes (no sharps) are supported. Sharp notes can be configured to either skip or snap to the nearest natural in Settings.
+
+Out-of-range notes are skipped by default. Enable transpose in Settings to shift them into the playable range.
 
 ## Where Winds Meet Key Mapping
 
@@ -107,6 +127,7 @@ This automatically installs dependencies and builds the exe.
 
 ```powershell
 # Install dependencies
+uv venv
 uv sync
 uv add pyinstaller --dev
 
@@ -141,19 +162,22 @@ uv run pytest -v
 ```text
 maestro-keypress/
 ├── src/maestro/
-│   ├── __init__.py    # Entry point
-│   ├── main.py        # App coordinator + hotkeys
-│   ├── player.py      # Playback engine
-│   ├── parser.py      # MIDI file parsing
-│   ├── keymap.py      # Heartopia key mapping
-│   ├── keymap_wwm.py  # Where Winds Meet key mapping
-│   ├── game_mode.py   # Game selection enum
-│   ├── gui.py         # Tkinter song picker
-│   ├── config.py      # Settings persistence
-│   └── logger.py      # Error logging
-├── tests/             # Test suite
-├── songs/             # MIDI files go here
-└── pyproject.toml     # Project config
+│   ├── __init__.py         # Entry point
+│   ├── main.py             # App coordinator + hotkeys
+│   ├── player.py           # Event-driven playback engine
+│   ├── parser.py           # MIDI parsing with multi-tempo support
+│   ├── keymap.py           # Heartopia 22-key mapping
+│   ├── keymap_15_double.py # Heartopia 15-key double row mapping
+│   ├── keymap_15_triple.py # Heartopia 15-key triple row mapping
+│   ├── keymap_wwm.py       # Where Winds Meet mapping
+│   ├── key_layout.py       # KeyLayout enum
+│   ├── game_mode.py        # Game selection enum
+│   ├── gui.py              # Tkinter song picker
+│   ├── config.py           # Settings persistence with validation
+│   └── logger.py           # Error logging
+├── tests/                  # Test suite (314+ tests)
+├── songs/                  # MIDI files go here
+└── pyproject.toml          # Project config
 ```
 
 ## License

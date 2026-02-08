@@ -7,14 +7,27 @@ import tkinter as tk
 from tkinter import ttk, filedialog
 from pathlib import Path
 from typing import Callable
+import threading
 import webbrowser
 
 from maestro.game_mode import GameMode
+from maestro.key_layout import KeyLayout
 from maestro.logger import open_log_file
+from maestro.parser import parse_midi, get_midi_info, Note
 
 # App info
-APP_VERSION = "1.0.2"
+APP_VERSION = "1.1.0"
 KOFI_URL = "https://ko-fi.com/nayfusaurus"
+
+# Valid key names that can be bound (maps tkinter keysym to config key name)
+BINDABLE_KEYS = {
+    "F1": "f1", "F2": "f2", "F3": "f3", "F4": "f4",
+    "F5": "f5", "F6": "f6", "F7": "f7", "F8": "f8",
+    "F9": "f9", "F10": "f10", "F11": "f11", "F12": "f12",
+    "Escape": "escape", "Home": "home", "End": "end",
+    "Insert": "insert", "Delete": "delete",
+    "Prior": "page_up", "Next": "page_down",
+}
 
 
 def get_songs_from_folder(folder: Path) -> list[Path]:
@@ -55,6 +68,18 @@ class SongPicker:
         initial_show_preview: bool = False,
         on_transpose_change: Callable[[bool], None] | None = None,
         on_show_preview_change: Callable[[bool], None] | None = None,
+        on_folder_change: Callable[[Path], None] | None = None,
+        on_layout_change: Callable[[KeyLayout], None] | None = None,
+        initial_layout: KeyLayout = KeyLayout.KEYS_22,
+        get_note_compatibility: Callable[[Path], tuple[int, int]] | None = None,
+        on_favorite_toggle: Callable[[str, bool], None] | None = None,
+        get_favorites: Callable[[], list[str]] | None = None,
+        on_sharp_handling_change: Callable[[str], None] | None = None,
+        initial_sharp_handling: str = "skip",
+        on_hotkey_change: Callable[[str, str], None] | None = None,
+        initial_play_key: str = "f2",
+        initial_stop_key: str = "f3",
+        initial_emergency_key: str = "escape",
     ):
         """Initialize the song picker.
 
@@ -77,6 +102,14 @@ class SongPicker:
             initial_show_preview: Initial show preview setting
             on_transpose_change: Callback when transpose setting changes
             on_show_preview_change: Callback when show preview setting changes
+            on_folder_change: Callback when songs folder is changed via browse
+            on_layout_change: Callback when key layout is changed
+            initial_layout: Initial key layout setting
+            get_note_compatibility: Callback to get (playable, total) note counts for a song
+            on_favorite_toggle: Callback when favorite is toggled (song_name, is_favorite)
+            get_favorites: Callback to get list of favorite song names
+            on_sharp_handling_change: Callback when sharp handling setting changes
+            initial_sharp_handling: Initial sharp handling setting ("skip" or "snap")
         """
         self.songs_folder = songs_folder
         self.on_play = on_play
@@ -93,6 +126,18 @@ class SongPicker:
         self.on_lookahead_change = on_lookahead_change
         self.on_transpose_change = on_transpose_change
         self.on_show_preview_change = on_show_preview_change
+        self.on_folder_change = on_folder_change
+        self.on_layout_change = on_layout_change
+        self.get_note_compatibility = get_note_compatibility
+        self.on_favorite_toggle = on_favorite_toggle
+        self.get_favorites = get_favorites
+        self.on_sharp_handling_change = on_sharp_handling_change
+        self.on_hotkey_change = on_hotkey_change
+        self._key_layout = initial_layout
+        self._sharp_handling = initial_sharp_handling
+        self._play_key = initial_play_key
+        self._stop_key = initial_stop_key
+        self._emergency_key = initial_emergency_key
         self._lookahead = initial_lookahead
         self._transpose = initial_transpose
         self._show_preview = initial_show_preview
@@ -112,15 +157,65 @@ class SongPicker:
         self.preview_canvas: tk.Canvas | None = None
         self.lookahead_var: tk.IntVar | None = None
         self.preview_frame: ttk.LabelFrame | None = None
+        self.layout_var: tk.StringVar | None = None
+        self.layout_frame: ttk.Frame | None = None
         self.error_label: tk.Label | None = None
+        self.song_detail_label: tk.Label | None = None
+        self._validation_results: dict[str, str] = {}  # path_str -> "valid" | "invalid" | "pending"
+        self._song_info: dict[str, dict] = {}  # path_str -> {duration, bpm, note_count}
+        self._song_notes: dict[str, list] = {}  # path_str -> list of Note objects (for compatibility)
         self._songs: list[Path] = []
         self._filtered_songs: list[Path] = []
         self._update_job: str | None = None
         self._last_error: str = ""
+        self._prev_state: str = "Stopped"
+        self._flash_count: int = 0
+        self._original_title: str = "Maestro - Song Picker"
 
     def set_error(self, message: str) -> None:
         """Set error message to display in status."""
         self._last_error = message
+
+    def _validate_songs_background(self) -> None:
+        """Validate all songs in a background thread."""
+        songs_to_validate = list(self._songs)
+
+        # Mark all as pending
+        for song in songs_to_validate:
+            self._validation_results[str(song)] = "pending"
+
+        def validate():
+            for song in songs_to_validate:
+                try:
+                    info = get_midi_info(song)
+                    notes = parse_midi(song)
+                    self._validation_results[str(song)] = "valid"
+                    self._song_info[str(song)] = info
+                    self._song_notes[str(song)] = notes
+                except Exception:
+                    self._validation_results[str(song)] = "invalid"
+                    self._song_info[str(song)] = {"duration": 0, "bpm": 0, "note_count": 0}
+                    self._song_notes[str(song)] = []
+
+                # Update GUI from main thread
+                if self.window:
+                    self.window.after(0, self._update_song_colors)
+
+        threading.Thread(target=validate, daemon=True).start()
+
+    def _update_song_colors(self) -> None:
+        """Update song list item colors based on validation status."""
+        if self.song_listbox is None:
+            return
+
+        for i, song in enumerate(self._filtered_songs):
+            status = self._validation_results.get(str(song), "pending")
+            if status == "valid":
+                self.song_listbox.itemconfig(i, foreground="green")
+            elif status == "invalid":
+                self.song_listbox.itemconfig(i, foreground="red")
+            else:
+                self.song_listbox.itemconfig(i, foreground="gray")
 
     def show(self) -> None:
         """Show the song picker window."""
@@ -133,7 +228,6 @@ class SongPicker:
         self.window = tk.Tk()
         self.window.title("Maestro - Song Picker")
         self.window.geometry("400x700")
-        self.window.attributes("-topmost", True)
         self.window.protocol("WM_DELETE_WINDOW", self._on_close)
 
         # Menu bar
@@ -163,6 +257,24 @@ class SongPicker:
         )
         game_dropdown.pack(side=tk.LEFT, padx=(5, 0))
         game_dropdown.bind("<<ComboboxSelected>>", self._on_game_mode_change)
+
+        # Key layout selection (Heartopia only)
+        self.layout_frame = ttk.Frame(self.window)
+
+        ttk.Label(self.layout_frame, text="Keys:").pack(side=tk.LEFT)
+        self.layout_var = tk.StringVar(value=self._key_layout.value)
+        layout_dropdown = ttk.Combobox(
+            self.layout_frame,
+            textvariable=self.layout_var,
+            values=[layout.value for layout in KeyLayout],
+            state="readonly",
+            width=20,
+        )
+        layout_dropdown.pack(side=tk.LEFT, padx=(5, 0))
+        layout_dropdown.bind("<<ComboboxSelected>>", self._on_layout_change)
+
+        # Show/hide based on current game mode
+        self._update_layout_visibility()
 
         # Speed control
         speed_frame = ttk.Frame(self.window)
@@ -204,6 +316,7 @@ class SongPicker:
         self.song_listbox = tk.Listbox(list_frame, yscrollcommand=scrollbar.set)
         self.song_listbox.pack(fill=tk.BOTH, expand=True)
         self.song_listbox.bind("<Double-1>", self._on_double_click)
+        self.song_listbox.bind("<<ListboxSelect>>", self._on_song_select)
         scrollbar.config(command=self.song_listbox.yview)
 
         # Control buttons
@@ -212,7 +325,20 @@ class SongPicker:
 
         ttk.Button(btn_frame, text="Play", command=self._on_play_click).pack(side=tk.LEFT, padx=2)
         ttk.Button(btn_frame, text="Stop", command=self._on_stop_click).pack(side=tk.LEFT, padx=2)
+        self._fav_btn = ttk.Button(btn_frame, text="\u2606", width=3, command=self._on_favorite_click)
+        self._fav_btn.pack(side=tk.LEFT, padx=2)
         ttk.Button(btn_frame, text="Refresh", command=self._refresh_songs).pack(side=tk.RIGHT, padx=2)
+
+        # Song detail label (shows info for selected song)
+        self.song_detail_label = tk.Label(
+            self.window,
+            text="Select a song to see details",
+            foreground="gray",
+            font=("TkDefaultFont", 9),
+            wraplength=370,
+            justify=tk.LEFT,
+        )
+        self.song_detail_label.pack(fill=tk.X, padx=10, pady=(0, 5))
 
         # Error label (above Now Playing)
         self.error_label = tk.Label(
@@ -302,6 +428,8 @@ class SongPicker:
         # Help menu
         help_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Help", menu=help_menu)
+        help_menu.add_command(label="Disclaimer", command=self._show_disclaimer)
+        help_menu.add_separator()
         help_menu.add_command(label="About", command=self._show_about)
 
     def _show_settings(self) -> None:
@@ -311,7 +439,7 @@ class SongPicker:
 
         settings = tk.Toplevel(self.window)
         settings.title("Settings")
-        settings.geometry("300x150")
+        settings.geometry("300x350")
         settings.resizable(False, False)
         settings.transient(self.window)
         settings.grab_set()
@@ -319,7 +447,7 @@ class SongPicker:
         # Center on parent window
         settings.update_idletasks()
         x = self.window.winfo_x() + (self.window.winfo_width() - 300) // 2
-        y = self.window.winfo_y() + (self.window.winfo_height() - 150) // 2
+        y = self.window.winfo_y() + (self.window.winfo_height() - 350) // 2
         settings.geometry(f"+{x}+{y}")
 
         # Transpose checkbox
@@ -340,7 +468,57 @@ class SongPicker:
             variable=preview_var,
             command=lambda: self._on_show_preview_toggle(preview_var.get()),
         )
-        preview_cb.pack(anchor=tk.W, padx=20, pady=(0, 20))
+        preview_cb.pack(anchor=tk.W, padx=20, pady=(0, 10))
+
+        # Sharp handling (only relevant for 15-key layouts)
+        sharp_frame = ttk.Frame(settings)
+        sharp_frame.pack(anchor=tk.W, padx=20, pady=(0, 10))
+
+        ttk.Label(sharp_frame, text="Sharp notes (15-key):").pack(side=tk.LEFT)
+        sharp_var = tk.StringVar(value=self._sharp_handling)
+        sharp_dropdown = ttk.Combobox(
+            sharp_frame,
+            textvariable=sharp_var,
+            values=["skip", "snap"],
+            state="readonly",
+            width=8,
+        )
+        sharp_dropdown.pack(side=tk.LEFT, padx=(5, 0))
+        sharp_dropdown.bind("<<ComboboxSelected>>", lambda e: self._on_sharp_handling_toggle(sharp_var.get()))
+
+        # Hotkeys section
+        hotkey_frame = ttk.LabelFrame(settings, text="Hotkeys")
+        hotkey_frame.pack(fill=tk.X, padx=20, pady=(0, 10))
+
+        # Play key
+        play_row = ttk.Frame(hotkey_frame)
+        play_row.pack(fill=tk.X, padx=10, pady=5)
+        ttk.Label(play_row, text="Play:").pack(side=tk.LEFT)
+        play_key_var = tk.StringVar(value=self._play_key.upper())
+        play_key_label = ttk.Label(play_row, textvariable=play_key_var, width=12, relief="sunken", anchor="center")
+        play_key_label.pack(side=tk.LEFT, padx=(5, 5))
+        ttk.Button(play_row, text="Bind", width=5,
+                   command=lambda: self._start_key_bind(settings, play_key_var, "play_key")).pack(side=tk.LEFT)
+
+        # Stop key
+        stop_row = ttk.Frame(hotkey_frame)
+        stop_row.pack(fill=tk.X, padx=10, pady=5)
+        ttk.Label(stop_row, text="Stop:").pack(side=tk.LEFT)
+        stop_key_var = tk.StringVar(value=self._stop_key.upper())
+        stop_key_label = ttk.Label(stop_row, textvariable=stop_key_var, width=12, relief="sunken", anchor="center")
+        stop_key_label.pack(side=tk.LEFT, padx=(5, 5))
+        ttk.Button(stop_row, text="Bind", width=5,
+                   command=lambda: self._start_key_bind(settings, stop_key_var, "stop_key")).pack(side=tk.LEFT)
+
+        # Emergency stop key
+        emergency_row = ttk.Frame(hotkey_frame)
+        emergency_row.pack(fill=tk.X, padx=10, pady=(5, 10))
+        ttk.Label(emergency_row, text="Emergency:").pack(side=tk.LEFT)
+        emergency_key_var = tk.StringVar(value=self._emergency_key.upper())
+        emergency_key_label = ttk.Label(emergency_row, textvariable=emergency_key_var, width=12, relief="sunken", anchor="center")
+        emergency_key_label.pack(side=tk.LEFT, padx=(5, 5))
+        ttk.Button(emergency_row, text="Bind", width=5,
+                   command=lambda: self._start_key_bind(settings, emergency_key_var, "emergency_stop_key")).pack(side=tk.LEFT)
 
         # Close button
         ttk.Button(settings, text="Close", command=settings.destroy).pack(pady=(0, 20))
@@ -362,6 +540,95 @@ class SongPicker:
         if self.on_show_preview_change:
             self.on_show_preview_change(value)
 
+    def _on_favorite_click(self) -> None:
+        """Toggle favorite for selected song."""
+        song = self._get_selected_song()
+        if song is None:
+            return
+
+        favorites = self.get_favorites() if self.get_favorites else []
+        song_name = song.stem
+        is_favorite = song_name in favorites
+
+        if self.on_favorite_toggle:
+            self.on_favorite_toggle(song_name, not is_favorite)
+
+        self._update_favorite_button()
+        self._apply_search_filter()
+
+    def _update_favorite_button(self) -> None:
+        """Update favorite button star based on selected song."""
+        if not hasattr(self, '_fav_btn') or self._fav_btn is None:
+            return
+        song = self._get_selected_song()
+        if song is None:
+            self._fav_btn.config(text="\u2606")
+            return
+
+        favorites = self.get_favorites() if self.get_favorites else []
+        if song.stem in favorites:
+            self._fav_btn.config(text="\u2605")  # Filled star
+        else:
+            self._fav_btn.config(text="\u2606")  # Empty star
+
+    def _on_sharp_handling_toggle(self, value: str) -> None:
+        """Handle sharp handling dropdown change."""
+        self._sharp_handling = value
+        if self.on_sharp_handling_change:
+            self.on_sharp_handling_change(value)
+
+    def _start_key_bind(self, parent: tk.Toplevel, key_var: tk.StringVar, config_key: str) -> None:
+        """Start listening for a key press to bind to a hotkey."""
+        original_value = key_var.get()
+        key_var.set("Press a key...")
+
+        def on_key(event):
+            key_name = event.keysym
+            if key_name in BINDABLE_KEYS:
+                config_value = BINDABLE_KEYS[key_name]
+                key_var.set(config_value.upper())
+
+                # Update internal state
+                if config_key == "play_key":
+                    self._play_key = config_value
+                elif config_key == "stop_key":
+                    self._stop_key = config_value
+                elif config_key == "emergency_stop_key":
+                    self._emergency_key = config_value
+
+                if self.on_hotkey_change:
+                    self.on_hotkey_change(config_key, config_value)
+            else:
+                # Unsupported key, revert
+                key_var.set(original_value)
+
+            parent.unbind("<Key>")
+            return "break"
+
+        parent.bind("<Key>", on_key)
+
+    def _on_song_finished(self) -> None:
+        """Handle song playback completion."""
+        if self.status_label:
+            self.status_label.config(text="Status: Finished", foreground="green")
+        self._flash_count = 6  # 3 flashes (on-off-on-off-on-off)
+        self._flash_title()
+
+    def _flash_title(self) -> None:
+        """Flash the window title to indicate song finished."""
+        if self.window is None or self._flash_count <= 0:
+            if self.window:
+                self.window.title(self._original_title)
+            return
+
+        self._flash_count -= 1
+        if self._flash_count % 2 == 1:
+            self.window.title("*** Song Finished! ***")
+        else:
+            self.window.title(self._original_title)
+
+        self.window.after(500, self._flash_title)
+
     def _refresh_songs(self) -> None:
         """Refresh the song list from disk."""
         if self.song_listbox is None:
@@ -369,6 +636,7 @@ class SongPicker:
 
         self._songs = get_songs_from_folder(self.songs_folder)
         self._apply_search_filter()
+        self._validate_songs_background()
 
     def _apply_search_filter(self) -> None:
         """Apply current search filter to song list."""
@@ -378,13 +646,25 @@ class SongPicker:
         search_term = self.search_var.get().lower() if self.search_var else ""
 
         if search_term:
-            self._filtered_songs = [s for s in self._songs if search_term in s.stem.lower()]
+            filtered = [s for s in self._songs if search_term in s.stem.lower()]
         else:
-            self._filtered_songs = self._songs.copy()
+            filtered = self._songs.copy()
+
+        # Sort: favorites first, then valid/pending/invalid, each alphabetical
+        def sort_key(song):
+            favorites = self.get_favorites() if self.get_favorites else []
+            is_fav = 0 if song.stem in favorites else 1
+            status = self._validation_results.get(str(song), "pending")
+            order = {"valid": 0, "pending": 1, "invalid": 2}
+            return (is_fav, order.get(status, 1), song.stem.lower())
+
+        self._filtered_songs = sorted(filtered, key=sort_key)
 
         self.song_listbox.delete(0, tk.END)
         for song in self._filtered_songs:
             self.song_listbox.insert(tk.END, song.stem)
+
+        self._update_song_colors()
 
     def _on_search_change(self, *args) -> None:
         """Handle search text change."""
@@ -408,6 +688,8 @@ class SongPicker:
         if song:
             self.on_play(song)
             self._update_status()
+            if self.window:
+                self.window.iconify()
 
     def _on_stop_click(self) -> None:
         """Handle stop button click."""
@@ -417,6 +699,39 @@ class SongPicker:
     def _on_double_click(self, event) -> None:
         """Handle double-click on song."""
         self._on_play_click()
+
+    def _on_song_select(self, event=None) -> None:
+        """Handle song selection to show details."""
+        song = self._get_selected_song()
+        if song is None or self.song_detail_label is None:
+            return
+
+        info = self._song_info.get(str(song))
+        status = self._validation_results.get(str(song), "pending")
+
+        if status == "pending":
+            self.song_detail_label.config(text="Validating...", foreground="gray")
+        elif status == "invalid":
+            self.song_detail_label.config(text="Invalid MIDI file", foreground="red")
+        elif info:
+            duration = info["duration"]
+            minutes = int(duration // 60)
+            secs = int(duration % 60)
+            text = f"{minutes}:{secs:02d} | {info['bpm']} BPM | {info['note_count']} notes"
+
+            # Add compatibility info if callback available
+            if self.get_note_compatibility:
+                playable, total = self.get_note_compatibility(song)
+                if total > 0:
+                    pct = round(playable / total * 100)
+                    compat_text = f" | {pct}% playable ({playable}/{total})"
+                    if pct < 100:
+                        compat_text += f" - {total - playable} out of range"
+                    text += compat_text
+
+            self.song_detail_label.config(text=text, foreground="black")
+
+        self._update_favorite_button()
 
     def _on_browse_click(self) -> None:
         """Handle browse button click."""
@@ -429,6 +744,8 @@ class SongPicker:
             if self.folder_label:
                 self.folder_label.config(text=str(self.songs_folder))
             self._refresh_songs()
+            if self.on_folder_change:
+                self.on_folder_change(self.songs_folder)
 
     def _on_game_mode_change(self, event=None) -> None:
         """Handle game mode dropdown change."""
@@ -438,6 +755,34 @@ class SongPicker:
                 if mode.value == selected:
                     self.on_game_change(mode)
                     break
+        self._update_layout_visibility()
+
+    def _on_layout_change(self, event=None) -> None:
+        """Handle key layout dropdown change."""
+        if self.on_layout_change and self.layout_var:
+            selected = self.layout_var.get()
+            for layout in KeyLayout:
+                if layout.value == selected:
+                    self._key_layout = layout
+                    self.on_layout_change(layout)
+                    break
+        # Refresh song detail to show updated compatibility
+        self._on_song_select()
+
+    def _update_layout_visibility(self) -> None:
+        """Show layout dropdown only for Heartopia."""
+        if self.layout_frame is None:
+            return
+
+        is_heartopia = True
+        if self.game_mode_var:
+            is_heartopia = self.game_mode_var.get() == GameMode.HEARTOPIA.value
+
+        if is_heartopia:
+            # Pack after game mode frame
+            self.layout_frame.pack(fill=tk.X, padx=10, pady=(5, 0))
+        else:
+            self.layout_frame.pack_forget()
 
     def _on_speed_change(self, value: str) -> None:
         """Handle speed slider change."""
@@ -513,6 +858,62 @@ class SongPicker:
         # Close button
         ttk.Button(about, text="Close", command=about.destroy).pack(pady=(0, 10))
 
+    def _show_disclaimer(self) -> None:
+        """Show the disclaimer dialog."""
+        if self.window is None:
+            return
+
+        disclaimer = tk.Toplevel(self.window)
+        disclaimer.title("Disclaimer")
+        disclaimer.geometry("400x300")
+        disclaimer.resizable(False, False)
+        disclaimer.transient(self.window)
+        disclaimer.grab_set()
+
+        # Center on parent window
+        disclaimer.update_idletasks()
+        x = self.window.winfo_x() + (self.window.winfo_width() - 400) // 2
+        y = self.window.winfo_y() + (self.window.winfo_height() - 300) // 2
+        disclaimer.geometry(f"+{x}+{y}")
+
+        # Title
+        ttk.Label(
+            disclaimer,
+            text="Disclaimer",
+            font=("TkDefaultFont", 14, "bold")
+        ).pack(pady=(15, 10))
+
+        # Disclaimer text
+        text_widget = tk.Text(
+            disclaimer,
+            wrap=tk.WORD,
+            height=10,
+            padx=10,
+            pady=10,
+            font=("TkDefaultFont", 9),
+        )
+        text_widget.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 10))
+
+        disclaimer_text = (
+            "This software simulates keyboard input to interact with games. "
+            "By using this tool, you acknowledge the following:\n\n"
+            "1. USE AT YOUR OWN RISK. The developers are not responsible for "
+            "any consequences, including but not limited to game bans or "
+            "account suspensions.\n\n"
+            "2. This tool is intended for personal, non-competitive use only. "
+            "Using keyboard automation in games may violate the game's Terms "
+            "of Service.\n\n"
+            "3. Always check the game's policies regarding third-party tools "
+            "and keyboard automation before use.\n\n"
+            "4. This software is provided \"as is\" without warranty of any kind."
+        )
+
+        text_widget.insert("1.0", disclaimer_text)
+        text_widget.config(state=tk.DISABLED)  # Read-only
+
+        # Close button
+        ttk.Button(disclaimer, text="Close", command=disclaimer.destroy).pack(pady=(0, 15))
+
     def _update_error_label(self) -> None:
         """Update the error label visibility and text."""
         if self.error_label is None:
@@ -571,6 +972,12 @@ class SongPicker:
 
         # Update status
         self._update_status()
+
+        # Detect song finish (PLAYING -> STOPPED transition, not user-initiated)
+        current_state = self.get_state()
+        if self._prev_state == "Playing" and current_state == "Stopped":
+            self._on_song_finished()
+        self._prev_state = current_state
 
         # Update error label
         self._update_error_label()
@@ -650,6 +1057,8 @@ class SongPicker:
             self.progress_label = None
             self.song_info_label = None
             self.game_mode_var = None
+            self.layout_var = None
+            self.layout_frame = None
             self.key_label = None
             self.speed_var = None
             self.speed_label = None
@@ -657,6 +1066,8 @@ class SongPicker:
             self.lookahead_var = None
             self.preview_frame = None
             self.error_label = None
+            self.song_detail_label = None
+            self._fav_btn = None
 
         # Exit the entire app
         if self.on_exit:

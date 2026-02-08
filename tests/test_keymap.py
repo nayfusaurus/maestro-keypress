@@ -1,7 +1,7 @@
 from maestro.keymap import (
     midi_note_to_key,
     OCTAVE_HIGH, OCTAVE_MID, OCTAVE_LOW,
-    EXTENDED_HIGH, EXTENDED_LOW,
+    EXTENDED_HIGH,
 )
 
 
@@ -26,19 +26,13 @@ def test_midi_note_to_key_high_octave():
 def test_midi_note_to_key_low_octave():
     """Notes in low range map to low octave keys."""
     key = midi_note_to_key(48)  # C3
-    assert key == "l"
+    assert key == ","
 
 
 def test_midi_note_to_key_extended_high():
     """C6 (MIDI 84) maps to extended high note (I key)."""
     key = midi_note_to_key(84)
     assert key == "i"
-
-
-def test_midi_note_to_key_extended_low():
-    """C2 (MIDI 36) maps to extended low note (, key)."""
-    key = midi_note_to_key(36)
-    assert key == ","
 
 
 def test_midi_note_to_key_transpose_too_high():
@@ -49,8 +43,8 @@ def test_midi_note_to_key_transpose_too_high():
 
 def test_midi_note_to_key_transpose_too_low():
     """Notes below range get transposed up when transpose=True."""
-    key = midi_note_to_key(24, transpose=True)  # C1 - way too low, transposes to C2
-    assert key == ","  # Extended low note
+    key = midi_note_to_key(24, transpose=True)  # C1 - way too low, transposes to C3
+    assert key == ","  # Low octave DO
 
 
 def test_octave_mappings_complete():
@@ -77,7 +71,7 @@ class TestTransposeParameter:
     def test_transpose_true_transposes_low_note(self):
         """With transpose=True, notes below range get transposed up."""
         key = midi_note_to_key(24, transpose=True)  # C1
-        assert key == ","  # Transposed to C2
+        assert key == ","  # Transposed to C3
 
     def test_transpose_false_returns_none_for_high_note(self):
         """With transpose=False, notes above range return None."""

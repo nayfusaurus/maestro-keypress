@@ -3,9 +3,8 @@
 Maps MIDI note numbers to keyboard keys for Heartopia's 3-octave piano.
 MIDI note 60 = Middle C = mid octave DO.
 
-The piano has 3 full octaves plus 2 extra notes:
-- Lowest: , (C2, MIDI 36)
-- Low octave: L to ] (C3-B3, MIDI 48-59)
+The piano has 3 full octaves plus 1 extra note:
+- Low octave: , to ] (C3-B3, MIDI 48-59)
 - Mid octave: Z to M (C4-B4, MIDI 60-71)
 - High octave: Q to U (C5-B5, MIDI 72-83)
 - Highest: I (C6, MIDI 84)
@@ -48,10 +47,10 @@ OCTAVE_MID = {
 
 # Low octave (C3-B3, MIDI 48-59)
 OCTAVE_LOW = {
-    0: "l",   # DO (C)
-    1: ".",   # DO# (C#)
-    2: ";",   # RE (D)
-    3: "'",   # RE# (D#)
+    0: ",",   # DO (C)
+    1: "l",   # DO# (C#)
+    2: ".",   # RE (D)
+    3: ";",   # RE# (D#)
     4: "/",   # MI (E)
     5: "o",   # FA (F)
     6: "0",   # FA# (F#) - between O and P
@@ -63,11 +62,9 @@ OCTAVE_LOW = {
 }
 
 # Extended notes beyond the 3 main octaves
-EXTENDED_LOW = ","   # C2 (MIDI 36) - lowest DO with bottom dot
 EXTENDED_HIGH = "i"  # C6 (MIDI 84) - highest DO with 2 dots
 
 # MIDI note ranges
-MIDI_EXTENDED_LOW = 36   # C2 (lowest playable note)
 MIDI_LOW_START = 48      # C3
 MIDI_MID_START = 60      # C4 (Middle C)
 MIDI_HIGH_START = 72     # C5
@@ -87,18 +84,16 @@ def midi_note_to_key(midi_note: int, transpose: bool = False) -> str | None:
         Keyboard key character to press, or None if out of range and transpose=False
     """
     # Check if note is out of range
-    if midi_note < MIDI_EXTENDED_LOW or midi_note > MIDI_EXTENDED_HIGH:
+    if midi_note < MIDI_LOW_START or midi_note > MIDI_EXTENDED_HIGH:
         if not transpose:
             return None
-        # Transpose notes into our playable range (36-84)
-        while midi_note < MIDI_EXTENDED_LOW:
+        # Transpose notes into our playable range (48-84)
+        while midi_note < MIDI_LOW_START:
             midi_note += 12
         while midi_note > MIDI_EXTENDED_HIGH:
             midi_note -= 12
 
     # Handle extended notes
-    if midi_note == MIDI_EXTENDED_LOW:
-        return EXTENDED_LOW
     if midi_note == MIDI_EXTENDED_HIGH:
         return EXTENDED_HIGH
 

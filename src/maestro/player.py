@@ -3,9 +3,11 @@
 Handles playing MIDI notes via keyboard simulation.
 """
 
+import atexit
 import sys
 import threading
 import time
+from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 
@@ -20,7 +22,10 @@ if sys.platform == "win32":
     pydirectinput.PAUSE = 0  # Disable default 0.1s delay
 else:
     pydirectinput = None  # type: ignore
+from maestro.key_layout import KeyLayout
 from maestro.keymap import midi_note_to_key
+from maestro.keymap_15_double import midi_note_to_key_15_double
+from maestro.keymap_15_triple import midi_note_to_key_15_triple
 from maestro.keymap_wwm import midi_note_to_key_wwm
 from maestro.logger import setup_logger
 from maestro.parser import parse_midi, Note
@@ -32,10 +37,17 @@ class PlaybackState(Enum):
     PLAYING = auto()
 
 
+@dataclass
+class KeyEvent:
+    """A scheduled key press or release event."""
+    time: float       # Time in seconds from start of song
+    action: str       # "down" or "up"
+    key: str          # Key to press/release
+    modifier: Key | None = None
+
+
 class Player:
     """MIDI playback engine with keyboard simulation."""
-
-    MIN_NOTE_DELAY = 0.05  # Minimum 50ms between keypresses
 
     def __init__(self):
         self.keyboard = Controller()
@@ -52,6 +64,11 @@ class Player:
         self._logger = setup_logger()
         self._last_error: str = ""
         self._transpose: bool = False
+        self._key_layout = KeyLayout.KEYS_22
+        self._sharp_handling: str = "skip"
+        self._held_keys: set[tuple[str, Key | None]] = set()
+        self._events: list[KeyEvent] = []
+        atexit.register(self._release_all_keys)
 
     @property
     def game_mode(self) -> GameMode:
@@ -79,6 +96,25 @@ class Player:
     @transpose.setter
     def transpose(self, value: bool) -> None:
         self._transpose = value
+
+    @property
+    def key_layout(self) -> KeyLayout:
+        """Current key layout for Heartopia."""
+        return self._key_layout
+
+    @key_layout.setter
+    def key_layout(self, value: KeyLayout) -> None:
+        self._key_layout = value
+
+    @property
+    def sharp_handling(self) -> str:
+        """How to handle sharp notes on 15-key layouts ('skip' or 'snap')."""
+        return self._sharp_handling
+
+    @sharp_handling.setter
+    def sharp_handling(self, value: str) -> None:
+        if value in ("skip", "snap"):
+            self._sharp_handling = value
 
     @property
     def speed(self) -> float:
@@ -121,9 +157,9 @@ class Player:
         if not self._notes:
             return
 
-        # Start fresh playback
         self._stop_event.clear()
         self._note_index = 0
+        self._held_keys.clear()
         self._start_time = time.time()
         self.state = PlaybackState.PLAYING
 
@@ -133,9 +169,11 @@ class Player:
     def stop(self) -> None:
         """Stop playback completely."""
         self._stop_event.set()
+        self._release_all_keys()
         self.state = PlaybackState.STOPPED
         self._note_index = 0
         self._start_time = 0.0
+        self._events = []
 
         if self._playback_thread and self._playback_thread.is_alive():
             self._playback_thread.join(timeout=1.0)
@@ -164,51 +202,71 @@ class Player:
 
         return upcoming
 
-    def _playback_loop(self) -> None:
-        """Main playback loop running in separate thread."""
-        while self._note_index < len(self._notes):
-            if self._stop_event.is_set():
-                break
+    def _resolve_key(self, midi_note: int) -> tuple[str, Key | None] | None:
+        """Resolve a MIDI note to a key press based on current game mode and layout.
 
-            note = self._notes[self._note_index]
-            # Scale elapsed time by speed to get song position
-            current_time = (time.time() - self._start_time) * self._speed
-
-            # Wait until it's time to play this note
-            if note.time > current_time:
-                # Convert song time difference to real time for sleeping
-                sleep_time = (note.time - current_time) / self._speed
-                # Sleep in small increments to stay responsive
-                while sleep_time > 0 and not self._stop_event.is_set():
-                    time.sleep(min(0.01, sleep_time))
-                    current_time = (time.time() - self._start_time) * self._speed
-                    sleep_time = (note.time - current_time) / self._speed
-
-                if self._stop_event.is_set():
-                    continue
-
-            # Play the note
-            if self._game_mode == GameMode.WHERE_WINDS_MEET:
-                result = midi_note_to_key_wwm(note.midi_note, transpose=self._transpose)
-                if result is not None:
-                    key, modifier = result
-                    self._press_key(key, modifier)
-            else:
-                key = midi_note_to_key(note.midi_note, transpose=self._transpose)
-                if key is not None:
-                    self._press_key(key)
-
-            self._note_index += 1
-
-        # Playback finished
-        if not self._stop_event.is_set():
-            self.state = PlaybackState.STOPPED
-
-    def _press_key(self, key: str, modifier: Key | None = None) -> None:
-        """Simulate a keypress with optional modifier.
-
-        Uses pydirectinput for WWM mode (DirectInput) and pynput for Heartopia.
+        Returns:
+            Tuple of (key, modifier) or None if note can't be played
         """
+        if self._game_mode == GameMode.WHERE_WINDS_MEET:
+            result = midi_note_to_key_wwm(midi_note, transpose=self._transpose)
+            if result is not None:
+                return result  # Already returns (key, modifier)
+            return None
+
+        # Heartopia mode - dispatch based on key layout
+        if self._key_layout == KeyLayout.KEYS_15_DOUBLE:
+            key = midi_note_to_key_15_double(
+                midi_note, transpose=self._transpose, sharp_handling=self._sharp_handling
+            )
+        elif self._key_layout == KeyLayout.KEYS_15_TRIPLE:
+            key = midi_note_to_key_15_triple(
+                midi_note, transpose=self._transpose, sharp_handling=self._sharp_handling
+            )
+        else:  # KEYS_22
+            key = midi_note_to_key(midi_note, transpose=self._transpose)
+
+        if key is not None:
+            return (key, None)
+        return None
+
+    def _build_events(self) -> list[KeyEvent]:
+        """Convert notes to sorted key down/up events.
+
+        Returns:
+            List of KeyEvent objects sorted by time, with "up" events before "down"
+            events at the same timestamp (to allow key re-press).
+        """
+        events = []
+        for note in self._notes:
+            result = self._resolve_key(note.midi_note)
+            if result is None:
+                continue
+            key, modifier = result
+
+            events.append(KeyEvent(
+                time=note.time,
+                action="down",
+                key=key,
+                modifier=modifier,
+            ))
+            events.append(KeyEvent(
+                time=note.time + note.duration,
+                action="up",
+                key=key,
+                modifier=modifier,
+            ))
+
+        # Sort by time, then "up" before "down" at same time (allows re-press)
+        events.sort(key=lambda e: (e.time, 0 if e.action == "up" else 1))
+        return events
+
+    def _key_down(self, key: str, modifier: Key | None = None) -> None:
+        """Press a key down and track it."""
+        key_id = (key, modifier)
+        if key_id in self._held_keys:
+            return  # Already held
+
         # Update last key for visual feedback
         if modifier:
             self._last_key = f"Shift+{key.upper()}"
@@ -217,27 +275,134 @@ class Player:
 
         try:
             if self._game_mode == GameMode.WHERE_WINDS_MEET and pydirectinput is not None:
-                # Use DirectInput for WWM (game requires it)
                 if modifier:
                     pydirectinput.keyDown('shift')
                     time.sleep(0.01)
                 pydirectinput.keyDown(key)
-                time.sleep(0.05)
-                pydirectinput.keyUp(key)
-                if modifier:
-                    time.sleep(0.01)
-                    pydirectinput.keyUp('shift')
             else:
-                # Use pynput for Heartopia (or as fallback on non-Windows)
                 if modifier:
                     self.keyboard.press(modifier)
                     time.sleep(0.01)
                 self.keyboard.press(key)
-                time.sleep(0.05)
+            self._held_keys.add(key_id)
+        except Exception as e:
+            self._logger.error(f"Key down failed for '{key}': {e}")
+            self._last_error = f"Key simulation failed: {e}"
+
+    def _key_up(self, key: str, modifier: Key | None = None) -> None:
+        """Release a key."""
+        key_id = (key, modifier)
+        if key_id not in self._held_keys:
+            return  # Not held
+
+        try:
+            if self._game_mode == GameMode.WHERE_WINDS_MEET and pydirectinput is not None:
+                pydirectinput.keyUp(key)
+                if modifier:
+                    # Only release shift if no other shift keys are held
+                    shift_keys = [(k, m) for k, m in self._held_keys if m is not None and (k, m) != key_id]
+                    if not shift_keys:
+                        pydirectinput.keyUp('shift')
+            else:
                 self.keyboard.release(key)
                 if modifier:
-                    time.sleep(0.01)
-                    self.keyboard.release(modifier)
+                    shift_keys = [(k, m) for k, m in self._held_keys if m is not None and (k, m) != key_id]
+                    if not shift_keys:
+                        self.keyboard.release(modifier)
+            self._held_keys.discard(key_id)
         except Exception as e:
-            self._logger.error(f"Key press failed for '{key}': {e}")
-            self._last_error = f"Key simulation failed: {e}"
+            self._logger.error(f"Key up failed for '{key}': {e}")
+
+    def _release_all_keys(self) -> None:
+        """Release all currently held keys (safety cleanup)."""
+        for key, modifier in list(self._held_keys):
+            try:
+                if self._game_mode == GameMode.WHERE_WINDS_MEET and pydirectinput is not None:
+                    pydirectinput.keyUp(key)
+                    if modifier:
+                        pydirectinput.keyUp('shift')
+                else:
+                    self.keyboard.release(key)
+                    if modifier:
+                        self.keyboard.release(modifier)
+            except Exception:
+                pass
+        self._held_keys.clear()
+
+    def _is_game_window_active(self) -> bool:
+        """Check if the game window is currently in focus.
+
+        On Windows, uses win32gui to check the foreground window title.
+        On non-Windows platforms, always returns True (no detection available).
+        """
+        if sys.platform != "win32":
+            return True
+
+        try:
+            import win32gui
+            hwnd = win32gui.GetForegroundWindow()
+            title = win32gui.GetWindowText(hwnd).lower()
+
+            if self._game_mode == GameMode.HEARTOPIA:
+                return "heartopia" in title
+            elif self._game_mode == GameMode.WHERE_WINDS_MEET:
+                return "where winds meet" in title
+            return True
+        except Exception:
+            return True  # If detection fails, don't block playback
+
+    def _playback_loop(self) -> None:
+        """Main playback loop running in separate thread.
+
+        Uses event-driven approach: each note becomes a key-down and key-up event.
+        Events at the same timestamp are processed simultaneously (chords).
+        Automatically pauses when the game window loses focus.
+        """
+        self._events = self._build_events()
+        event_index = 0
+
+        while event_index < len(self._events):
+            if self._stop_event.is_set():
+                break
+
+            # Check window focus - pause if game not in foreground
+            if not self._is_game_window_active():
+                pause_start = time.time()
+                while not self._is_game_window_active() and not self._stop_event.is_set():
+                    time.sleep(0.1)  # Check every 100ms
+                if self._stop_event.is_set():
+                    break
+                # Adjust start time to account for pause duration
+                self._start_time += (time.time() - pause_start)
+
+            event = self._events[event_index]
+            # Scale elapsed time by speed to get song position
+            current_time = (time.time() - self._start_time) * self._speed
+
+            # Wait until it's time for this event
+            if event.time > current_time:
+                sleep_time = (event.time - current_time) / self._speed
+                while sleep_time > 0 and not self._stop_event.is_set():
+                    time.sleep(min(0.005, sleep_time))
+                    current_time = (time.time() - self._start_time) * self._speed
+                    sleep_time = (event.time - current_time) / self._speed
+
+                if self._stop_event.is_set():
+                    break
+
+            # Process this event and all events at the same timestamp
+            current_event_time = event.time
+            while event_index < len(self._events) and self._events[event_index].time <= current_event_time + 0.001:
+                evt = self._events[event_index]
+                if evt.action == "down":
+                    self._key_down(evt.key, evt.modifier)
+                else:
+                    self._key_up(evt.key, evt.modifier)
+                event_index += 1
+
+        # Clean up: release all held keys
+        self._release_all_keys()
+
+        # Playback finished
+        if not self._stop_event.is_set():
+            self.state = PlaybackState.STOPPED
