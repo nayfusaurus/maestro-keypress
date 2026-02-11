@@ -1,9 +1,9 @@
 from maestro.key_layout import KeyLayout
 
 
-def test_key_layout_has_three_members():
-    """KeyLayout enum should have exactly 3 members."""
-    assert len(KeyLayout) == 3
+def test_key_layout_has_four_members():
+    """KeyLayout enum should have exactly 4 members."""
+    assert len(KeyLayout) == 4
 
 
 def test_keys_22_value():
@@ -21,6 +21,11 @@ def test_keys_15_triple_value():
     assert KeyLayout.KEYS_15_TRIPLE.value == "15-key (Triple Row)"
 
 
+def test_drums_value():
+    """DRUMS should be the drums layout."""
+    assert KeyLayout.DRUMS.value == "drums"
+
+
 def test_iteration_order():
     """Members should iterate in definition order."""
     members = list(KeyLayout)
@@ -28,4 +33,5 @@ def test_iteration_order():
         KeyLayout.KEYS_22,
         KeyLayout.KEYS_15_DOUBLE,
         KeyLayout.KEYS_15_TRIPLE,
+        KeyLayout.DRUMS,
     ]
