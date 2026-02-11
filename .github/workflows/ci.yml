@@ -102,6 +102,12 @@ jobs:
       - name: Build exe
         run: uv run pyinstaller Maestro.spec --noconfirm
 
+      - name: Generate SHA256 checksum
+        run: |
+          $hash = Get-FileHash dist/Maestro.exe -Algorithm SHA256
+          $hash.Hash | Out-File Maestro.exe.sha256
+          Write-Output "SHA256: $($hash.Hash)"
+
       - name: Upload exe artifact
         uses: actions/upload-artifact@v4
         with:
