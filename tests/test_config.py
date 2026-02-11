@@ -304,6 +304,16 @@ class TestValidateConfig:
         assert validated["key_layout"] == "22-key (Full)"
         assert any("key_layout" in w for w in warnings)
 
+    def test_valid_drums_layout(self):
+        """drums should be recognized as valid key_layout."""
+        config = DEFAULT_CONFIG.copy()
+        config["favorites"] = []
+        config["recently_played"] = []
+        config["key_layout"] = "drums"
+        validated, warnings = validate_config(config)
+        assert validated["key_layout"] == "drums"
+        assert len(warnings) == 0
+
     def test_invalid_sharp_handling(self):
         """Invalid sharp_handling should be reset to default."""
         config = DEFAULT_CONFIG.copy()
