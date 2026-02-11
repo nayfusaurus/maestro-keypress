@@ -80,3 +80,48 @@ def test_song_discovery(songs_folder):
     songs = get_songs_from_folder(songs_folder)
     assert len(songs) == 1
     assert songs[0].name == "test_scale.mid"
+
+
+def test_drums_layout_integration(tmp_path, mock_keyboard, mock_config):
+    """Test drums layout integration with validation and compatibility."""
+    from maestro.key_layout import KeyLayout
+    from maestro.gui import SongPicker
+
+    # Create songs folder with drum-compatible MIDI
+    songs_folder = tmp_path / "songs"
+    songs_folder.mkdir()
+
+    # Create drum song (notes 60-67)
+    mid = mido.MidiFile()
+    track = mido.MidiTrack()
+    mid.tracks.append(track)
+    for note in [60, 61, 62, 63, 64, 65, 66, 67]:  # Full drum range
+        track.append(mido.Message('note_on', note=note, velocity=64, time=0))
+        track.append(mido.Message('note_off', note=note, velocity=64, time=120))
+    drum_song = songs_folder / "drums.mid"
+    mid.save(drum_song)
+
+    # Create non-drum song (notes outside 60-67)
+    mid2 = mido.MidiFile()
+    track2 = mido.MidiTrack()
+    mid2.tracks.append(track2)
+    for note in [50, 55, 70, 75]:  # Outside drum range
+        track2.append(mido.Message('note_on', note=note, velocity=64, time=0))
+        track2.append(mido.Message('note_off', note=note, velocity=64, time=120))
+    non_drum_song = songs_folder / "piano.mid"
+    mid2.save(non_drum_song)
+
+    # Create app with drums layout
+    app = Maestro(songs_folder=songs_folder)
+    app.player.key_layout = KeyLayout.DRUMS
+
+    # Test that drums song is valid
+    app.player.load(drum_song)
+    playable, total = app._get_note_compatibility(drum_song)
+    assert playable == 8  # All 8 notes are in drum range
+    assert total == 8
+
+    # Test that non-drum song has no compatible notes
+    playable, total = app._get_note_compatibility(non_drum_song)
+    assert playable == 0  # No notes in drum range
+    assert total == 4

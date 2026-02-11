@@ -201,6 +201,29 @@ class TestResolveKey:
         result = player._resolve_key(60)
         assert result == ("y", None)
 
+    def test_resolve_key_drums(self, player):
+        """Drums layout resolves notes 60-67 to y,u,i,o,h,j,k,l."""
+        player.key_layout = KeyLayout.DRUMS
+        # C4 (60) = 'y'
+        result = player._resolve_key(60)
+        assert result == ("y", None)
+        # C#4 (61) = 'u'
+        result = player._resolve_key(61)
+        assert result == ("u", None)
+        # G4 (67) = 'l'
+        result = player._resolve_key(67)
+        assert result == ("l", None)
+
+    def test_resolve_key_drums_out_of_range(self, player):
+        """Drums layout returns None for notes outside 60-67 range."""
+        player.key_layout = KeyLayout.DRUMS
+        # Below range
+        result = player._resolve_key(59)
+        assert result is None
+        # Above range
+        result = player._resolve_key(68)
+        assert result is None
+
     def test_resolve_key_out_of_range_returns_none(self, player):
         """Out of range note returns None."""
         player.key_layout = KeyLayout.KEYS_22

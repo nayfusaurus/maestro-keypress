@@ -248,6 +248,21 @@ class SongPicker:
                 try:
                     info = get_midi_info(song)
                     notes = parse_midi(song)
+
+                    # For drums layout, check if song has notes in drum range (60-67)
+                    if self._key_layout == KeyLayout.DRUMS:
+                        has_drum_notes = any(60 <= note.midi_note <= 67 for note in notes)
+                        if not has_drum_notes:
+                            # No playable drum notes
+                            self._validation_results[song_str] = "invalid"
+                            self._song_info[song_str] = {"duration": 0, "bpm": 0, "note_count": 0}
+                            self._song_notes[song_str] = []
+                            self._validation_cache[song_str] = (current_mtime, False)
+                            # Update GUI from main thread
+                            if self.window:
+                                self.window.after(0, self._update_song_colors)
+                            continue
+
                     self._validation_results[song_str] = "valid"
                     self._song_info[song_str] = info
                     self._song_notes[song_str] = notes
@@ -899,7 +914,11 @@ class SongPicker:
                 playable, total = self.get_note_compatibility(song)
                 if total > 0:
                     pct = round(playable / total * 100)
-                    compat_text = f" | {pct}% playable ({playable}/{total})"
+                    # Special message for drums layout
+                    if self._key_layout == KeyLayout.DRUMS:
+                        compat_text = f" | {pct}% playable on Drums (8-key) ({playable}/{total})"
+                    else:
+                        compat_text = f" | {pct}% playable ({playable}/{total})"
                     if pct < 100:
                         compat_text += f" - {total - playable} out of range"
                     text += compat_text
