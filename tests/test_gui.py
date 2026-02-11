@@ -246,3 +246,100 @@ def test_check_hotkey_conflict_no_conflict():
     assert picker._check_hotkey_conflict("f5", "play_key") is None
     assert picker._check_hotkey_conflict("f5", "stop_key") is None
     assert picker._check_hotkey_conflict("f5", "emergency_stop_key") is None
+
+
+def test_auto_minimized_initialized_false():
+    """Auto-minimized flag should be initialized to False."""
+    picker = SongPicker(
+        songs_folder=Path("/tmp"),
+        on_play=Mock(),
+        on_stop=Mock(),
+        get_state=Mock(return_value="Stopped"),
+    )
+    assert picker._auto_minimized is False
+
+
+def test_auto_minimized_set_on_play():
+    """Auto-minimized flag should be set to True when play is clicked."""
+    picker = SongPicker(
+        songs_folder=Path("/tmp"),
+        on_play=Mock(),
+        on_stop=Mock(),
+        get_state=Mock(return_value="Stopped"),
+    )
+
+    # Create mock window
+    picker.window = Mock()
+    picker.song_listbox = Mock()
+    picker._filtered_songs = [Path("/tmp/song.mid")]
+    picker.song_listbox.curselection.return_value = [0]
+
+    # Call play
+    picker._on_play_click()
+
+    # Verify window was minimized and flag was set
+    picker.window.iconify.assert_called_once()
+    assert picker._auto_minimized is True
+
+
+def test_auto_minimized_reset_on_song_finish():
+    """Auto-minimized flag should be reset when song finishes."""
+    picker = SongPicker(
+        songs_folder=Path("/tmp"),
+        on_play=Mock(),
+        on_stop=Mock(),
+        get_state=Mock(return_value="Stopped"),
+    )
+
+    # Create mock window and set flag
+    picker.window = Mock()
+    picker._auto_minimized = True
+    picker.status_label = Mock()
+
+    # Call song finished
+    picker._on_song_finished()
+
+    # Verify window was restored and flag was reset
+    picker.window.deiconify.assert_called_once()
+    picker.window.lift.assert_called_once()
+    assert picker._auto_minimized is False
+
+
+def test_window_not_restored_if_not_auto_minimized():
+    """Window should not be restored if it wasn't auto-minimized."""
+    picker = SongPicker(
+        songs_folder=Path("/tmp"),
+        on_play=Mock(),
+        on_stop=Mock(),
+        get_state=Mock(return_value="Stopped"),
+    )
+
+    # Create mock window but keep flag False (user manually minimized)
+    picker.window = Mock()
+    picker._auto_minimized = False
+    picker.status_label = Mock()
+
+    # Call song finished
+    picker._on_song_finished()
+
+    # Verify window was NOT restored
+    picker.window.deiconify.assert_not_called()
+    picker.window.lift.assert_not_called()
+
+
+def test_window_restore_handles_no_window():
+    """Song finished should handle case where window is None."""
+    picker = SongPicker(
+        songs_folder=Path("/tmp"),
+        on_play=Mock(),
+        on_stop=Mock(),
+        get_state=Mock(return_value="Stopped"),
+    )
+
+    # Set flag but no window
+    picker._auto_minimized = True
+    picker.window = None
+    picker.status_label = Mock()
+
+    # Should not crash
+    picker._on_song_finished()

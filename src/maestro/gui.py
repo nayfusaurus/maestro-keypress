@@ -189,6 +189,7 @@ class SongPicker:
         self._prev_state: str = "Stopped"
         self._flash_count: int = 0
         self._original_title: str = "Maestro - Song Picker"
+        self._auto_minimized: bool = False
 
     def set_error(self, message: str) -> None:
         """Set error message to display in status."""
@@ -730,6 +731,12 @@ class SongPicker:
         self._flash_count = 6  # 3 flashes (on-off-on-off-on-off)
         self._flash_title()
 
+        # Restore window if it was auto-minimized
+        if self._auto_minimized and self.window:
+            self.window.deiconify()
+            self.window.lift()
+            self._auto_minimized = False
+
     def _flash_title(self) -> None:
         """Flash the window title to indicate song finished."""
         if self.window is None or self._flash_count <= 0:
@@ -807,6 +814,7 @@ class SongPicker:
             self._update_status()
             if self.window:
                 self.window.iconify()
+                self._auto_minimized = True
 
     def _on_stop_click(self) -> None:
         """Handle stop button click."""
