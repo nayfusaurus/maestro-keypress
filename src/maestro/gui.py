@@ -50,12 +50,14 @@ def get_songs_from_folder(folder: Path) -> list[Path]:
         folder: Path to the songs folder
 
     Returns:
-        List of paths to .mid files, sorted alphabetically
+        List of paths to .mid and .midi files, sorted alphabetically
     """
     if not folder.exists():
         return []
 
-    return sorted(folder.glob("*.mid"))
+    mid_files = list(folder.glob("*.mid"))
+    midi_files = list(folder.glob("*.midi"))
+    return sorted(mid_files + midi_files)
 
 
 class SongPicker:

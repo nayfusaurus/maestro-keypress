@@ -10,15 +10,20 @@ def songs_folder(tmp_path):
     """Create a folder with test MIDI files."""
     (tmp_path / "song1.mid").touch()
     (tmp_path / "song2.mid").touch()
+    (tmp_path / "song3.midi").touch()
     (tmp_path / "not_midi.txt").touch()
     return tmp_path
 
 
 def test_get_songs_from_folder(songs_folder):
-    """Should return only .mid files."""
+    """Should return both .mid and .midi files."""
     songs = get_songs_from_folder(songs_folder)
-    assert len(songs) == 2
-    assert all(s.suffix == ".mid" for s in songs)
+    assert len(songs) == 3
+    assert all(s.suffix in [".mid", ".midi"] for s in songs)
+    # Verify both extensions are present
+    suffixes = [s.suffix for s in songs]
+    assert ".mid" in suffixes
+    assert ".midi" in suffixes
 
 
 def test_get_songs_from_empty_folder(tmp_path):
