@@ -2,7 +2,7 @@
 
 Auto-play MIDI songs on in-game pianos by simulating keyboard presses. Supports:
 
-- **Heartopia** (22-key, 15-key Double Row, 15-key Triple Row)
+- **Heartopia** (22-key, 15-key Double Row, 15-key Triple Row, Drums 8-key)
 - **Where Winds Meet**
 
 ## Installation
@@ -18,7 +18,7 @@ uv sync
 
 ## Usage
 
-1. Drop `.mid` files into the `songs/` folder (or use Browse to select any folder)
+1. Drop `.mid` or `.midi` files into the `songs/` folder (or use Browse to select any folder)
 2. Run: `uv run maestro`
 3. The song picker opens automatically
 4. Select a song and click Play (or double-click)
@@ -35,10 +35,11 @@ uv sync
 
 Use the dropdown in the song picker to switch between games:
 
-- **Heartopia** - Default. Uses pynput for keyboard simulation. Supports 3 key layouts:
+- **Heartopia** - Default. Uses pynput for keyboard simulation. Supports 4 key layouts:
   - **22-key (Full)** - 3 octaves (C3-C6) with sharps
   - **15-key (Double Row)** - 2 octaves (C4-C6), naturals only, keys A-J + Q-I
   - **15-key (Triple Row)** - 2 octaves (C4-C6), naturals only, keys Y-P / H-; / N-/
+  - **Drums (8-key)** - Chromatic C4-G4 (MIDI 60-67), keys YUIO/HJKL, transpose/sharp disabled
 - **Where Winds Meet** - Uses Shift modifier for sharps. Uses DirectInput (pydirectinput) for keyboard simulation.
 
 The game mode affects which keyboard layout and input method is used for playback.
@@ -52,14 +53,14 @@ The game mode affects which keyboard layout and input method is used for playbac
 - Speed slider (0.25x - 1.5x)
 - Visual countdown before playback
 - Error display in status bar
-- MIDI validation with color-coded status (green/red/gray)
+- MIDI validation with color-coded status (green/red/gray), incremental with mtime caching
 - Song info display (duration, BPM, note count)
 - Note compatibility percentage for current layout
 - Favorites with star toggle (sorted first)
 - Recently played tracking
-- Song finished notification (title flash + green status)
+- Song finished notification (title flash + green status + window restore)
 - Sharp handling setting (skip or snap to nearest natural)
-- Hotkey remapping (press-to-bind in Settings)
+- Hotkey remapping (press-to-bind in Settings) with conflict detection
 - Auto-minimize on play
 - Optional piano roll preview panel
 - Settings persist between sessions
@@ -84,6 +85,17 @@ Plus `I` for the highest DO (C6).
 For Heartopia's 15-key piano modes, only natural notes (no sharps) are supported. Sharp notes can be configured to either skip or snap to the nearest natural in Settings.
 
 Out-of-range notes are skipped by default. Enable transpose in Settings to shift them into the playable range.
+
+### Drums (8-key) - Heartopia
+
+Maps chromatic MIDI notes to 8 keys (conga drums):
+
+**Top row:** Y (60/C4), U (61/C#4), I (62/D4), O (63/D#4)
+**Bottom row:** H (64/E4), J (65/F4), K (66/F#4), L (67/G4)
+
+- **Note range:** MIDI 60-67 (chromatic C4-G4)
+- **Out-of-range handling:** Notes outside 60-67 are skipped
+- **Transpose/sharp:** Disabled for drums layout (chromatic mapping, no transposition needed)
 
 ## Where Winds Meet Key Mapping
 
@@ -157,27 +169,42 @@ Run tests:
 uv run pytest -v
 ```
 
+### Quality & Performance Features
+
+- **Event caching:** Built events are cached and reused when only playback speed changes, avoiding expensive re-parsing
+- **Incremental validation:** MIDI files validated using mtime caching to skip unchanged files
+- **Pinned dependencies:** All dependencies locked to specific versions for reproducibility
+- **Code quality:** Linted with ruff and mypy for type safety and code quality
+- **Security scanning:** pip-audit checks for known vulnerabilities in dependencies (CI)
+- **Release checksums:** SHA256 checksums provided for Windows exe releases
+- **Hotkey conflict detection:** Prevents binding the same key to multiple actions
+- **Window restore:** Automatically restores window from minimized state when song finishes
+
 ## Project Structure
 
 ```text
 maestro-keypress/
 ├── src/maestro/
 │   ├── __init__.py         # Entry point
-│   ├── main.py             # App coordinator + hotkeys
-│   ├── player.py           # Event-driven playback engine
+│   ├── main.py             # App coordinator + hotkeys + conflict detection
+│   ├── player.py           # Event-driven playback engine with caching
 │   ├── parser.py           # MIDI parsing with multi-tempo support
 │   ├── keymap.py           # Heartopia 22-key mapping
 │   ├── keymap_15_double.py # Heartopia 15-key double row mapping
 │   ├── keymap_15_triple.py # Heartopia 15-key triple row mapping
+│   ├── keymap_drums.py     # Heartopia 8-key drums mapping
 │   ├── keymap_wwm.py       # Where Winds Meet mapping
 │   ├── key_layout.py       # KeyLayout enum
 │   ├── game_mode.py        # Game selection enum
-│   ├── gui.py              # Tkinter song picker
+│   ├── gui.py              # Tkinter song picker with incremental validation
 │   ├── config.py           # Settings persistence with validation
 │   └── logger.py           # Error logging
-├── tests/                  # Test suite (314+ tests)
-├── songs/                  # MIDI files go here
-└── pyproject.toml          # Project config
+├── tests/                  # Test suite (385 tests, 2 skipped)
+│   ├── test_keymap_drums.py  # Drums keymap tests
+│   ├── ...                   # Other test files
+├── songs/                  # .mid/.midi files go here
+├── pyproject.toml          # Project config with pinned dependencies
+└── .github/workflows/      # CI with ruff, mypy, pip-audit
 ```
 
 ## License
