@@ -71,6 +71,9 @@ class Player:
         self._sharp_handling: str = "skip"
         self._held_keys: set[tuple[str, Key | None]] = set()
         self._events: list[KeyEvent] = []
+        # Event caching to avoid rebuilding on replays
+        self._cached_events: list[KeyEvent] | None = None
+        self._cached_cache_key: str | None = None
         atexit.register(self._release_all_keys)
 
     @property
@@ -98,6 +101,8 @@ class Player:
 
     @transpose.setter
     def transpose(self, value: bool) -> None:
+        if self._transpose != value:
+            self._invalidate_cache()
         self._transpose = value
 
     @property
@@ -107,6 +112,8 @@ class Player:
 
     @key_layout.setter
     def key_layout(self, value: KeyLayout) -> None:
+        if self._key_layout != value:
+            self._invalidate_cache()
         self._key_layout = value
 
     @property
@@ -117,6 +124,8 @@ class Player:
     @sharp_handling.setter
     def sharp_handling(self, value: str) -> None:
         if value in ("skip", "snap"):
+            if self._sharp_handling != value:
+                self._invalidate_cache()
             self._sharp_handling = value
 
     @property
@@ -148,6 +157,9 @@ class Player:
 
     def load(self, midi_path: Path) -> None:
         """Load a MIDI file for playback."""
+        # Invalidate cache if loading a different song
+        if self.current_song != midi_path:
+            self._invalidate_cache()
         self._notes = parse_midi(midi_path)
         self.current_song = midi_path
         self._note_index = 0
@@ -205,6 +217,20 @@ class Player:
 
         return upcoming
 
+    def _invalidate_cache(self) -> None:
+        """Invalidate the event cache."""
+        self._cached_events = None
+        self._cached_cache_key = None
+
+    def _get_cache_key(self) -> str:
+        """Generate a cache key based on current state.
+
+        Returns:
+            String uniquely identifying the current song + settings combination.
+        """
+        song_path = str(self.current_song) if self.current_song else "none"
+        return f"{song_path}|{self._game_mode.name}|{self._key_layout.name}|{self._transpose}|{self._sharp_handling}"
+
     def _resolve_key(self, midi_note: int) -> tuple[str, Key | None] | None:
         """Resolve a MIDI note to a key press based on current game mode and layout.
 
@@ -236,10 +262,19 @@ class Player:
     def _build_events(self) -> list[KeyEvent]:
         """Convert notes to sorted key down/up events.
 
+        Uses caching to avoid rebuilding events when replaying the same song
+        with the same settings.
+
         Returns:
             List of KeyEvent objects sorted by time, with "up" events before "down"
             events at the same timestamp (to allow key re-press).
         """
+        # Check if we can use cached events
+        current_cache_key = self._get_cache_key()
+        if self._cached_events is not None and self._cached_cache_key == current_cache_key:
+            return self._cached_events
+
+        # Build events from scratch
         events = []
         for note in self._notes:
             result = self._resolve_key(note.midi_note)
@@ -266,6 +301,11 @@ class Player:
 
         # Sort by time, then "up" before "down" at same time (allows re-press)
         events.sort(key=lambda e: (e.time, 0 if e.action == "up" else 1))
+
+        # Cache the result
+        self._cached_events = events
+        self._cached_cache_key = current_cache_key
+
         return events
 
     def _key_down(self, key: str, modifier: Key | None = None) -> None:

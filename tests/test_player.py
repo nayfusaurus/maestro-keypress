@@ -398,3 +398,178 @@ class TestWindowFocusDetection:
 
         # start_time should have been pushed forward (pause compensation)
         assert player._start_time > original_start
+
+
+class TestEventCaching:
+    """Tests for event caching to avoid rebuilding on replays."""
+
+    def test_cache_initially_empty(self, player):
+        """Cache should be None initially."""
+        assert player._cached_events is None
+        assert player._cached_cache_key is None
+
+    def test_build_events_caches_result(self, player):
+        """_build_events should cache the result."""
+        player._notes = [Note(midi_note=60, time=0.0, duration=0.5)]
+        events = player._build_events()
+        assert player._cached_events is not None
+        assert player._cached_cache_key is not None
+        assert player._cached_events is events
+
+    def test_build_events_reuses_cache(self, player):
+        """_build_events should reuse cached events on second call."""
+        player._notes = [Note(midi_note=60, time=0.0, duration=0.5)]
+        events1 = player._build_events()
+        events2 = player._build_events()
+        # Should return the exact same list object (not a copy)
+        assert events1 is events2
+
+    def test_cache_invalidated_on_song_change(self, player, tmp_path):
+        """Loading a different song should invalidate cache."""
+        # Create two different MIDI files
+        import mido
+        mid1 = mido.MidiFile()
+        track1 = mido.MidiTrack()
+        mid1.tracks.append(track1)
+        track1.append(mido.Message('note_on', note=60, velocity=64, time=0))
+        track1.append(mido.Message('note_off', note=60, velocity=64, time=480))
+        midi_path1 = tmp_path / "test1.mid"
+        mid1.save(midi_path1)
+
+        mid2 = mido.MidiFile()
+        track2 = mido.MidiTrack()
+        mid2.tracks.append(track2)
+        track2.append(mido.Message('note_on', note=62, velocity=64, time=0))
+        track2.append(mido.Message('note_off', note=62, velocity=64, time=480))
+        midi_path2 = tmp_path / "test2.mid"
+        mid2.save(midi_path2)
+
+        # Load first song and build events
+        player.load(midi_path1)
+        events1 = player._build_events()
+
+        # Load second song - cache should be invalidated
+        player.load(midi_path2)
+        assert player._cached_events is None
+
+        # Build events again - should get different result
+        events2 = player._build_events()
+        assert events1 is not events2
+
+    def test_cache_invalidated_on_layout_change(self, player):
+        """Changing key layout should invalidate cache."""
+        player._notes = [Note(midi_note=60, time=0.0, duration=0.5)]
+        player.key_layout = KeyLayout.KEYS_22
+        events1 = player._build_events()
+
+        # Change layout
+        player.key_layout = KeyLayout.KEYS_15_DOUBLE
+        assert player._cached_events is None
+
+        # Build again
+        events2 = player._build_events()
+        assert events1 is not events2
+
+    def test_cache_invalidated_on_transpose_change(self, player):
+        """Changing transpose should invalidate cache."""
+        player._notes = [Note(midi_note=60, time=0.0, duration=0.5)]
+        player.transpose = False
+        events1 = player._build_events()
+
+        # Change transpose
+        player.transpose = True
+        assert player._cached_events is None
+
+        # Build again
+        events2 = player._build_events()
+        assert events1 is not events2
+
+    def test_cache_invalidated_on_sharp_handling_change(self, player):
+        """Changing sharp_handling should invalidate cache."""
+        player._notes = [Note(midi_note=60, time=0.0, duration=0.5)]
+        player.key_layout = KeyLayout.KEYS_15_DOUBLE
+        player.sharp_handling = "skip"
+        events1 = player._build_events()
+
+        # Change sharp handling
+        player.sharp_handling = "snap"
+        assert player._cached_events is None
+
+        # Build again
+        events2 = player._build_events()
+        assert events1 is not events2
+
+    def test_cache_key_includes_song_path(self, player, tmp_path):
+        """Cache key should include song path."""
+        import mido
+        mid = mido.MidiFile()
+        track = mido.MidiTrack()
+        mid.tracks.append(track)
+        track.append(mido.Message('note_on', note=60, velocity=64, time=0))
+        track.append(mido.Message('note_off', note=60, velocity=64, time=480))
+        midi_path = tmp_path / "test.mid"
+        mid.save(midi_path)
+
+        player.load(midi_path)
+        cache_key = player._get_cache_key()
+        assert str(midi_path) in cache_key
+
+    def test_cache_key_includes_layout(self, player):
+        """Cache key should include key layout."""
+        player.key_layout = KeyLayout.KEYS_15_DOUBLE
+        cache_key = player._get_cache_key()
+        assert "KEYS_15_DOUBLE" in cache_key
+
+    def test_cache_key_includes_transpose(self, player):
+        """Cache key should include transpose setting."""
+        player.transpose = True
+        cache_key = player._get_cache_key()
+        assert "True" in cache_key
+
+    def test_cache_key_includes_sharp_handling(self, player):
+        """Cache key should include sharp handling setting."""
+        player.sharp_handling = "snap"
+        cache_key = player._get_cache_key()
+        assert "snap" in cache_key
+
+    def test_cache_not_invalidated_on_speed_change(self, player):
+        """Speed changes should NOT invalidate cache (doesn't affect events)."""
+        player._notes = [Note(midi_note=60, time=0.0, duration=0.5)]
+        events1 = player._build_events()
+
+        # Change speed
+        player.speed = 0.5
+        events2 = player._build_events()
+
+        # Should return cached events
+        assert events1 is events2
+
+    def test_invalidate_cache_method(self, player):
+        """_invalidate_cache should clear cache."""
+        player._notes = [Note(midi_note=60, time=0.0, duration=0.5)]
+        player._build_events()
+        assert player._cached_events is not None
+
+        player._invalidate_cache()
+        assert player._cached_events is None
+        assert player._cached_cache_key is None
+
+    def test_replay_uses_cache(self, player, tmp_path):
+        """Playing the same song twice should use cache on second play."""
+        import mido
+        mid = mido.MidiFile()
+        track = mido.MidiTrack()
+        mid.tracks.append(track)
+        track.append(mido.Message('note_on', note=60, velocity=64, time=0))
+        track.append(mido.Message('note_off', note=60, velocity=64, time=480))
+        midi_path = tmp_path / "test.mid"
+        mid.save(midi_path)
+
+        player.load(midi_path)
+
+        # First play - should build events
+        events1 = player._build_events()
+
+        # Second call - should use cache
+        events2 = player._build_events()
+        assert events1 is events2
