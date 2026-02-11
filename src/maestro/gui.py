@@ -527,6 +527,10 @@ class SongPicker:
         )
         transpose_cb.pack(anchor=tk.W, padx=20, pady=(20, 10))
 
+        # Disable transpose for drums layout
+        if self._key_layout == KeyLayout.DRUMS:
+            transpose_cb.config(state=tk.DISABLED)
+
         # Show preview checkbox
         preview_var = tk.BooleanVar(value=self._show_preview)
         preview_cb = ttk.Checkbutton(
@@ -554,6 +558,10 @@ class SongPicker:
         sharp_dropdown.bind(
             "<<ComboboxSelected>>", lambda e: self._on_sharp_handling_toggle(sharp_var.get())
         )
+
+        # Disable sharp handling for drums layout (chromatic, no sharps to skip/snap)
+        if self._key_layout == KeyLayout.DRUMS:
+            sharp_dropdown.config(state=tk.DISABLED)
 
         # Hotkeys section
         hotkey_frame = ttk.LabelFrame(settings, text="Hotkeys")

@@ -560,3 +560,22 @@ def test_validation_caches_invalid_files(tmp_path):
             cached_mtime, cached_valid = picker._validation_cache[str(test_song)]
             assert cached_valid is False
             assert picker._validation_results[str(test_song)] == "invalid"
+
+
+def test_drums_layout_accepted():
+    """SongPicker should accept drums layout."""
+    from maestro.key_layout import KeyLayout
+    picker = SongPicker(
+        songs_folder=Path("/tmp"),
+        on_play=Mock(),
+        on_stop=Mock(),
+        get_state=Mock(return_value="Stopped"),
+        initial_layout=KeyLayout.DRUMS,
+    )
+    assert picker._key_layout == KeyLayout.DRUMS
+
+
+def test_drums_layout_value():
+    """Drums layout should have correct display value."""
+    from maestro.key_layout import KeyLayout
+    assert KeyLayout.DRUMS.value == "Drums (8-key)"
