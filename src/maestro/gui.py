@@ -182,6 +182,7 @@ class SongPicker:
         self._song_notes: dict[
             str, list
         ] = {}  # path_str -> list of Note objects (for compatibility)
+        self._validation_cache: dict[str, tuple[float, bool]] = {}  # path_str -> (mtime, is_valid)
         self._songs: list[Path] = []
         self._filtered_songs: list[Path] = []
         self._update_job: str | None = None
@@ -196,25 +197,66 @@ class SongPicker:
         self._last_error = message
 
     def _validate_songs_background(self) -> None:
-        """Validate all songs in a background thread."""
+        """Validate all songs in a background thread, using cache for unchanged files."""
         songs_to_validate = list(self._songs)
 
-        # Mark all as pending
+        # Mark all as pending initially
         for song in songs_to_validate:
             self._validation_results[str(song)] = "pending"
 
         def validate():
             for song in songs_to_validate:
+                song_str = str(song)
+
+                # Check if file still exists
+                if not song.exists():
+                    self._validation_results[song_str] = "invalid"
+                    self._song_info[song_str] = {"duration": 0, "bpm": 0, "note_count": 0}
+                    self._song_notes[song_str] = []
+                    continue
+
+                # Get current mtime
+                try:
+                    current_mtime = song.stat().st_mtime
+                except OSError:
+                    # File access error, mark as invalid
+                    self._validation_results[song_str] = "invalid"
+                    self._song_info[song_str] = {"duration": 0, "bpm": 0, "note_count": 0}
+                    self._song_notes[song_str] = []
+                    continue
+
+                # Check cache
+                cached_entry = self._validation_cache.get(song_str)
+                if cached_entry is not None:
+                    cached_mtime, cached_is_valid = cached_entry
+                    if cached_mtime == current_mtime:
+                        # File unchanged, reuse cached result
+                        if cached_is_valid:
+                            self._validation_results[song_str] = "valid"
+                            # Info and notes should already be in the dicts
+                        else:
+                            self._validation_results[song_str] = "invalid"
+                            self._song_info[song_str] = {"duration": 0, "bpm": 0, "note_count": 0}
+                            self._song_notes[song_str] = []
+
+                        # Update GUI from main thread
+                        if self.window:
+                            self.window.after(0, self._update_song_colors)
+                        continue
+
+                # File changed or not in cache, validate it
                 try:
                     info = get_midi_info(song)
                     notes = parse_midi(song)
-                    self._validation_results[str(song)] = "valid"
-                    self._song_info[str(song)] = info
-                    self._song_notes[str(song)] = notes
+                    self._validation_results[song_str] = "valid"
+                    self._song_info[song_str] = info
+                    self._song_notes[song_str] = notes
+                    self._validation_cache[song_str] = (current_mtime, True)
                 except Exception:
-                    self._validation_results[str(song)] = "invalid"
-                    self._song_info[str(song)] = {"duration": 0, "bpm": 0, "note_count": 0}
-                    self._song_notes[str(song)] = []
+                    self._validation_results[song_str] = "invalid"
+                    self._song_info[song_str] = {"duration": 0, "bpm": 0, "note_count": 0}
+                    self._song_notes[song_str] = []
+                    self._validation_cache[song_str] = (current_mtime, False)
 
                 # Update GUI from main thread
                 if self.window:
@@ -868,6 +910,8 @@ class SongPicker:
             self.songs_folder = Path(folder)
             if self.folder_label:
                 self.folder_label.config(text=str(self.songs_folder))
+            # Clear validation cache when folder changes
+            self._validation_cache.clear()
             self._refresh_songs()
             if self.on_folder_change:
                 self.on_folder_change(self.songs_folder)

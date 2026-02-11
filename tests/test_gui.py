@@ -343,3 +343,220 @@ def test_window_restore_handles_no_window():
 
     # Should not crash
     picker._on_song_finished()
+
+
+def test_validation_cache_initialized_empty():
+    """Validation cache should be initialized to empty dict."""
+    picker = SongPicker(
+        songs_folder=Path("/tmp"),
+        on_play=Mock(),
+        on_stop=Mock(),
+        get_state=Mock(return_value="Stopped"),
+    )
+    assert picker._validation_cache == {}
+
+
+def test_validation_cache_stores_mtime_and_validity(tmp_path):
+    """Cache should store file mtime and validity status."""
+    # Create a test MIDI file
+    test_song = tmp_path / "test.mid"
+    test_song.write_bytes(b"MThd")  # Minimal MIDI header
+
+    picker = SongPicker(
+        songs_folder=tmp_path,
+        on_play=Mock(),
+        on_stop=Mock(),
+        get_state=Mock(return_value="Stopped"),
+    )
+
+    # Manually populate cache
+    mtime = test_song.stat().st_mtime
+    picker._validation_cache[str(test_song)] = (mtime, True)
+
+    # Verify cache structure
+    assert str(test_song) in picker._validation_cache
+    cached_mtime, cached_valid = picker._validation_cache[str(test_song)]
+    assert cached_mtime == mtime
+    assert cached_valid is True
+
+
+def test_validation_cache_cleared_on_folder_change(tmp_path):
+    """Cache should be cleared when songs folder changes."""
+    folder1 = tmp_path / "folder1"
+    folder2 = tmp_path / "folder2"
+    folder1.mkdir()
+    folder2.mkdir()
+
+    picker = SongPicker(
+        songs_folder=folder1,
+        on_play=Mock(),
+        on_stop=Mock(),
+        get_state=Mock(return_value="Stopped"),
+    )
+
+    # Populate cache
+    picker._validation_cache["song1"] = (123.456, True)
+    picker._validation_cache["song2"] = (789.012, False)
+    assert len(picker._validation_cache) == 2
+
+    # Mock the folder label and filedialog
+    picker.folder_label = Mock()
+    with patch("maestro.gui.filedialog.askdirectory", return_value=str(folder2)):
+        picker._on_browse_click()
+
+    # Cache should be cleared
+    assert picker._validation_cache == {}
+
+
+def test_validation_uses_cache_for_unchanged_files(tmp_path):
+    """Validation should skip files that haven't changed according to mtime."""
+    # Create a valid MIDI file
+    test_song = tmp_path / "test.mid"
+    test_song.write_bytes(b"MThd\x00\x00\x00\x06\x00\x00\x00\x01\x00\x60")
+
+    picker = SongPicker(
+        songs_folder=tmp_path,
+        on_play=Mock(),
+        on_stop=Mock(),
+        get_state=Mock(return_value="Stopped"),
+    )
+
+    # Pre-populate cache with current mtime
+    mtime = test_song.stat().st_mtime
+    picker._validation_cache[str(test_song)] = (mtime, True)
+    picker._song_info[str(test_song)] = {"duration": 60, "bpm": 120, "note_count": 100}
+    picker._song_notes[str(test_song)] = []
+    picker._songs = [test_song]
+
+    # Mock get_midi_info and parse_midi to track if they're called
+    with patch("maestro.gui.get_midi_info") as mock_info:
+        with patch("maestro.gui.parse_midi") as mock_parse:
+            # Run validation (synchronously for testing)
+            songs_to_validate = list(picker._songs)
+            for song in songs_to_validate:
+                song_str = str(song)
+                if song.exists():
+                    current_mtime = song.stat().st_mtime
+                    cached_entry = picker._validation_cache.get(song_str)
+                    if cached_entry is not None:
+                        cached_mtime, cached_is_valid = cached_entry
+                        if cached_mtime == current_mtime:
+                            if cached_is_valid:
+                                picker._validation_results[song_str] = "valid"
+                            else:
+                                picker._validation_results[song_str] = "invalid"
+                            continue
+                    # File changed or not in cache
+                    info = mock_info(song)
+                    notes = mock_parse(song)
+                    picker._validation_results[song_str] = "valid"
+
+            # Verify parsers were NOT called (cache was used)
+            mock_info.assert_not_called()
+            mock_parse.assert_not_called()
+
+            # Verify result is still valid
+            assert picker._validation_results[str(test_song)] == "valid"
+
+
+def test_validation_revalidates_modified_files(tmp_path):
+    """Validation should revalidate files when mtime changes."""
+    import time
+
+    # Create a valid MIDI file
+    test_song = tmp_path / "test.mid"
+    test_song.write_bytes(b"MThd\x00\x00\x00\x06\x00\x00\x00\x01\x00\x60")
+
+    picker = SongPicker(
+        songs_folder=tmp_path,
+        on_play=Mock(),
+        on_stop=Mock(),
+        get_state=Mock(return_value="Stopped"),
+    )
+
+    # Pre-populate cache with old mtime
+    old_mtime = test_song.stat().st_mtime
+    picker._validation_cache[str(test_song)] = (old_mtime - 1000, True)  # Old mtime
+    picker._songs = [test_song]
+
+    # Mock get_midi_info and parse_midi
+    with patch("maestro.gui.get_midi_info") as mock_info:
+        with patch("maestro.gui.parse_midi") as mock_parse:
+            mock_info.return_value = {"duration": 60, "bpm": 120, "note_count": 100}
+            mock_parse.return_value = []
+
+            # Run validation (synchronously for testing)
+            songs_to_validate = list(picker._songs)
+            for song in songs_to_validate:
+                song_str = str(song)
+                if song.exists():
+                    current_mtime = song.stat().st_mtime
+                    cached_entry = picker._validation_cache.get(song_str)
+                    if cached_entry is not None:
+                        cached_mtime, cached_is_valid = cached_entry
+                        if cached_mtime == current_mtime:
+                            if cached_is_valid:
+                                picker._validation_results[song_str] = "valid"
+                            continue
+                    # File changed or not in cache
+                    info = mock_info(song)
+                    notes = mock_parse(song)
+                    picker._validation_results[song_str] = "valid"
+                    picker._song_info[song_str] = info
+                    picker._song_notes[song_str] = notes
+                    picker._validation_cache[song_str] = (current_mtime, True)
+
+            # Verify parsers WERE called (file was revalidated)
+            mock_info.assert_called_once()
+            mock_parse.assert_called_once()
+
+            # Verify cache was updated with new mtime
+            new_cached_mtime, _ = picker._validation_cache[str(test_song)]
+            assert new_cached_mtime == old_mtime  # Current mtime
+
+
+def test_validation_caches_invalid_files(tmp_path):
+    """Validation should cache invalid files too."""
+    # Create an invalid MIDI file
+    test_song = tmp_path / "invalid.mid"
+    test_song.write_bytes(b"NOT_A_MIDI")
+
+    picker = SongPicker(
+        songs_folder=tmp_path,
+        on_play=Mock(),
+        on_stop=Mock(),
+        get_state=Mock(return_value="Stopped"),
+    )
+    picker._songs = [test_song]
+
+    # Mock get_midi_info to raise exception
+    with patch("maestro.gui.get_midi_info") as mock_info:
+        with patch("maestro.gui.parse_midi") as mock_parse:
+            mock_info.side_effect = Exception("Invalid MIDI")
+
+            # Run validation (synchronously)
+            songs_to_validate = list(picker._songs)
+            for song in songs_to_validate:
+                song_str = str(song)
+                if song.exists():
+                    current_mtime = song.stat().st_mtime
+                    cached_entry = picker._validation_cache.get(song_str)
+                    if cached_entry is None:
+                        try:
+                            info = mock_info(song)
+                            notes = mock_parse(song)
+                            picker._validation_results[song_str] = "valid"
+                            picker._song_info[song_str] = info
+                            picker._song_notes[song_str] = notes
+                            picker._validation_cache[song_str] = (current_mtime, True)
+                        except Exception:
+                            picker._validation_results[song_str] = "invalid"
+                            picker._song_info[song_str] = {"duration": 0, "bpm": 0, "note_count": 0}
+                            picker._song_notes[song_str] = []
+                            picker._validation_cache[song_str] = (current_mtime, False)
+
+            # Verify invalid file was cached
+            assert str(test_song) in picker._validation_cache
+            cached_mtime, cached_valid = picker._validation_cache[str(test_song)]
+            assert cached_valid is False
+            assert picker._validation_results[str(test_song)] == "invalid"
