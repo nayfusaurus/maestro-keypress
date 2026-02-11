@@ -22,52 +22,52 @@ from pynput.keyboard import Key
 
 # High octave keys (C5-B5, MIDI 72-83): Q, W, E, R, T, Y, U
 OCTAVE_HIGH_KEYS = {
-    0: "q",   # C (Do)
-    2: "w",   # D (Re)
-    4: "e",   # E (Mi)
-    5: "r",   # F (Fa)
-    7: "t",   # G (Sol)
-    9: "y",   # A (La)
+    0: "q",  # C (Do)
+    2: "w",  # D (Re)
+    4: "e",  # E (Mi)
+    5: "r",  # F (Fa)
+    7: "t",  # G (Sol)
+    9: "y",  # A (La)
     11: "u",  # B (Si)
 }
 
 # Medium octave keys (C4-B4, MIDI 60-71): A, S, D, F, G, H, J
 OCTAVE_MID_KEYS = {
-    0: "a",   # C (Do)
-    2: "s",   # D (Re)
-    4: "d",   # E (Mi)
-    5: "f",   # F (Fa)
-    7: "g",   # G (Sol)
-    9: "h",   # A (La)
+    0: "a",  # C (Do)
+    2: "s",  # D (Re)
+    4: "d",  # E (Mi)
+    5: "f",  # F (Fa)
+    7: "g",  # G (Sol)
+    9: "h",  # A (La)
     11: "j",  # B (Si)
 }
 
 # Low octave keys (C3-B3, MIDI 48-59): Z, X, C, V, B, N, M
 OCTAVE_LOW_KEYS = {
-    0: "z",   # C (Do)
-    2: "x",   # D (Re)
-    4: "c",   # E (Mi)
-    5: "v",   # F (Fa)
-    7: "b",   # G (Sol)
-    9: "n",   # A (La)
+    0: "z",  # C (Do)
+    2: "x",  # D (Re)
+    4: "c",  # E (Mi)
+    5: "v",  # F (Fa)
+    7: "b",  # G (Sol)
+    9: "n",  # A (La)
     11: "m",  # B (Si)
 }
 
 # Sharp note mappings: sharp offset -> natural offset
 # C#(1)->C(0), D#(3)->D(2), F#(6)->F(5), G#(8)->G(7), A#(10)->A(9)
 SHARP_TO_NATURAL = {
-    1: 0,   # C# -> C
-    3: 2,   # D# -> D
-    6: 5,   # F# -> F
-    8: 7,   # G# -> G
+    1: 0,  # C# -> C
+    3: 2,  # D# -> D
+    6: 5,  # F# -> F
+    8: 7,  # G# -> G
     10: 9,  # A# -> A
 }
 
 # MIDI note ranges for WWM (3 octaves, no extended notes)
-MIDI_LOW_START = 48   # C3
-MIDI_MID_START = 60   # C4 (Middle C)
+MIDI_LOW_START = 48  # C3
+MIDI_MID_START = 60  # C4 (Middle C)
 MIDI_HIGH_START = 72  # C5
-MIDI_HIGH_END = 83    # B5
+MIDI_HIGH_END = 83  # B5
 
 
 def midi_note_to_key_wwm(midi_note: int, transpose: bool = False) -> tuple[str, Key | None] | None:
@@ -97,11 +97,8 @@ def midi_note_to_key_wwm(midi_note: int, transpose: bool = False) -> tuple[str, 
 
     # Check if this is a sharp note
     is_sharp = note_in_octave in SHARP_TO_NATURAL
-    if is_sharp:
-        # Use the natural note's key with Shift modifier
-        natural_offset = SHARP_TO_NATURAL[note_in_octave]
-    else:
-        natural_offset = note_in_octave
+    # Use the natural note's key with Shift modifier if sharp
+    natural_offset = SHARP_TO_NATURAL[note_in_octave] if is_sharp else note_in_octave
 
     # Determine which octave and get the key
     if midi_note >= MIDI_HIGH_START:

@@ -15,48 +15,48 @@ The piano has 3 full octaves plus 1 extra note:
 
 # High octave (C5-B5, MIDI 72-83)
 OCTAVE_HIGH = {
-    0: "q",   # DO (C)
-    1: "2",   # DO# (C#)
-    2: "w",   # RE (D)
-    3: "3",   # RE# (D#)
-    4: "e",   # MI (E)
-    5: "r",   # FA (F)
-    6: "5",   # FA# (F#)
-    7: "t",   # SOL (G)
-    8: "6",   # SOL# (G#)
-    9: "y",   # LA (A)
+    0: "q",  # DO (C)
+    1: "2",  # DO# (C#)
+    2: "w",  # RE (D)
+    3: "3",  # RE# (D#)
+    4: "e",  # MI (E)
+    5: "r",  # FA (F)
+    6: "5",  # FA# (F#)
+    7: "t",  # SOL (G)
+    8: "6",  # SOL# (G#)
+    9: "y",  # LA (A)
     10: "7",  # LA# (A#)
     11: "u",  # SI (B)
 }
 
 # Mid octave (C4-B4, MIDI 60-71) - Middle C is here
 OCTAVE_MID = {
-    0: "z",   # DO (C)
-    1: "s",   # DO# (C#)
-    2: "x",   # RE (D)
-    3: "d",   # RE# (D#)
-    4: "c",   # MI (E)
-    5: "v",   # FA (F)
-    6: "g",   # FA# (F#)
-    7: "b",   # SOL (G)
-    8: "h",   # SOL# (G#)
-    9: "n",   # LA (A)
+    0: "z",  # DO (C)
+    1: "s",  # DO# (C#)
+    2: "x",  # RE (D)
+    3: "d",  # RE# (D#)
+    4: "c",  # MI (E)
+    5: "v",  # FA (F)
+    6: "g",  # FA# (F#)
+    7: "b",  # SOL (G)
+    8: "h",  # SOL# (G#)
+    9: "n",  # LA (A)
     10: "j",  # LA# (A#)
     11: "m",  # SI (B)
 }
 
 # Low octave (C3-B3, MIDI 48-59)
 OCTAVE_LOW = {
-    0: ",",   # DO (C)
-    1: "l",   # DO# (C#)
-    2: ".",   # RE (D)
-    3: ";",   # RE# (D#)
-    4: "/",   # MI (E)
-    5: "o",   # FA (F)
-    6: "0",   # FA# (F#) - between O and P
-    7: "p",   # SOL (G)
-    8: "-",   # SOL# (G#) - between P and [
-    9: "[",   # LA (A)
+    0: ",",  # DO (C)
+    1: "l",  # DO# (C#)
+    2: ".",  # RE (D)
+    3: ";",  # RE# (D#)
+    4: "/",  # MI (E)
+    5: "o",  # FA (F)
+    6: "0",  # FA# (F#) - between O and P
+    7: "p",  # SOL (G)
+    8: "-",  # SOL# (G#) - between P and [
+    9: "[",  # LA (A)
     10: "=",  # LA# (A#)
     11: "]",  # SI (B)
 }
@@ -65,10 +65,10 @@ OCTAVE_LOW = {
 EXTENDED_HIGH = "i"  # C6 (MIDI 84) - highest DO with 2 dots
 
 # MIDI note ranges
-MIDI_LOW_START = 48      # C3
-MIDI_MID_START = 60      # C4 (Middle C)
-MIDI_HIGH_START = 72     # C5
-MIDI_HIGH_END = 83       # B5
+MIDI_LOW_START = 48  # C3
+MIDI_MID_START = 60  # C4 (Middle C)
+MIDI_HIGH_START = 72  # C5
+MIDI_HIGH_END = 83  # B5
 MIDI_EXTENDED_HIGH = 84  # C6 (highest playable note)
 
 

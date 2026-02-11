@@ -3,17 +3,17 @@
 Provides a simple window to browse and select MIDI files.
 """
 
-import tkinter as tk
-from tkinter import ttk, filedialog
-from pathlib import Path
-from typing import Callable
 import threading
+import tkinter as tk
 import webbrowser
+from collections.abc import Callable
+from pathlib import Path
+from tkinter import filedialog, ttk
 
 from maestro.game_mode import GameMode
 from maestro.key_layout import KeyLayout
 from maestro.logger import open_log_file
-from maestro.parser import parse_midi, get_midi_info, Note
+from maestro.parser import get_midi_info, parse_midi
 
 # App info
 APP_VERSION = "1.1.0"
@@ -21,12 +21,25 @@ KOFI_URL = "https://ko-fi.com/nayfusaurus"
 
 # Valid key names that can be bound (maps tkinter keysym to config key name)
 BINDABLE_KEYS = {
-    "F1": "f1", "F2": "f2", "F3": "f3", "F4": "f4",
-    "F5": "f5", "F6": "f6", "F7": "f7", "F8": "f8",
-    "F9": "f9", "F10": "f10", "F11": "f11", "F12": "f12",
-    "Escape": "escape", "Home": "home", "End": "end",
-    "Insert": "insert", "Delete": "delete",
-    "Prior": "page_up", "Next": "page_down",
+    "F1": "f1",
+    "F2": "f2",
+    "F3": "f3",
+    "F4": "f4",
+    "F5": "f5",
+    "F6": "f6",
+    "F7": "f7",
+    "F8": "f8",
+    "F9": "f9",
+    "F10": "f10",
+    "F11": "f11",
+    "F12": "f12",
+    "Escape": "escape",
+    "Home": "home",
+    "End": "end",
+    "Insert": "insert",
+    "Delete": "delete",
+    "Prior": "page_up",
+    "Next": "page_down",
 }
 
 
@@ -163,7 +176,9 @@ class SongPicker:
         self.song_detail_label: tk.Label | None = None
         self._validation_results: dict[str, str] = {}  # path_str -> "valid" | "invalid" | "pending"
         self._song_info: dict[str, dict] = {}  # path_str -> {duration, bpm, note_count}
-        self._song_notes: dict[str, list] = {}  # path_str -> list of Note objects (for compatibility)
+        self._song_notes: dict[
+            str, list
+        ] = {}  # path_str -> list of Note objects (for compatibility)
         self._songs: list[Path] = []
         self._filtered_songs: list[Path] = []
         self._update_job: str | None = None
@@ -238,7 +253,9 @@ class SongPicker:
         folder_frame.pack(fill=tk.X, padx=10, pady=(10, 0))
 
         ttk.Label(folder_frame, text="Folder:").pack(side=tk.LEFT)
-        ttk.Button(folder_frame, text="Browse...", command=self._on_browse_click).pack(side=tk.RIGHT)
+        ttk.Button(folder_frame, text="Browse...", command=self._on_browse_click).pack(
+            side=tk.RIGHT
+        )
         self.folder_label = ttk.Label(folder_frame, text=str(self.songs_folder), foreground="gray")
         self.folder_label.pack(side=tk.LEFT, padx=(5, 0), fill=tk.X, expand=True)
 
@@ -325,9 +342,13 @@ class SongPicker:
 
         ttk.Button(btn_frame, text="Play", command=self._on_play_click).pack(side=tk.LEFT, padx=2)
         ttk.Button(btn_frame, text="Stop", command=self._on_stop_click).pack(side=tk.LEFT, padx=2)
-        self._fav_btn = ttk.Button(btn_frame, text="\u2606", width=3, command=self._on_favorite_click)
+        self._fav_btn = ttk.Button(
+            btn_frame, text="\u2606", width=3, command=self._on_favorite_click
+        )
         self._fav_btn.pack(side=tk.LEFT, padx=2)
-        ttk.Button(btn_frame, text="Refresh", command=self._refresh_songs).pack(side=tk.RIGHT, padx=2)
+        ttk.Button(btn_frame, text="Refresh", command=self._refresh_songs).pack(
+            side=tk.RIGHT, padx=2
+        )
 
         # Song detail label (shows info for selected song)
         self.song_detail_label = tk.Label(
@@ -484,7 +505,9 @@ class SongPicker:
             width=8,
         )
         sharp_dropdown.pack(side=tk.LEFT, padx=(5, 0))
-        sharp_dropdown.bind("<<ComboboxSelected>>", lambda e: self._on_sharp_handling_toggle(sharp_var.get()))
+        sharp_dropdown.bind(
+            "<<ComboboxSelected>>", lambda e: self._on_sharp_handling_toggle(sharp_var.get())
+        )
 
         # Hotkeys section
         hotkey_frame = ttk.LabelFrame(settings, text="Hotkeys")
@@ -495,30 +518,52 @@ class SongPicker:
         play_row.pack(fill=tk.X, padx=10, pady=5)
         ttk.Label(play_row, text="Play:").pack(side=tk.LEFT)
         play_key_var = tk.StringVar(value=self._play_key.upper())
-        play_key_label = ttk.Label(play_row, textvariable=play_key_var, width=12, relief="sunken", anchor="center")
+        play_key_label = ttk.Label(
+            play_row, textvariable=play_key_var, width=12, relief="sunken", anchor="center"
+        )
         play_key_label.pack(side=tk.LEFT, padx=(5, 5))
-        ttk.Button(play_row, text="Bind", width=5,
-                   command=lambda: self._start_key_bind(settings, play_key_var, "play_key")).pack(side=tk.LEFT)
+        ttk.Button(
+            play_row,
+            text="Bind",
+            width=5,
+            command=lambda: self._start_key_bind(settings, play_key_var, "play_key"),
+        ).pack(side=tk.LEFT)
 
         # Stop key
         stop_row = ttk.Frame(hotkey_frame)
         stop_row.pack(fill=tk.X, padx=10, pady=5)
         ttk.Label(stop_row, text="Stop:").pack(side=tk.LEFT)
         stop_key_var = tk.StringVar(value=self._stop_key.upper())
-        stop_key_label = ttk.Label(stop_row, textvariable=stop_key_var, width=12, relief="sunken", anchor="center")
+        stop_key_label = ttk.Label(
+            stop_row, textvariable=stop_key_var, width=12, relief="sunken", anchor="center"
+        )
         stop_key_label.pack(side=tk.LEFT, padx=(5, 5))
-        ttk.Button(stop_row, text="Bind", width=5,
-                   command=lambda: self._start_key_bind(settings, stop_key_var, "stop_key")).pack(side=tk.LEFT)
+        ttk.Button(
+            stop_row,
+            text="Bind",
+            width=5,
+            command=lambda: self._start_key_bind(settings, stop_key_var, "stop_key"),
+        ).pack(side=tk.LEFT)
 
         # Emergency stop key
         emergency_row = ttk.Frame(hotkey_frame)
         emergency_row.pack(fill=tk.X, padx=10, pady=(5, 10))
         ttk.Label(emergency_row, text="Emergency:").pack(side=tk.LEFT)
         emergency_key_var = tk.StringVar(value=self._emergency_key.upper())
-        emergency_key_label = ttk.Label(emergency_row, textvariable=emergency_key_var, width=12, relief="sunken", anchor="center")
+        emergency_key_label = ttk.Label(
+            emergency_row,
+            textvariable=emergency_key_var,
+            width=12,
+            relief="sunken",
+            anchor="center",
+        )
         emergency_key_label.pack(side=tk.LEFT, padx=(5, 5))
-        ttk.Button(emergency_row, text="Bind", width=5,
-                   command=lambda: self._start_key_bind(settings, emergency_key_var, "emergency_stop_key")).pack(side=tk.LEFT)
+        ttk.Button(
+            emergency_row,
+            text="Bind",
+            width=5,
+            command=lambda: self._start_key_bind(settings, emergency_key_var, "emergency_stop_key"),
+        ).pack(side=tk.LEFT)
 
         # Close button
         ttk.Button(settings, text="Close", command=settings.destroy).pack(pady=(0, 20))
@@ -558,7 +603,7 @@ class SongPicker:
 
     def _update_favorite_button(self) -> None:
         """Update favorite button star based on selected song."""
-        if not hasattr(self, '_fav_btn') or self._fav_btn is None:
+        if not hasattr(self, "_fav_btn") or self._fav_btn is None:
             return
         song = self._get_selected_song()
         if song is None:
@@ -822,21 +867,13 @@ class SongPicker:
         about.geometry(f"+{x}+{y}")
 
         # Title
-        ttk.Label(
-            about,
-            text="Maestro",
-            font=("TkDefaultFont", 16, "bold")
-        ).pack(pady=(20, 5))
+        ttk.Label(about, text="Maestro", font=("TkDefaultFont", 16, "bold")).pack(pady=(20, 5))
 
         # Version
         ttk.Label(about, text=f"Version {APP_VERSION}").pack()
 
         # Description
-        ttk.Label(
-            about,
-            text="MIDI Piano Player for Games",
-            foreground="gray"
-        ).pack(pady=(5, 15))
+        ttk.Label(about, text="MIDI Piano Player for Games", foreground="gray").pack(pady=(5, 15))
 
         # Credits
         ttk.Label(about, text="Created by nayfusaurus").pack()
@@ -849,9 +886,7 @@ class SongPicker:
 
         # Ko-fi link button
         kofi_btn = ttk.Button(
-            about,
-            text="Buy me a coffee on Ko-fi",
-            command=lambda: webbrowser.open(KOFI_URL)
+            about, text="Buy me a coffee on Ko-fi", command=lambda: webbrowser.open(KOFI_URL)
         )
         kofi_btn.pack(pady=10)
 
@@ -877,11 +912,9 @@ class SongPicker:
         disclaimer.geometry(f"+{x}+{y}")
 
         # Title
-        ttk.Label(
-            disclaimer,
-            text="Disclaimer",
-            font=("TkDefaultFont", 14, "bold")
-        ).pack(pady=(15, 10))
+        ttk.Label(disclaimer, text="Disclaimer", font=("TkDefaultFont", 14, "bold")).pack(
+            pady=(15, 10)
+        )
 
         # Disclaimer text
         text_widget = tk.Text(
@@ -905,7 +938,7 @@ class SongPicker:
             "of Service.\n\n"
             "3. Always check the game's policies regarding third-party tools "
             "and keyboard automation before use.\n\n"
-            "4. This software is provided \"as is\" without warranty of any kind."
+            '4. This software is provided "as is" without warranty of any kind.'
         )
 
         text_widget.insert("1.0", disclaimer_text)
@@ -1036,8 +1069,7 @@ class SongPicker:
 
             # Draw note rectangle
             self.preview_canvas.create_rectangle(
-                x, y - 3, x + width, y + 3,
-                fill="#4CAF50", outline="#2E7D32"
+                x, y - 3, x + width, y + 3, fill="#4CAF50", outline="#2E7D32"
             )
 
     def _on_close(self) -> None:

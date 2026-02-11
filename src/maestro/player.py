@@ -19,6 +19,7 @@ from maestro.game_mode import GameMode
 # Import conditionally and provide fallback
 if sys.platform == "win32":
     import pydirectinput
+
     pydirectinput.PAUSE = 0  # Disable default 0.1s delay
 else:
     pydirectinput = None  # type: ignore
@@ -28,11 +29,12 @@ from maestro.keymap_15_double import midi_note_to_key_15_double
 from maestro.keymap_15_triple import midi_note_to_key_15_triple
 from maestro.keymap_wwm import midi_note_to_key_wwm
 from maestro.logger import setup_logger
-from maestro.parser import parse_midi, Note
+from maestro.parser import Note, parse_midi
 
 
 class PlaybackState(Enum):
     """Player state machine states."""
+
     STOPPED = auto()
     PLAYING = auto()
 
@@ -40,9 +42,10 @@ class PlaybackState(Enum):
 @dataclass
 class KeyEvent:
     """A scheduled key press or release event."""
-    time: float       # Time in seconds from start of song
-    action: str       # "down" or "up"
-    key: str          # Key to press/release
+
+    time: float  # Time in seconds from start of song
+    action: str  # "down" or "up"
+    key: str  # Key to press/release
     modifier: Key | None = None
 
 
@@ -194,7 +197,7 @@ class Player:
         end_pos = current_pos + lookahead
 
         upcoming = []
-        for note in self._notes[self._note_index:]:
+        for note in self._notes[self._note_index :]:
             if note.time > end_pos:
                 break
             if note.time >= current_pos:
@@ -244,18 +247,22 @@ class Player:
                 continue
             key, modifier = result
 
-            events.append(KeyEvent(
-                time=note.time,
-                action="down",
-                key=key,
-                modifier=modifier,
-            ))
-            events.append(KeyEvent(
-                time=note.time + note.duration,
-                action="up",
-                key=key,
-                modifier=modifier,
-            ))
+            events.append(
+                KeyEvent(
+                    time=note.time,
+                    action="down",
+                    key=key,
+                    modifier=modifier,
+                )
+            )
+            events.append(
+                KeyEvent(
+                    time=note.time + note.duration,
+                    action="up",
+                    key=key,
+                    modifier=modifier,
+                )
+            )
 
         # Sort by time, then "up" before "down" at same time (allows re-press)
         events.sort(key=lambda e: (e.time, 0 if e.action == "up" else 1))
@@ -276,7 +283,7 @@ class Player:
         try:
             if self._game_mode == GameMode.WHERE_WINDS_MEET and pydirectinput is not None:
                 if modifier:
-                    pydirectinput.keyDown('shift')
+                    pydirectinput.keyDown("shift")
                     time.sleep(0.01)
                 pydirectinput.keyDown(key)
             else:
@@ -300,13 +307,17 @@ class Player:
                 pydirectinput.keyUp(key)
                 if modifier:
                     # Only release shift if no other shift keys are held
-                    shift_keys = [(k, m) for k, m in self._held_keys if m is not None and (k, m) != key_id]
+                    shift_keys = [
+                        (k, m) for k, m in self._held_keys if m is not None and (k, m) != key_id
+                    ]
                     if not shift_keys:
-                        pydirectinput.keyUp('shift')
+                        pydirectinput.keyUp("shift")
             else:
                 self.keyboard.release(key)
                 if modifier:
-                    shift_keys = [(k, m) for k, m in self._held_keys if m is not None and (k, m) != key_id]
+                    shift_keys = [
+                        (k, m) for k, m in self._held_keys if m is not None and (k, m) != key_id
+                    ]
                     if not shift_keys:
                         self.keyboard.release(modifier)
             self._held_keys.discard(key_id)
@@ -320,7 +331,7 @@ class Player:
                 if self._game_mode == GameMode.WHERE_WINDS_MEET and pydirectinput is not None:
                     pydirectinput.keyUp(key)
                     if modifier:
-                        pydirectinput.keyUp('shift')
+                        pydirectinput.keyUp("shift")
                 else:
                     self.keyboard.release(key)
                     if modifier:
@@ -340,6 +351,7 @@ class Player:
 
         try:
             import win32gui
+
             hwnd = win32gui.GetForegroundWindow()
             title = win32gui.GetWindowText(hwnd).lower()
 
@@ -373,7 +385,7 @@ class Player:
                 if self._stop_event.is_set():
                     break
                 # Adjust start time to account for pause duration
-                self._start_time += (time.time() - pause_start)
+                self._start_time += time.time() - pause_start
 
             event = self._events[event_index]
             # Scale elapsed time by speed to get song position
@@ -392,7 +404,10 @@ class Player:
 
             # Process this event and all events at the same timestamp
             current_event_time = event.time
-            while event_index < len(self._events) and self._events[event_index].time <= current_event_time + 0.001:
+            while (
+                event_index < len(self._events)
+                and self._events[event_index].time <= current_event_time + 0.001
+            ):
                 evt = self._events[event_index]
                 if evt.action == "down":
                     self._key_down(evt.key, evt.modifier)

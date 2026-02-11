@@ -22,23 +22,23 @@ SHARP_OFFSETS = {1, 3, 6, 8, 10}
 
 # High row (C5-B5, MIDI 72-83)
 ROW_HIGH = {
-    0: "q",   # C (Do)
-    2: "w",   # D (Re)
-    4: "e",   # E (Mi)
-    5: "r",   # F (Fa)
-    7: "t",   # G (Sol)
-    9: "y",   # A (La)
+    0: "q",  # C (Do)
+    2: "w",  # D (Re)
+    4: "e",  # E (Mi)
+    5: "r",  # F (Fa)
+    7: "t",  # G (Sol)
+    9: "y",  # A (La)
     11: "u",  # B (Si)
 }
 
 # Mid row (C4-B4, MIDI 60-71) - Middle C is here
 ROW_MID = {
-    0: "a",   # C (Do)
-    2: "s",   # D (Re)
-    4: "d",   # E (Mi)
-    5: "f",   # F (Fa)
-    7: "g",   # G (Sol)
-    9: "h",   # A (La)
+    0: "a",  # C (Do)
+    2: "s",  # D (Re)
+    4: "d",  # E (Mi)
+    5: "f",  # F (Fa)
+    7: "g",  # G (Sol)
+    9: "h",  # A (La)
     11: "j",  # B (Si)
 }
 
@@ -46,18 +46,18 @@ ROW_MID = {
 EXTENDED_HIGH = "i"  # C6 (MIDI 84)
 
 # MIDI note ranges
-MIDI_MID_START = 60       # C4 (Middle C)
-MIDI_HIGH_START = 72      # C5
-MIDI_HIGH_END = 83        # B5
-MIDI_EXTENDED_HIGH = 84   # C6 (highest playable note)
+MIDI_MID_START = 60  # C4 (Middle C)
+MIDI_HIGH_START = 72  # C5
+MIDI_HIGH_END = 83  # B5
+MIDI_EXTENDED_HIGH = 84  # C6 (highest playable note)
 
 # Sharp-to-nearest-natural mapping for "snap" mode
 # Maps sharp note offset to the nearest natural note offset (snaps down)
 SHARP_TO_NATURAL = {
-    1: 0,   # C# -> C
-    3: 2,   # D# -> D
-    6: 5,   # F# -> F
-    8: 7,   # G# -> G
+    1: 0,  # C# -> C
+    3: 2,  # D# -> D
+    6: 5,  # F# -> F
+    8: 7,  # G# -> G
     10: 9,  # A# -> A
 }
 

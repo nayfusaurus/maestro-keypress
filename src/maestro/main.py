@@ -10,13 +10,13 @@ from pathlib import Path
 
 from pynput import keyboard
 
-from maestro.player import Player, PlaybackState
-from maestro.gui import SongPicker
-from maestro.game_mode import GameMode
-from maestro.key_layout import KeyLayout
 from maestro.config import load_config, save_config
+from maestro.game_mode import GameMode
+from maestro.gui import SongPicker
+from maestro.key_layout import KeyLayout
 from maestro.logger import setup_logger
 from maestro.parser import parse_midi
+from maestro.player import PlaybackState, Player
 
 KEY_NAME_MAP = {
     "f1": keyboard.Key.f1,
@@ -329,10 +329,11 @@ class Maestro:
             elif key == stop_key:
                 self.stop()
             # Escape is ALWAYS an emergency stop, regardless of config
-            if key == keyboard.Key.esc:
-                self.player._release_all_keys()
-                self.stop()
-            elif key == emergency_key and emergency_key != keyboard.Key.esc:
+            if (
+                key == keyboard.Key.esc
+                or key == emergency_key
+                and emergency_key != keyboard.Key.esc
+            ):
                 self.player._release_all_keys()
                 self.stop()
 

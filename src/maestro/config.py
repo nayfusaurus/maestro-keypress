@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 DEFAULT_CONFIG = {
     "last_songs_folder": "",
     "game_mode": "Heartopia",
@@ -70,7 +69,9 @@ def validate_config(config: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
 
     # Validate preview_lookahead (int, 2/5/10)
     if config.get("preview_lookahead") not in [2, 5, 10]:
-        warnings.append(f"Invalid preview_lookahead '{config.get('preview_lookahead')}', reset to default")
+        warnings.append(
+            f"Invalid preview_lookahead '{config.get('preview_lookahead')}', reset to default"
+        )
         config["preview_lookahead"] = DEFAULT_CONFIG["preview_lookahead"]
 
     # Validate booleans
@@ -87,7 +88,9 @@ def validate_config(config: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
 
     # Validate sharp_handling
     if config.get("sharp_handling") not in ["skip", "snap"]:
-        warnings.append(f"Invalid sharp_handling '{config.get('sharp_handling')}', reset to default")
+        warnings.append(
+            f"Invalid sharp_handling '{config.get('sharp_handling')}', reset to default"
+        )
         config["sharp_handling"] = DEFAULT_CONFIG["sharp_handling"]
 
     # Validate lists
@@ -112,10 +115,10 @@ def load_config() -> dict[str, Any]:
 
     if config_path.exists():
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 saved = json.load(f)
                 config.update(saved)
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             pass
 
     config, warnings = validate_config(config)

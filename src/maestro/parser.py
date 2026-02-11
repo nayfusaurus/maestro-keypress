@@ -16,9 +16,10 @@ MAX_MIDI_SIZE = 10 * 1024 * 1024  # 10 MB
 @dataclass
 class Note:
     """A note event with timing information."""
+
     midi_note: int  # MIDI note number (0-127)
-    time: float     # Time in seconds from start of song
-    duration: float # Duration in seconds
+    time: float  # Time in seconds from start of song
+    duration: float  # Duration in seconds
 
 
 def parse_midi(midi_path: Path) -> list[Note]:
@@ -43,13 +44,15 @@ def parse_midi(midi_path: Path) -> list[Note]:
     file_size = midi_path.stat().st_size
     if file_size > MAX_MIDI_SIZE:
         logger.error(f"MIDI file too large: {file_size} bytes (max {MAX_MIDI_SIZE})")
-        raise ValueError(f"MIDI file too large: {file_size / (1024*1024):.1f} MB (max {MAX_MIDI_SIZE / (1024*1024):.0f} MB)")
+        raise ValueError(
+            f"MIDI file too large: {file_size / (1024 * 1024):.1f} MB (max {MAX_MIDI_SIZE / (1024 * 1024):.0f} MB)"
+        )
 
     try:
         mid = mido.MidiFile(midi_path)
     except Exception as e:
         logger.error(f"Invalid MIDI file '{midi_path}': {e}")
-        raise ValueError(f"Invalid MIDI file: {e}")
+        raise ValueError(f"Invalid MIDI file: {e}") from e
 
     notes = []
     # Track note_on events to calculate duration
@@ -63,26 +66,28 @@ def parse_midi(midi_path: Path) -> list[Note]:
         # Convert delta time to seconds using current tempo
         current_time += mido.tick2second(msg.time, mid.ticks_per_beat, current_tempo)
 
-        if msg.type == 'set_tempo':
+        if msg.type == "set_tempo":
             current_tempo = msg.tempo
             continue
 
-        if msg.type == 'note_on' and msg.velocity > 0:
+        if msg.type == "note_on" and msg.velocity > 0:
             # Note started
             active_notes[msg.note] = (current_time, len(notes))
-            notes.append(Note(
-                midi_note=msg.note,
-                time=current_time,
-                duration=0.0  # Will be updated on note_off
-            ))
-        elif msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
+            notes.append(
+                Note(
+                    midi_note=msg.note,
+                    time=current_time,
+                    duration=0.0,  # Will be updated on note_off
+                )
+            )
+        elif msg.type == "note_off" or (msg.type == "note_on" and msg.velocity == 0):
             # Note ended
             if msg.note in active_notes:
                 start_time, idx = active_notes.pop(msg.note)
                 notes[idx] = Note(
                     midi_note=notes[idx].midi_note,
                     time=notes[idx].time,
-                    duration=current_time - start_time
+                    duration=current_time - start_time,
                 )
 
     return sorted(notes, key=lambda n: n.time)
@@ -92,7 +97,7 @@ def get_tempo(mid: mido.MidiFile) -> int:
     """Get tempo from MIDI file, default to 120 BPM."""
     for track in mid.tracks:
         for msg in track:
-            if msg.type == 'set_tempo':
+            if msg.type == "set_tempo":
                 return msg.tempo
     return 500000  # Default: 120 BPM
 

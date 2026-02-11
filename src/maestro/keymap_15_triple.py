@@ -11,25 +11,25 @@ Notes flow continuously across rows.
 
 # Direct MIDI note to key mapping (naturals only)
 NOTE_MAP = {
-    60: "y",   # C4 (Row 1)
-    62: "u",   # D4 (Row 1)
-    64: "i",   # E4 (Row 1)
-    65: "o",   # F4 (Row 1)
-    67: "p",   # G4 (Row 1)
-    69: "h",   # A4 (Row 2)
-    71: "j",   # B4 (Row 2)
-    72: "k",   # C5 (Row 2)
-    74: "l",   # D5 (Row 2)
-    76: ";",   # E5 (Row 2)
-    77: "n",   # F5 (Row 3)
-    79: "m",   # G5 (Row 3)
-    81: ",",   # A5 (Row 3)
-    83: ".",   # B5 (Row 3)
-    84: "/",   # C6 (Row 3)
+    60: "y",  # C4 (Row 1)
+    62: "u",  # D4 (Row 1)
+    64: "i",  # E4 (Row 1)
+    65: "o",  # F4 (Row 1)
+    67: "p",  # G4 (Row 1)
+    69: "h",  # A4 (Row 2)
+    71: "j",  # B4 (Row 2)
+    72: "k",  # C5 (Row 2)
+    74: "l",  # D5 (Row 2)
+    76: ";",  # E5 (Row 2)
+    77: "n",  # F5 (Row 3)
+    79: "m",  # G5 (Row 3)
+    81: ",",  # A5 (Row 3)
+    83: ".",  # B5 (Row 3)
+    84: "/",  # C6 (Row 3)
 }
 
 # MIDI note range
-MIDI_LOW = 60   # C4
+MIDI_LOW = 60  # C4
 MIDI_HIGH = 84  # C6
 
 # Note offsets within an octave (0-11)
@@ -39,15 +39,17 @@ SHARP_OFFSETS = {1, 3, 6, 8, 10}
 # Sharp note mappings: sharp offset -> nearest natural offset
 # C#(1)->C(0), D#(3)->D(2), F#(6)->F(5), G#(8)->G(7), A#(10)->A(9)
 SHARP_TO_NATURAL = {
-    1: 0,   # C# -> C
-    3: 2,   # D# -> D
-    6: 5,   # F# -> F
-    8: 7,   # G# -> G
+    1: 0,  # C# -> C
+    3: 2,  # D# -> D
+    6: 5,  # F# -> F
+    8: 7,  # G# -> G
     10: 9,  # A# -> A
 }
 
 
-def midi_note_to_key_15_triple(midi_note: int, transpose: bool = False, sharp_handling: str = "skip") -> str | None:
+def midi_note_to_key_15_triple(
+    midi_note: int, transpose: bool = False, sharp_handling: str = "skip"
+) -> str | None:
     """Convert a MIDI note number to a Heartopia 15-key triple row keyboard key.
 
     Args:
