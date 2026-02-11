@@ -525,12 +525,6 @@ class SongPicker:
             play_row, textvariable=play_key_var, width=12, relief="sunken", anchor="center"
         )
         play_key_label.pack(side=tk.LEFT, padx=(5, 5))
-        ttk.Button(
-            play_row,
-            text="Bind",
-            width=5,
-            command=lambda: self._start_key_bind(settings, play_key_var, "play_key"),
-        ).pack(side=tk.LEFT)
 
         # Stop key
         stop_row = ttk.Frame(hotkey_frame)
@@ -541,12 +535,6 @@ class SongPicker:
             stop_row, textvariable=stop_key_var, width=12, relief="sunken", anchor="center"
         )
         stop_key_label.pack(side=tk.LEFT, padx=(5, 5))
-        ttk.Button(
-            stop_row,
-            text="Bind",
-            width=5,
-            command=lambda: self._start_key_bind(settings, stop_key_var, "stop_key"),
-        ).pack(side=tk.LEFT)
 
         # Emergency stop key
         emergency_row = ttk.Frame(hotkey_frame)
@@ -561,11 +549,33 @@ class SongPicker:
             anchor="center",
         )
         emergency_key_label.pack(side=tk.LEFT, padx=(5, 5))
+
+        # Create a dict to pass all key vars to bind function
+        key_vars = {
+            "play_key": play_key_var,
+            "stop_key": stop_key_var,
+            "emergency_stop_key": emergency_key_var,
+        }
+
+        ttk.Button(
+            play_row,
+            text="Bind",
+            width=5,
+            command=lambda: self._start_key_bind(settings, play_key_var, "play_key", key_vars),
+        ).pack(side=tk.LEFT)
+
+        ttk.Button(
+            stop_row,
+            text="Bind",
+            width=5,
+            command=lambda: self._start_key_bind(settings, stop_key_var, "stop_key", key_vars),
+        ).pack(side=tk.LEFT)
+
         ttk.Button(
             emergency_row,
             text="Bind",
             width=5,
-            command=lambda: self._start_key_bind(settings, emergency_key_var, "emergency_stop_key"),
+            command=lambda: self._start_key_bind(settings, emergency_key_var, "emergency_stop_key", key_vars),
         ).pack(side=tk.LEFT)
 
         # Close button
@@ -625,8 +635,39 @@ class SongPicker:
         if self.on_sharp_handling_change:
             self.on_sharp_handling_change(value)
 
-    def _start_key_bind(self, parent: tk.Toplevel, key_var: tk.StringVar, config_key: str) -> None:
-        """Start listening for a key press to bind to a hotkey."""
+    def _check_hotkey_conflict(self, new_key: str, current_action: str) -> str | None:
+        """Check if a key is already bound to another action.
+
+        Args:
+            new_key: The key to check (e.g., "f2")
+            current_action: The action being bound (e.g., "play_key")
+
+        Returns:
+            The name of the conflicting action, or None if no conflict
+        """
+        if new_key == self._play_key and current_action != "play_key":
+            return "Play"
+        elif new_key == self._stop_key and current_action != "stop_key":
+            return "Stop"
+        elif new_key == self._emergency_key and current_action != "emergency_stop_key":
+            return "Emergency Stop"
+        return None
+
+    def _start_key_bind(
+        self,
+        parent: tk.Toplevel,
+        key_var: tk.StringVar,
+        config_key: str,
+        all_key_vars: dict[str, tk.StringVar] | None = None,
+    ) -> None:
+        """Start listening for a key press to bind to a hotkey.
+
+        Args:
+            parent: The settings dialog window
+            key_var: The StringVar to update with the new key
+            config_key: The config key being bound ("play_key", "stop_key", or "emergency_stop_key")
+            all_key_vars: Dict mapping config keys to their StringVars for updating conflicts
+        """
         original_value = key_var.get()
         key_var.set("Press a key...")
 
@@ -634,6 +675,33 @@ class SongPicker:
             key_name = event.keysym
             if key_name in BINDABLE_KEYS:
                 config_value = BINDABLE_KEYS[key_name]
+
+                # Check for conflicts
+                conflict = self._check_hotkey_conflict(config_value, config_key)
+                if conflict:
+                    from tkinter import messagebox
+
+                    result = messagebox.askyesno(
+                        "Hotkey Conflict",
+                        f"Key {config_value.upper()} is already bound to {conflict}. Replace?",
+                        parent=parent,
+                    )
+                    if not result:
+                        # User canceled, revert
+                        key_var.set(original_value)
+                        parent.unbind("<Key>")
+                        return "break"
+
+                    # User confirmed replacement
+                    # Clear the old binding by updating its display to show it needs rebinding
+                    if all_key_vars:
+                        if config_value == self._play_key:
+                            all_key_vars["play_key"].set("(unbound)")
+                        elif config_value == self._stop_key:
+                            all_key_vars["stop_key"].set("(unbound)")
+                        elif config_value == self._emergency_key:
+                            all_key_vars["emergency_stop_key"].set("(unbound)")
+
                 key_var.set(config_value.upper())
 
                 # Update internal state

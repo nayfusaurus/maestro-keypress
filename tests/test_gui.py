@@ -162,5 +162,87 @@ def test_song_picker_accepts_hotkey_callbacks():
 def test_bindable_keys_contains_f_keys():
     """BINDABLE_KEYS should include all F-keys."""
     from maestro.gui import BINDABLE_KEYS
+
     for i in range(1, 13):
         assert f"F{i}" in BINDABLE_KEYS
+
+
+def test_check_hotkey_conflict_detects_play_conflict():
+    """_check_hotkey_conflict should detect conflicts with play key."""
+    picker = SongPicker(
+        songs_folder=Path("/tmp"),
+        on_play=Mock(),
+        on_stop=Mock(),
+        get_state=Mock(return_value="Stopped"),
+        initial_play_key="f2",
+        initial_stop_key="f3",
+        initial_emergency_key="escape",
+    )
+
+    # Trying to bind f2 to stop should conflict with play
+    conflict = picker._check_hotkey_conflict("f2", "stop_key")
+    assert conflict == "Play"
+
+    # Trying to bind f2 to play itself should not conflict
+    conflict = picker._check_hotkey_conflict("f2", "play_key")
+    assert conflict is None
+
+
+def test_check_hotkey_conflict_detects_stop_conflict():
+    """_check_hotkey_conflict should detect conflicts with stop key."""
+    picker = SongPicker(
+        songs_folder=Path("/tmp"),
+        on_play=Mock(),
+        on_stop=Mock(),
+        get_state=Mock(return_value="Stopped"),
+        initial_play_key="f2",
+        initial_stop_key="f3",
+        initial_emergency_key="escape",
+    )
+
+    # Trying to bind f3 to play should conflict with stop
+    conflict = picker._check_hotkey_conflict("f3", "play_key")
+    assert conflict == "Stop"
+
+    # Trying to bind f3 to stop itself should not conflict
+    conflict = picker._check_hotkey_conflict("f3", "stop_key")
+    assert conflict is None
+
+
+def test_check_hotkey_conflict_detects_emergency_conflict():
+    """_check_hotkey_conflict should detect conflicts with emergency key."""
+    picker = SongPicker(
+        songs_folder=Path("/tmp"),
+        on_play=Mock(),
+        on_stop=Mock(),
+        get_state=Mock(return_value="Stopped"),
+        initial_play_key="f2",
+        initial_stop_key="f3",
+        initial_emergency_key="escape",
+    )
+
+    # Trying to bind escape to play should conflict with emergency
+    conflict = picker._check_hotkey_conflict("escape", "play_key")
+    assert conflict == "Emergency Stop"
+
+    # Trying to bind escape to emergency itself should not conflict
+    conflict = picker._check_hotkey_conflict("escape", "emergency_stop_key")
+    assert conflict is None
+
+
+def test_check_hotkey_conflict_no_conflict():
+    """_check_hotkey_conflict should return None when there's no conflict."""
+    picker = SongPicker(
+        songs_folder=Path("/tmp"),
+        on_play=Mock(),
+        on_stop=Mock(),
+        get_state=Mock(return_value="Stopped"),
+        initial_play_key="f2",
+        initial_stop_key="f3",
+        initial_emergency_key="escape",
+    )
+
+    # Trying to bind f5 to anything should not conflict
+    assert picker._check_hotkey_conflict("f5", "play_key") is None
+    assert picker._check_hotkey_conflict("f5", "stop_key") is None
+    assert picker._check_hotkey_conflict("f5", "emergency_stop_key") is None
