@@ -641,7 +641,9 @@ class SongPicker:
             emergency_row,
             text="Bind",
             width=5,
-            command=lambda: self._start_key_bind(settings, emergency_key_var, "emergency_stop_key", key_vars),
+            command=lambda: self._start_key_bind(
+                settings, emergency_key_var, "emergency_stop_key", key_vars
+            ),
         ).pack(side=tk.LEFT)
 
         # Close button
