@@ -108,11 +108,13 @@ jobs:
           $hash.Hash | Out-File Maestro.exe.sha256
           Write-Output "SHA256: $($hash.Hash)"
 
-      - name: Upload exe artifact
+      - name: Upload exe and checksum artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Maestro-Windows
-          path: dist/Maestro.exe
+          path: |
+            dist/Maestro.exe
+            Maestro.exe.sha256
 
   release:
     name: Create Release
@@ -130,5 +132,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: Maestro.exe
+          files: |
+            Maestro.exe
+            Maestro.exe.sha256
           generate_release_notes: true
