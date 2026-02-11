@@ -157,16 +157,16 @@ class SongPicker:
 
         self.window: tk.Tk | None = None
         self.song_listbox: tk.Listbox | None = None
-        self.status_label: tk.Label | None = None
-        self.folder_label: tk.Label | None = None
+        self.status_label: tk.Label | ttk.Label | None = None
+        self.folder_label: tk.Label | ttk.Label | None = None
         self.search_var: tk.StringVar | None = None
         self.progress_bar: ttk.Progressbar | None = None
-        self.progress_label: tk.Label | None = None
-        self.song_info_label: tk.Label | None = None
+        self.progress_label: tk.Label | ttk.Label | None = None
+        self.song_info_label: tk.Label | ttk.Label | None = None
         self.game_mode_var: tk.StringVar | None = None
-        self.key_label: tk.Label | None = None
+        self.key_label: tk.Label | ttk.Label | None = None
         self.speed_var: tk.DoubleVar | None = None
-        self.speed_label: tk.Label | None = None
+        self.speed_label: tk.Label | ttk.Label | None = None
         self.preview_canvas: tk.Canvas | None = None
         self.lookahead_var: tk.IntVar | None = None
         self.preview_frame: ttk.LabelFrame | None = None
@@ -174,6 +174,7 @@ class SongPicker:
         self.layout_frame: ttk.Frame | None = None
         self.error_label: tk.Label | None = None
         self.song_detail_label: tk.Label | None = None
+        self._fav_btn: ttk.Button | None = None
         self._validation_results: dict[str, str] = {}  # path_str -> "valid" | "invalid" | "pending"
         self._song_info: dict[str, dict] = {}  # path_str -> {duration, bpm, note_count}
         self._song_notes: dict[
@@ -723,7 +724,8 @@ class SongPicker:
         selection = self.song_listbox.curselection()
         if not selection:
             return None
-        return self._filtered_songs[selection[0]]
+        index: int = selection[0]
+        return self._filtered_songs[index]
 
     def _on_play_click(self) -> None:
         """Handle play button click."""

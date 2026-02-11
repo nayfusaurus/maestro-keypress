@@ -182,7 +182,8 @@ class Maestro:
 
     def _get_favorites(self) -> list[str]:
         """Get list of favorite song names."""
-        return self._config.get("favorites", [])
+        favorites: list[str] = self._config.get("favorites", [])
+        return favorites
 
     def _on_sharp_handling_change(self, handling: str) -> None:
         """Handle sharp handling change from GUI."""

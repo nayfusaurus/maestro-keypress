@@ -54,7 +54,7 @@ def parse_midi(midi_path: Path) -> list[Note]:
         logger.error(f"Invalid MIDI file '{midi_path}': {e}")
         raise ValueError(f"Invalid MIDI file: {e}") from e
 
-    notes = []
+    notes: list[Note] = []
     # Track note_on events to calculate duration
     active_notes: dict[int, tuple[float, int]] = {}  # note -> (start_time, index)
 
@@ -98,7 +98,7 @@ def get_tempo(mid: mido.MidiFile) -> int:
     for track in mid.tracks:
         for msg in track:
             if msg.type == "set_tempo":
-                return msg.tempo
+                return int(msg.tempo)
     return 500000  # Default: 120 BPM
 
 
