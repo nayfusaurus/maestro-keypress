@@ -224,6 +224,32 @@ class TestResolveKey:
         result = player._resolve_key(68)
         assert result is None
 
+    def test_resolve_key_xylophone(self, player):
+        """Xylophone layout resolves natural notes 60-72 to a,s,d,f,g,h,j,k."""
+        player.key_layout = KeyLayout.XYLOPHONE
+        # C4 (60) = 'a'
+        result = player._resolve_key(60)
+        assert result == ("a", None)
+        # D4 (62) = 's'
+        result = player._resolve_key(62)
+        assert result == ("s", None)
+        # C5 (72) = 'k'
+        result = player._resolve_key(72)
+        assert result == ("k", None)
+
+    def test_resolve_key_xylophone_out_of_range(self, player):
+        """Xylophone layout returns None for sharp notes and out-of-range notes."""
+        player.key_layout = KeyLayout.XYLOPHONE
+        # Sharp note (C#4 = 61) should return None
+        result = player._resolve_key(61)
+        assert result is None
+        # Below range
+        result = player._resolve_key(59)
+        assert result is None
+        # Above range
+        result = player._resolve_key(73)
+        assert result is None
+
     def test_resolve_key_out_of_range_returns_none(self, player):
         """Out of range note returns None."""
         player.key_layout = KeyLayout.KEYS_22

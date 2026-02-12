@@ -314,6 +314,16 @@ class TestValidateConfig:
         assert validated["key_layout"] == "Conga/Cajon (8-key)"
         assert len(warnings) == 0
 
+    def test_valid_xylophone_layout(self):
+        """Xylophone (8-key) should be recognized as valid key_layout."""
+        config = DEFAULT_CONFIG.copy()
+        config["favorites"] = []
+        config["recently_played"] = []
+        config["key_layout"] = "Xylophone (8-key)"
+        validated, warnings = validate_config(config)
+        assert validated["key_layout"] == "Xylophone (8-key)"
+        assert len(warnings) == 0
+
     def test_invalid_sharp_handling(self):
         """Invalid sharp_handling should be reset to default."""
         config = DEFAULT_CONFIG.copy()
