@@ -39,7 +39,7 @@ Use the dropdown in the song picker to switch between games:
   - **22-key (Full)** - 3 octaves (C3-C6) with sharps
   - **15-key (Double Row)** - 2 octaves (C4-C6), naturals only, keys A-J + Q-I
   - **15-key (Triple Row)** - 2 octaves (C4-C6), naturals only, keys Y-P / H-; / N-/
-  - **Drums (8-key)** - Chromatic C4-G4 (MIDI 60-67), keys YUIO/HJKL, transpose/sharp disabled
+  - **Conga/Cajon (8-key)** - Chromatic C4-G4 (MIDI 60-67), keys YUIO/HJKL, transpose/sharp disabled
 - **Where Winds Meet** - Uses Shift modifier for sharps. Uses DirectInput (pydirectinput) for keyboard simulation.
 
 The game mode affects which keyboard layout and input method is used for playback.
@@ -86,7 +86,7 @@ For Heartopia's 15-key piano modes, only natural notes (no sharps) are supported
 
 Out-of-range notes are skipped by default. Enable transpose in Settings to shift them into the playable range.
 
-### Drums (8-key) - Heartopia
+### Conga/Cajon (8-key) - Heartopia
 
 Maps chromatic MIDI notes to 8 keys (conga drums):
 

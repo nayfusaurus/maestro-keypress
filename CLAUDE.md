@@ -79,7 +79,7 @@ uv sync                 # Install dependencies
 - **Countdown display**: Shows "Starting in 3..." before playback
 - **Piano roll preview**: Optional lookahead panel showing upcoming notes (hidden by default)
 - **Settings persistence**: Folder, game mode, speed, transpose, preview visibility, key layout, sharp handling, favorites, hotkeys saved between sessions
-- **Keys layout dropdown**: 22-key, 15-key Double Row, 15-key Triple Row, Drums (8-key) (Heartopia only, hidden for WWM)
+- **Keys layout dropdown**: 22-key, 15-key Double Row, 15-key Triple Row, Conga/Cajon (8-key) (Heartopia only, hidden for WWM)
 - **MIDI validation**: Background scan with green/red/gray status indicators (green=valid, red=invalid, gray=pending), incremental with mtime caching
 - **Song info**: Duration, BPM, note count for selected song
 - **Note compatibility**: Percentage of playable notes for current layout
