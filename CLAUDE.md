@@ -23,6 +23,7 @@ Maestro (main.py) - coordinates everything
     │       ├── keymap_15_double.py - 15-key double row mapping
     │       ├── keymap_15_triple.py - 15-key triple row mapping
     │       ├── keymap_drums.py - 8-key drums mapping (MIDI 60-67)
+    │       ├── keymap_xylophone.py - 8-key xylophone mapping (MIDI 60-72, natural notes)
     │       ├── keymap_wwm.py - Where Winds Meet mapping
     │       ├── key_layout.py - KeyLayout enum
     │       └── game_mode.py - GameMode enum
@@ -38,7 +39,8 @@ Maestro (main.py) - coordinates everything
 - `src/maestro/keymap_15_double.py` - 15-key double row keymap (naturals only, C4-C6, keys A-J + Q-I)
 - `src/maestro/keymap_15_triple.py` - 15-key triple row keymap (naturals only, C4-C6, keys Y-P / H-; / N-/)
 - `src/maestro/keymap_drums.py` - 8-key drums keymap (chromatic MIDI 60-67, keys YUIO/HJKL, transpose/sharp disabled)
-- `src/maestro/key_layout.py` - KeyLayout enum for key layout selection (KEYS_22, KEYS_15_DOUBLE, KEYS_15_TRIPLE, KEYS_DRUMS)
+- `src/maestro/keymap_xylophone.py` - 8-key xylophone keymap (natural notes only MIDI 60-72, keys A-K, transpose/sharp disabled)
+- `src/maestro/key_layout.py` - KeyLayout enum for key layout selection (KEYS_22, KEYS_15_DOUBLE, KEYS_15_TRIPLE, KEYS_DRUMS, KEYS_XYLOPHONE)
 - `src/maestro/game_mode.py` - GameMode enum for game selection
 - `src/maestro/parser.py` - Parses MIDI files into Note objects with multi-tempo support and MIDI info extraction
 - `src/maestro/player.py` - Event-driven playback engine with chord support, focus detection, stuck key protection, and event caching
@@ -63,7 +65,7 @@ uv sync                 # Install dependencies
 
 ## Testing
 
-385 tests across multiple test files covering all modules. Run with `uv run pytest -v`. 2 tests skipped (Windows-only focus detection).
+362 tests across multiple test files covering all modules. Run with `uv run pytest -v`. 2 tests skipped (Windows-only focus detection).
 
 ## GUI Features
 
@@ -119,6 +121,7 @@ uv sync                 # Install dependencies
 - **Event caching**: Built events are cached and reused when only speed changes, invalidated on layout/transpose/sharp changes.
 - **Incremental validation**: MIDI files are validated incrementally using mtime caching to avoid re-parsing unchanged files.
 - **Drums layout**: Uses chromatic MIDI notes 60-67 (C4-G4, conga drums). Transpose and sharp handling are disabled for drums.
+- **Xylophone layout**: Uses natural notes only (C major scale) MIDI 60-72 (C4-C5). Transpose and sharp handling are disabled for xylophone.
 - **MIDI extensions**: Supports both `.mid` and `.midi` file extensions.
 - **Hotkey conflict detection**: Warns users if they try to bind the same key to multiple actions.
 - **Window restore on finish**: Window automatically restores from minimized state when song finishes.

@@ -2,7 +2,7 @@
 
 Auto-play MIDI songs on in-game pianos by simulating keyboard presses. Supports:
 
-- **Heartopia** (22-key, 15-key Double Row, 15-key Triple Row, Drums 8-key)
+- **Heartopia** (22-key, 15-key Double Row, 15-key Triple Row, Conga/Cajon 8-key, Xylophone 8-key)
 - **Where Winds Meet**
 
 ## Installation
@@ -96,6 +96,16 @@ Maps chromatic MIDI notes to 8 keys (conga drums):
 - **Note range:** MIDI 60-67 (chromatic C4-G4)
 - **Out-of-range handling:** Notes outside 60-67 are skipped
 - **Transpose/sharp:** Disabled for drums layout (chromatic mapping, no transposition needed)
+
+### Xylophone (8-key) - Heartopia
+
+Maps natural notes only (C major scale) to 8 keys:
+
+**Keys:** A (60/C4), S (62/D4), D (64/E4), F (65/F4), G (67/G4), H (69/A4), J (71/B4), K (72/C5)
+
+- **Note range:** MIDI 60-72 (natural notes only, C4-C5)
+- **Out-of-range handling:** Sharp/flat notes and notes outside 60-72 are skipped
+- **Transpose/sharp:** Disabled for xylophone layout (natural notes only)
 
 ## Where Winds Meet Key Mapping
 
@@ -193,15 +203,17 @@ maestro-keypress/
 │   ├── keymap_15_double.py # Heartopia 15-key double row mapping
 │   ├── keymap_15_triple.py # Heartopia 15-key triple row mapping
 │   ├── keymap_drums.py     # Heartopia 8-key drums mapping
+│   ├── keymap_xylophone.py # Heartopia 8-key xylophone mapping
 │   ├── keymap_wwm.py       # Where Winds Meet mapping
 │   ├── key_layout.py       # KeyLayout enum
 │   ├── game_mode.py        # Game selection enum
 │   ├── gui.py              # Tkinter song picker with incremental validation
 │   ├── config.py           # Settings persistence with validation
 │   └── logger.py           # Error logging
-├── tests/                  # Test suite (385 tests, 2 skipped)
-│   ├── test_keymap_drums.py  # Drums keymap tests
-│   ├── ...                   # Other test files
+├── tests/                  # Test suite (362 tests, 2 skipped)
+│   ├── test_keymap_drums.py     # Drums keymap tests
+│   ├── test_keymap_xylophone.py # Xylophone keymap tests
+│   ├── ...                      # Other test files
 ├── songs/                  # .mid/.midi files go here
 ├── pyproject.toml          # Project config with pinned dependencies
 └── .github/workflows/      # CI with ruff, mypy, pip-audit

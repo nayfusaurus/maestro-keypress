@@ -4,9 +4,24 @@ All notable changes to Maestro will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.2.0/).
 
+## [1.3.0] - 2026-02-13
+
+### Added
+
+- **Xylophone (8-key) layout**: Natural notes only (C major scale) for Heartopia xylophone
+
+### Changed
+
+- **Drums layout renamed**: "Drums (8-key)" renamed to "Conga/Cajon (8-key)" for clarity
+
+### Tests
+
+- Test suite consolidated from 385 to 362 tests (removed redundant tests, improved coverage)
+
 ## [1.2.0] - 2026-02-11
 
 ### Added
+
 - **Drums layout**: 8-key chromatic drum keymap (MIDI 60-67, keys YUIO/HJKL) for Heartopia
 - **15-key layouts**: Double row (A-J / Q-I) and triple row (Y-P / H-; / N-/) natural-note keymaps
 - **Event-driven playback**: Key-down/key-up events with chord support and MIDI duration tracking
@@ -46,11 +61,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.2.0/).
 - **DirectInput for WWM**: Uses pydirectinput for Where Winds Meet (Windows-only, fallback to pynput)
 
 ### Changed
+
 - Playback engine rewritten from sleep-based to event-driven architecture
 - Minimum keypress timing set to 50ms for reliable game input detection
 - Removed pause functionality (simplified to play/stop only)
 
 ### Security
+
 - Dependencies pinned to exact versions for reproducibility
 - pip-audit vulnerability scanning added to CI
 - SHA256 checksums generated for Windows exe releases
@@ -59,6 +76,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.2.0/).
 ## [1.0.0] - 2026-01-28
 
 ### Added
+
 - **Heartopia support**: 22-key piano keymap (C3-C6) with full chromatic mapping
 - **Where Winds Meet support**: 36-key keymap with Shift modifier for sharps
 - **Game mode selection**: Dropdown to switch between Heartopia and Where Winds Meet
