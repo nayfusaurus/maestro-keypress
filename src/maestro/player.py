@@ -28,8 +28,8 @@ from maestro.keymap import midi_note_to_key
 from maestro.keymap_15_double import midi_note_to_key_15_double
 from maestro.keymap_15_triple import midi_note_to_key_15_triple
 from maestro.keymap_drums import midi_note_to_key as midi_note_to_key_drums
-from maestro.keymap_xylophone import midi_note_to_key as midi_note_to_key_xylophone
 from maestro.keymap_wwm import midi_note_to_key_wwm
+from maestro.keymap_xylophone import midi_note_to_key as midi_note_to_key_xylophone
 from maestro.logger import setup_logger
 from maestro.parser import Note, parse_midi
 
