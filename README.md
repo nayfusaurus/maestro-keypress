@@ -35,11 +35,12 @@ uv sync
 
 Use the dropdown in the song picker to switch between games:
 
-- **Heartopia** - Default. Uses pynput for keyboard simulation. Supports 4 key layouts:
+- **Heartopia** - Default. Uses pynput for keyboard simulation. Supports 5 key layouts:
   - **22-key (Full)** - 3 octaves (C3-C6) with sharps
   - **15-key (Double Row)** - 2 octaves (C4-C6), naturals only, keys A-J + Q-I
   - **15-key (Triple Row)** - 2 octaves (C4-C6), naturals only, keys Y-P / H-; / N-/
   - **Conga/Cajon (8-key)** - Chromatic C4-G4 (MIDI 60-67), keys YUIO/HJKL, transpose/sharp disabled
+  - **Xylophone (8-key)** - Natural notes C4-C5 (MIDI 60,62,64,65,67,69,71,72), keys A-K, transpose/sharp disabled
 - **Where Winds Meet** - Uses Shift modifier for sharps. Uses DirectInput (pydirectinput) for keyboard simulation.
 
 The game mode affects which keyboard layout and input method is used for playback.

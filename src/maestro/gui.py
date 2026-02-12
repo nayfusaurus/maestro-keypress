@@ -918,7 +918,9 @@ class SongPicker:
                     pct = round(playable / total * 100)
                     # Special message for drums layout
                     if self._key_layout == KeyLayout.DRUMS:
-                        compat_text = f" | {pct}% playable on Conga/Cajon (8-key) ({playable}/{total})"
+                        compat_text = (
+                            f" | {pct}% playable on Conga/Cajon (8-key) ({playable}/{total})"
+                        )
                     else:
                         compat_text = f" | {pct}% playable ({playable}/{total})"
                     if pct < 100:

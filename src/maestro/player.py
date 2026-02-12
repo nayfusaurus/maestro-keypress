@@ -257,7 +257,9 @@ class Player:
         elif self._key_layout == KeyLayout.DRUMS:
             key = midi_note_to_key_drums(midi_note, transpose=False)  # Drums never transpose
         elif self._key_layout == KeyLayout.XYLOPHONE:
-            key = midi_note_to_key_xylophone(midi_note, transpose=False)  # Xylophone never transposes
+            key = midi_note_to_key_xylophone(
+                midi_note, transpose=False
+            )  # Xylophone never transposes
         else:  # KEYS_22
             key = midi_note_to_key(midi_note, transpose=self._transpose)
 
