@@ -305,13 +305,13 @@ class TestValidateConfig:
         assert any("key_layout" in w for w in warnings)
 
     def test_valid_drums_layout(self):
-        """drums should be recognized as valid key_layout."""
+        """Conga/Cajon (8-key) should be recognized as valid key_layout."""
         config = DEFAULT_CONFIG.copy()
         config["favorites"] = []
         config["recently_played"] = []
-        config["key_layout"] = "drums"
+        config["key_layout"] = "Conga/Cajon (8-key)"
         validated, warnings = validate_config(config)
-        assert validated["key_layout"] == "drums"
+        assert validated["key_layout"] == "Conga/Cajon (8-key)"
         assert len(warnings) == 0
 
     def test_invalid_sharp_handling(self):

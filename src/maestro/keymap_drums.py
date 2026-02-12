@@ -1,4 +1,4 @@
-"""Drum keymap for Heartopia 8-key drums.
+"""Drum keymap for Heartopia 8-key Conga/Cajon.
 
 Maps MIDI notes 60-67 (chromatic) to keyboard keys YUIO/HJKL.
 Top row: Y, U, I, O (notes 60, 61, 62, 63)

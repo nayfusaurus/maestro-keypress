@@ -23,7 +23,7 @@ def test_keys_15_triple_value():
 
 def test_drums_value():
     """DRUMS should be the drums layout."""
-    assert KeyLayout.DRUMS.value == "Drums (8-key)"
+    assert KeyLayout.DRUMS.value == "Conga/Cajon (8-key)"
 
 
 def test_iteration_order():

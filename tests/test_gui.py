@@ -578,4 +578,4 @@ def test_drums_layout_accepted():
 def test_drums_layout_value():
     """Drums layout should have correct display value."""
     from maestro.key_layout import KeyLayout
-    assert KeyLayout.DRUMS.value == "Drums (8-key)"
+    assert KeyLayout.DRUMS.value == "Conga/Cajon (8-key)"
