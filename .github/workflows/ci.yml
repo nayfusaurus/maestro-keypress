@@ -86,10 +86,11 @@ jobs:
       - name: Build exe
         run: uv run pyinstaller Maestro.spec --noconfirm
 
-      - name: Generate SHA256 checksum
+      - name: Prepare release files
         run: |
-          $hash = Get-FileHash dist/Maestro.exe -Algorithm SHA256
-          $hash.Hash | Out-File dist/Maestro.exe.sha256
+          Copy-Item dist/Maestro.exe Maestro.exe
+          $hash = Get-FileHash Maestro.exe -Algorithm SHA256
+          $hash.Hash | Out-File Maestro.exe.sha256
           Write-Output "SHA256: $($hash.Hash)"
 
       - name: Upload exe and checksum artifacts
@@ -97,8 +98,8 @@ jobs:
         with:
           name: Maestro-Windows
           path: |
-            dist/Maestro.exe
-            dist/Maestro.exe.sha256
+            Maestro.exe
+            Maestro.exe.sha256
 
   release:
     name: Create Release
@@ -117,6 +118,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/Maestro.exe
-            dist/Maestro.exe.sha256
+            Maestro-Windows.zip
           generate_release_notes: true
