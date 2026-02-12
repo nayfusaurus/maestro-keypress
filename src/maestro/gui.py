@@ -16,7 +16,7 @@ from maestro.logger import open_log_file
 from maestro.parser import get_midi_info, parse_midi
 
 # App info
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 KOFI_URL = "https://ko-fi.com/nayfusaurus"
 
 # Valid key names that can be bound (maps tkinter keysym to config key name)

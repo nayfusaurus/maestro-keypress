@@ -2,9 +2,9 @@
 
 All notable changes to Maestro will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.2.0/).
 
-## [1.1.0] - 2026-02-11
+## [1.2.0] - 2026-02-11
 
 ### Added
 - **Drums layout**: 8-key chromatic drum keymap (MIDI 60-67, keys YUIO/HJKL) for Heartopia
