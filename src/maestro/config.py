@@ -81,7 +81,7 @@ def validate_config(config: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
             config[key] = DEFAULT_CONFIG[key]
 
     # Validate key_layout
-    valid_layouts = ["22-key (Full)", "15-key (Double Row)", "15-key (Triple Row)", "Conga/Cajon (8-key)"]
+    valid_layouts = ["22-key (Full)", "15-key (Double Row)", "15-key (Triple Row)", "Conga/Cajon (8-key)", "Xylophone (8-key)"]
     if config.get("key_layout") not in valid_layouts:
         warnings.append(f"Invalid key_layout '{config.get('key_layout')}', reset to default")
         config["key_layout"] = DEFAULT_CONFIG["key_layout"]

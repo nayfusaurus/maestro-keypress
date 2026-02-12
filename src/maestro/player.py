@@ -28,6 +28,7 @@ from maestro.keymap import midi_note_to_key
 from maestro.keymap_15_double import midi_note_to_key_15_double
 from maestro.keymap_15_triple import midi_note_to_key_15_triple
 from maestro.keymap_drums import midi_note_to_key as midi_note_to_key_drums
+from maestro.keymap_xylophone import midi_note_to_key as midi_note_to_key_xylophone
 from maestro.keymap_wwm import midi_note_to_key_wwm
 from maestro.logger import setup_logger
 from maestro.parser import Note, parse_midi
@@ -255,6 +256,8 @@ class Player:
             )
         elif self._key_layout == KeyLayout.DRUMS:
             key = midi_note_to_key_drums(midi_note, transpose=False)  # Drums never transpose
+        elif self._key_layout == KeyLayout.XYLOPHONE:
+            key = midi_note_to_key_xylophone(midi_note, transpose=False)  # Xylophone never transposes
         else:  # KEYS_22
             key = midi_note_to_key(midi_note, transpose=self._transpose)
 
