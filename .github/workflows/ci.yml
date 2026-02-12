@@ -19,29 +19,13 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Install dependencies
-        run: |
-          uv sync
-          uv add bandit --dev
+        run: uv sync
 
       - name: Run Bandit security scan
-        run: uv run bandit -r src/maestro -f txt -o bandit-report.txt || true
-
-      - name: Display Bandit report
-        run: cat bandit-report.txt
-
-      - name: Upload Bandit report
-        uses: actions/upload-artifact@v4
-        with:
-          name: bandit-report
-          path: bandit-report.txt
-
-      - name: Fail on high severity issues
         run: uv run bandit -r src/maestro -ll -ii
 
       - name: Run pip-audit (dependency vulnerability scan)
-        run: |
-          uv add pip-audit --dev
-          uv run pip-audit
+        run: uv run pip-audit
 
   lint:
     name: Lint (Ruff + mypy)
@@ -105,7 +89,7 @@ jobs:
       - name: Generate SHA256 checksum
         run: |
           $hash = Get-FileHash dist/Maestro.exe -Algorithm SHA256
-          $hash.Hash | Out-File Maestro.exe.sha256
+          $hash.Hash | Out-File dist/Maestro.exe.sha256
           Write-Output "SHA256: $($hash.Hash)"
 
       - name: Upload exe and checksum artifacts
@@ -114,7 +98,7 @@ jobs:
           name: Maestro-Windows
           path: |
             dist/Maestro.exe
-            Maestro.exe.sha256
+            dist/Maestro.exe.sha256
 
   release:
     name: Create Release
@@ -133,6 +117,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            Maestro.exe
-            Maestro.exe.sha256
+            dist/Maestro.exe
+            dist/Maestro.exe.sha256
           generate_release_notes: true
