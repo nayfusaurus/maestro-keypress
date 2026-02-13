@@ -14,9 +14,11 @@ from maestro.game_mode import GameMode
 from maestro.key_layout import KeyLayout
 from maestro.logger import open_log_file
 from maestro.parser import get_midi_info, parse_midi
+from maestro.update_checker import UpdateInfo, check_for_updates
 
 # App info
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.4.0"
+GITHUB_REPO = "nayfusaurus/maestro-keypress"
 KOFI_URL = "https://ko-fi.com/nayfusaurus"
 
 # Valid key names that can be bound (maps tkinter keysym to config key name)
@@ -178,6 +180,9 @@ class SongPicker:
         self.error_label: tk.Label | None = None
         self.song_detail_label: tk.Label | None = None
         self._fav_btn: ttk.Button | None = None
+        self.update_banner: ttk.Frame | None = None
+        self.update_message: ttk.Label | None = None
+        self._update_info: UpdateInfo | None = None
         self._validation_results: dict[str, str] = {}  # path_str -> "valid" | "invalid" | "pending"
         self._song_info: dict[str, dict] = {}  # path_str -> {duration, bpm, note_count}
         self._song_notes: dict[
@@ -318,6 +323,9 @@ class SongPicker:
 
         # Menu bar
         self._create_menu_bar()
+
+        # Update notification banner (hidden by default)
+        self._create_update_banner()
 
         # Folder selection
         folder_frame = ttk.Frame(self.window)
@@ -501,6 +509,25 @@ class SongPicker:
         self._update_status()
         self._start_progress_updates()
 
+        # Check for updates in background
+        self._background_update_check()
+
+    def _background_update_check(self) -> None:
+        """Check for updates in a background thread."""
+
+        def check_updates() -> None:
+            """Background thread function to check for updates."""
+            update_info = check_for_updates(APP_VERSION, GITHUB_REPO, timeout=5)
+
+            # Only show banner if there's an update (silently ignore errors)
+            if update_info.has_update and self.window:
+                # Schedule UI update on main thread
+                self.window.after(0, lambda: self._show_update_banner(update_info))
+
+        # Start background thread
+        thread = threading.Thread(target=check_updates, daemon=True)
+        thread.start()
+
     def _create_menu_bar(self) -> None:
         """Create the menu bar."""
         if self.window is None:
@@ -520,9 +547,144 @@ class SongPicker:
         # Help menu
         help_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Help", menu=help_menu)
+        help_menu.add_command(label="Check for Updates...", command=self._manual_update_check)
+        help_menu.add_separator()
         help_menu.add_command(label="Disclaimer", command=self._show_disclaimer)
         help_menu.add_separator()
         help_menu.add_command(label="About", command=self._show_about)
+
+    def _create_update_banner(self) -> None:
+        """Create the update notification banner (hidden by default)."""
+        if self.window is None:
+            return
+
+        self.update_banner = ttk.Frame(self.window, relief=tk.RIDGE, borderwidth=1)
+        # Don't pack it yet - will be shown when update is available
+
+        # Info icon and message
+        info_frame = ttk.Frame(self.update_banner)
+        info_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=10, pady=5)
+
+        self.update_message = ttk.Label(
+            info_frame,
+            text="",
+            foreground="#0066cc",
+        )
+        self.update_message.pack(side=tk.LEFT)
+
+        # Buttons frame
+        btn_frame = ttk.Frame(self.update_banner)
+        btn_frame.pack(side=tk.RIGHT, padx=10, pady=5)
+
+        ttk.Button(
+            btn_frame,
+            text="View Release",
+            command=self._open_release_page,
+            width=12,
+        ).pack(side=tk.LEFT, padx=(0, 5))
+
+        ttk.Button(
+            btn_frame,
+            text="Dismiss",
+            command=self._dismiss_update_banner,
+            width=8,
+        ).pack(side=tk.LEFT)
+
+    def _show_update_banner(self, update_info: UpdateInfo) -> None:
+        """Show the update banner with the given information."""
+        if self.update_banner is None or self.window is None:
+            return
+
+        self._update_info = update_info
+
+        # Update message
+        if self.update_message:
+            self.update_message.config(
+                text=f"ℹ️  New version available: v{update_info.latest_version}"
+            )
+
+        # Pack banner at the top (after menu bar)
+        self.update_banner.pack(fill=tk.X, padx=0, pady=0, after=self.window.children["!menu"])
+
+    def _dismiss_update_banner(self) -> None:
+        """Hide the update banner."""
+        if self.update_banner:
+            self.update_banner.pack_forget()
+        self._update_info = None
+
+    def _open_release_page(self) -> None:
+        """Open the GitHub release page in the browser."""
+        if self._update_info and self._update_info.release_url:
+            webbrowser.open(self._update_info.release_url)
+
+    def _manual_update_check(self) -> None:
+        """Manually check for updates (triggered from menu)."""
+        if self.window is None:
+            return
+
+        # Show checking message
+        self.window.config(cursor="watch")
+        self.window.update()
+
+        # Check for updates
+        update_info = check_for_updates(APP_VERSION, GITHUB_REPO, timeout=10)
+
+        self.window.config(cursor="")
+
+        if update_info.error:
+            # Show error dialog
+            error_dialog = tk.Toplevel(self.window)
+            error_dialog.title("Update Check Failed")
+            error_dialog.geometry("350x120")
+            error_dialog.resizable(False, False)
+            error_dialog.transient(self.window)
+            error_dialog.grab_set()
+
+            ttk.Label(
+                error_dialog,
+                text="Could not check for updates.",
+                font=("", 10, "bold"),
+            ).pack(pady=(20, 5))
+
+            ttk.Label(
+                error_dialog,
+                text=update_info.error,
+                wraplength=300,
+            ).pack(pady=(0, 20))
+
+            ttk.Button(error_dialog, text="OK", command=error_dialog.destroy, width=10).pack()
+
+            # Center on parent
+            error_dialog.update_idletasks()
+            x = self.window.winfo_x() + (self.window.winfo_width() - 350) // 2
+            y = self.window.winfo_y() + (self.window.winfo_height() - 120) // 2
+            error_dialog.geometry(f"+{x}+{y}")
+
+        elif update_info.has_update:
+            # Show update banner
+            self._show_update_banner(update_info)
+        else:
+            # Show "up to date" dialog
+            uptodate_dialog = tk.Toplevel(self.window)
+            uptodate_dialog.title("No Updates Available")
+            uptodate_dialog.geometry("300x100")
+            uptodate_dialog.resizable(False, False)
+            uptodate_dialog.transient(self.window)
+            uptodate_dialog.grab_set()
+
+            ttk.Label(
+                uptodate_dialog,
+                text=f"You're up to date! (v{APP_VERSION})",
+                font=("", 10, "bold"),
+            ).pack(pady=(30, 20))
+
+            ttk.Button(uptodate_dialog, text="OK", command=uptodate_dialog.destroy, width=10).pack()
+
+            # Center on parent
+            uptodate_dialog.update_idletasks()
+            x = self.window.winfo_x() + (self.window.winfo_width() - 300) // 2
+            y = self.window.winfo_y() + (self.window.winfo_height() - 100) // 2
+            uptodate_dialog.geometry(f"+{x}+{y}")
 
     def _show_settings(self) -> None:
         """Show the Settings dialog."""
@@ -1266,6 +1428,9 @@ class SongPicker:
             self.error_label = None
             self.song_detail_label = None
             self._fav_btn = None
+            self.update_banner = None
+            self.update_message = None
+            self._update_info = None
 
         # Exit the entire app
         if self.on_exit:

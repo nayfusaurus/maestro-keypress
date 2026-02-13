@@ -4,6 +4,34 @@ All notable changes to Maestro will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.2.0/).
 
+## [1.4.0] - 2026-02-13
+
+### Added
+
+- **Auto-update checker**: Checks GitHub for new releases on startup
+  - Background check on app launch (non-blocking)
+  - Update notification banner with "View Release" and "Dismiss" buttons
+  - Manual check via Help → "Check for Updates..." menu item
+  - Graceful error handling (fails silently if no internet)
+- **App icon**: Custom icon for Windows .exe and GUI window
+  - Multi-size .ico file for Windows builds
+  - PNG icon displayed in window title bar
+
+### Fixed
+
+- **Keys dropdown bug**: Keys layout dropdown now correctly reappears when switching from WWM back to Heartopia
+
+### Changed
+
+- **README enhanced**: Professional layout with logo, badges, and better organization
+  - Added maestro-logo with badges (CI, Python, License, Downloads, Claude)
+  - Reorganized sections with collapsible details
+  - Added Quick Start, Contributing, and Support sections
+
+### Tests
+
+- Test suite expanded to 368 tests (8 new tests for update checker)
+
 ## [1.3.0] - 2026-02-13
 
 ### Added
