@@ -1,6 +1,6 @@
 """Check for new releases on GitHub."""
 
-import urllib.request
+import requests
 from typing import NamedTuple
 
 
@@ -45,9 +45,7 @@ def compare_versions(current: str, latest: str) -> bool:
     return latest_tuple > current_tuple
 
 
-def check_for_updates(
-    current_version: str, repo: str, timeout: int = 5
-) -> UpdateInfo:
+def check_for_updates(current_version: str, repo: str, timeout: int = 5) -> UpdateInfo:
     """Check GitHub for new releases.
 
     Args:
@@ -62,52 +60,50 @@ def check_for_updates(
     release_url = f"https://github.com/{repo}/releases/latest"
 
     try:
-        # Make request to GitHub API
-        req = urllib.request.Request(
+        # Make request to GitHub API using requests library
+        response = requests.get(
             api_url,
             headers={"Accept": "application/vnd.github.v3+json"},
+            timeout=timeout,
         )
 
-        with urllib.request.urlopen(req, timeout=timeout) as response:
-            if response.status != 200:
-                return UpdateInfo(
-                    has_update=False,
-                    latest_version=None,
-                    release_url=None,
-                    error=f"GitHub API returned status {response.status}",
-                )
-
-            # Parse JSON response
-            import json
-
-            data = json.loads(response.read().decode("utf-8"))
-            latest_version = data.get("tag_name", "").lstrip("v")
-
-            if not latest_version:
-                return UpdateInfo(
-                    has_update=False,
-                    latest_version=None,
-                    release_url=None,
-                    error="Could not parse version from GitHub response",
-                )
-
-            # Compare versions
-            has_update = compare_versions(current_version, latest_version)
-
+        if response.status_code != 200:
             return UpdateInfo(
-                has_update=has_update,
-                latest_version=latest_version,
-                release_url=release_url if has_update else None,
-                error=None,
+                has_update=False,
+                latest_version=None,
+                release_url=None,
+                error=f"GitHub API returned status {response.status_code}",
             )
 
-    except urllib.error.URLError as e:
-        # Network error (no internet, timeout, etc.)
+        # Parse JSON response
+        data = response.json()
+        latest_version = data.get("tag_name", "").lstrip("v")
+
+        if not latest_version:
+            return UpdateInfo(
+                has_update=False,
+                latest_version=None,
+                release_url=None,
+                error="Could not parse version from GitHub response",
+            )
+
+        # Compare versions
+        has_update = compare_versions(current_version, latest_version)
+
+        return UpdateInfo(
+            has_update=has_update,
+            latest_version=latest_version,
+            release_url=release_url if has_update else None,
+            error=None,
+        )
+
+    except requests.exceptions.RequestException as e:
+        # Network error (no internet, timeout, connection error, etc.)
         return UpdateInfo(
             has_update=False,
             latest_version=None,
             release_url=None,
-            error=f"Network error: {e.reason}",
+            error=f"Network error: {e}",
         )
     except Exception as e:
         # Other errors (JSON parse, etc.)
