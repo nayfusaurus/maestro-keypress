@@ -14,12 +14,12 @@ def test_midi_path(tmp_path):
     mid.tracks.append(track)
 
     # Add some notes: C4, D4, E4 with timing
-    track.append(mido.Message('note_on', note=60, velocity=64, time=0))
-    track.append(mido.Message('note_off', note=60, velocity=64, time=480))
-    track.append(mido.Message('note_on', note=62, velocity=64, time=0))
-    track.append(mido.Message('note_off', note=62, velocity=64, time=480))
-    track.append(mido.Message('note_on', note=64, velocity=64, time=0))
-    track.append(mido.Message('note_off', note=64, velocity=64, time=480))
+    track.append(mido.Message("note_on", note=60, velocity=64, time=0))
+    track.append(mido.Message("note_off", note=60, velocity=64, time=480))
+    track.append(mido.Message("note_on", note=62, velocity=64, time=0))
+    track.append(mido.Message("note_off", note=62, velocity=64, time=480))
+    track.append(mido.Message("note_on", note=64, velocity=64, time=0))
+    track.append(mido.Message("note_off", note=64, velocity=64, time=480))
 
     midi_path = tmp_path / "test_song.mid"
     mid.save(midi_path)
@@ -64,14 +64,14 @@ def test_parse_midi_multi_tempo(tmp_path):
     mid.tracks.append(track)
 
     # Start at 120 BPM (500000 microseconds per beat)
-    track.append(mido.MetaMessage('set_tempo', tempo=500000, time=0))
-    track.append(mido.Message('note_on', note=60, velocity=64, time=0))
-    track.append(mido.Message('note_off', note=60, velocity=64, time=480))
+    track.append(mido.MetaMessage("set_tempo", tempo=500000, time=0))
+    track.append(mido.Message("note_on", note=60, velocity=64, time=0))
+    track.append(mido.Message("note_off", note=60, velocity=64, time=480))
 
     # Change to 60 BPM (1000000 microseconds per beat)
-    track.append(mido.MetaMessage('set_tempo', tempo=1000000, time=0))
-    track.append(mido.Message('note_on', note=62, velocity=64, time=0))
-    track.append(mido.Message('note_off', note=62, velocity=64, time=480))
+    track.append(mido.MetaMessage("set_tempo", tempo=1000000, time=0))
+    track.append(mido.Message("note_on", note=62, velocity=64, time=0))
+    track.append(mido.Message("note_off", note=62, velocity=64, time=480))
 
     midi_path = tmp_path / "multi_tempo.mid"
     mid.save(midi_path)
@@ -92,7 +92,7 @@ def test_parse_midi_file_size_limit(tmp_path):
 
     # Create a file larger than the limit
     big_file = tmp_path / "big.mid"
-    big_file.write_bytes(b'\x00' * (MAX_MIDI_SIZE + 1))
+    big_file.write_bytes(b"\x00" * (MAX_MIDI_SIZE + 1))
 
     with pytest.raises(ValueError, match="too large"):
         parse_midi(big_file)

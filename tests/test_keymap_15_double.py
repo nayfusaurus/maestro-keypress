@@ -125,9 +125,7 @@ class TestTranspose:
 
     def test_transpose_sharp_with_snap_mode(self):
         """C#3 (MIDI 49) transposes to C#4, snap mode returns C4."""
-        assert (
-            midi_note_to_key_15_double(49, transpose=True, sharp_handling="snap") == "a"
-        )
+        assert midi_note_to_key_15_double(49, transpose=True, sharp_handling="snap") == "a"
 
 
 class TestOutOfRange:

@@ -54,6 +54,7 @@ def test_on_folder_change_callback():
 def test_on_layout_change_callback():
     """SongPicker should accept on_layout_change callback."""
     from maestro.key_layout import KeyLayout
+
     callback = Mock()
     picker = SongPicker(
         songs_folder=Path("/tmp"),
@@ -70,6 +71,7 @@ def test_on_layout_change_callback():
 def test_default_layout_is_22_key():
     """Default layout should be 22-key."""
     from maestro.key_layout import KeyLayout
+
     picker = SongPicker(
         songs_folder=Path("/tmp"),
         on_play=Mock(),
@@ -565,6 +567,7 @@ def test_validation_caches_invalid_files(tmp_path):
 def test_drums_layout_accepted():
     """SongPicker should accept drums layout."""
     from maestro.key_layout import KeyLayout
+
     picker = SongPicker(
         songs_folder=Path("/tmp"),
         on_play=Mock(),
@@ -578,4 +581,5 @@ def test_drums_layout_accepted():
 def test_drums_layout_value():
     """Conga/Cajon layout should have correct display value."""
     from maestro.key_layout import KeyLayout
+
     assert KeyLayout.DRUMS.value == "Conga/Cajon (8-key)"
