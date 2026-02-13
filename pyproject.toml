@@ -24,6 +24,7 @@ build-backend = "uv_build"
 dev = [
     "bandit==1.9.3",
     "mypy==1.19.1",
+    "pillow>=12.1.1",
     "pip-audit>=2.10.0",
     "pyinstaller==6.18.0",
     "pytest==9.0.2",

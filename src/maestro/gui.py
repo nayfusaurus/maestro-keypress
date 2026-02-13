@@ -306,6 +306,15 @@ class SongPicker:
         self.window.geometry("400x700")
         self.window.protocol("WM_DELETE_WINDOW", self._on_close)
 
+        # Set window icon
+        try:
+            icon_path = Path(__file__).parent.parent.parent / "assets" / "icon.png"
+            if icon_path.exists():
+                icon = tk.PhotoImage(file=str(icon_path))
+                self.window.iconphoto(True, icon)
+        except Exception:
+            pass  # Ignore if icon fails to load
+
         # Menu bar
         self._create_menu_bar()
 
