@@ -1,7 +1,8 @@
 """Check for new releases on GitHub."""
 
-import requests
 from typing import NamedTuple
+
+import requests
 
 
 class UpdateInfo(NamedTuple):
