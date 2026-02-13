@@ -166,6 +166,7 @@ class SongPicker:
         self.progress_label: tk.Label | ttk.Label | None = None
         self.song_info_label: tk.Label | ttk.Label | None = None
         self.game_mode_var: tk.StringVar | None = None
+        self.game_frame: ttk.Frame | None = None
         self.key_label: tk.Label | ttk.Label | None = None
         self.speed_var: tk.DoubleVar | None = None
         self.speed_label: tk.Label | ttk.Label | None = None
@@ -330,13 +331,13 @@ class SongPicker:
         self.folder_label.pack(side=tk.LEFT, padx=(5, 0), fill=tk.X, expand=True)
 
         # Game mode selection
-        game_frame = ttk.Frame(self.window)
-        game_frame.pack(fill=tk.X, padx=10, pady=(10, 0))
+        self.game_frame = ttk.Frame(self.window)
+        self.game_frame.pack(fill=tk.X, padx=10, pady=(10, 0))
 
-        ttk.Label(game_frame, text="Game:").pack(side=tk.LEFT)
+        ttk.Label(self.game_frame, text="Game:").pack(side=tk.LEFT)
         self.game_mode_var = tk.StringVar(value=GameMode.HEARTOPIA.value)
         game_dropdown = ttk.Combobox(
-            game_frame,
+            self.game_frame,
             textvariable=self.game_mode_var,
             values=[mode.value for mode in GameMode],
             state="readonly",
@@ -980,7 +981,7 @@ class SongPicker:
 
     def _update_layout_visibility(self) -> None:
         """Show layout dropdown only for Heartopia."""
-        if self.layout_frame is None:
+        if self.layout_frame is None or self.game_frame is None:
             return
 
         is_heartopia = True
@@ -988,8 +989,8 @@ class SongPicker:
             is_heartopia = self.game_mode_var.get() == GameMode.HEARTOPIA.value
 
         if is_heartopia:
-            # Pack after game mode frame
-            self.layout_frame.pack(fill=tk.X, padx=10, pady=(5, 0))
+            # Pack after game mode frame to maintain correct position
+            self.layout_frame.pack(fill=tk.X, padx=10, pady=(5, 0), after=self.game_frame)
         else:
             self.layout_frame.pack_forget()
 
@@ -1253,6 +1254,7 @@ class SongPicker:
             self.progress_label = None
             self.song_info_label = None
             self.game_mode_var = None
+            self.game_frame = None
             self.layout_var = None
             self.layout_frame = None
             self.key_label = None
