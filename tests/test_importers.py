@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from maestro.gui.workers import DemucsDownloadWorker, ImportWorker
 from maestro.importers.online_sequencer import (
     download_midi,
     extract_sequence_id,
@@ -249,3 +250,29 @@ class TestSynthesiaDetection:
     def test_rejects_all_white_frame(self):
         frame = np.ones((720, 1280, 3), dtype=np.uint8) * 255
         assert detect_synthesia_pattern(frame) is False
+
+
+# ── Import worker tests ─────────────────────────────────────────────────
+
+
+class TestImportWorker:
+    def test_worker_has_expected_signals(self):
+        worker = ImportWorker.__new__(ImportWorker)
+        assert hasattr(worker, "progress")
+        assert hasattr(worker, "finished")
+        assert hasattr(worker, "error")
+
+    def test_worker_stores_url_and_dest(self, tmp_path):
+        worker = ImportWorker.__new__(ImportWorker)
+        worker._url = "https://onlinesequencer.net/123"
+        worker._dest_folder = tmp_path
+        assert worker._url == "https://onlinesequencer.net/123"
+        assert worker._dest_folder == tmp_path
+
+
+class TestDemucsDownloadWorker:
+    def test_worker_has_expected_signals(self):
+        worker = DemucsDownloadWorker.__new__(DemucsDownloadWorker)
+        assert hasattr(worker, "progress")
+        assert hasattr(worker, "finished")
+        assert hasattr(worker, "error")
