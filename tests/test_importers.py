@@ -215,3 +215,37 @@ class TestIsolatePiano:
 
         isolate_piano(audio_path, tmp_path)
         mock_run.assert_called_once()
+
+
+# ── Synthesia detection tests ────────────────────────────────────────────
+
+import numpy as np
+
+from maestro.importers.synthesia import detect_synthesia_pattern
+
+
+class TestSynthesiaDetection:
+    def test_detects_colored_bars_above_keyboard(self):
+        """A frame with colored vertical bars in the top portion and
+        a horizontal bright band at the bottom should be detected as Synthesia."""
+        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+        # Draw a white horizontal bar at the bottom (piano keyboard area)
+        frame[620:720, :] = [255, 255, 255]
+        # Draw colored vertical bars in the upper portion
+        for x in range(0, 1280, 20):
+            color = [(0, 255, 0), (0, 0, 255), (255, 0, 0)][x // 20 % 3]
+            frame[100:620, x : x + 10] = color
+        assert detect_synthesia_pattern(frame) is True
+
+    def test_rejects_plain_video_frame(self):
+        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+        frame[200:400, 300:500] = [128, 128, 128]
+        assert detect_synthesia_pattern(frame) is False
+
+    def test_rejects_all_black_frame(self):
+        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+        assert detect_synthesia_pattern(frame) is False
+
+    def test_rejects_all_white_frame(self):
+        frame = np.ones((720, 1280, 3), dtype=np.uint8) * 255
+        assert detect_synthesia_pattern(frame) is False
