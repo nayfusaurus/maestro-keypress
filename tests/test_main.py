@@ -1,3 +1,5 @@
+"""Tests for the main Maestro coordinator."""
+
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
@@ -10,7 +12,6 @@ def mock_dependencies():
     """Mock all external dependencies."""
     with (
         patch("maestro.main.Player") as player_mock,
-        patch("maestro.main.SongPicker") as picker_mock,
         patch("maestro.main.keyboard") as kb_mock,
         patch("maestro.main.load_config") as load_config_mock,
         patch("maestro.main.save_config") as save_config_mock,
@@ -33,7 +34,6 @@ def mock_dependencies():
         }
         yield {
             "player": player_mock.return_value,
-            "picker": picker_mock.return_value,
             "keyboard": kb_mock,
             "load_config": load_config_mock,
             "save_config": save_config_mock,
@@ -90,8 +90,7 @@ def test_maestro_on_layout_change(mock_dependencies, tmp_path):
     from maestro.key_layout import KeyLayout
 
     app = Maestro(songs_folder=tmp_path)
-    app._on_layout_change(KeyLayout.KEYS_15_DOUBLE)
-    mock_dependencies["player"].key_layout = KeyLayout.KEYS_15_DOUBLE
+    app._on_layout_change(KeyLayout.KEYS_15_DOUBLE.value)
     mock_dependencies["save_config"].assert_called()
 
 
@@ -165,3 +164,18 @@ def test_maestro_on_hotkey_change(mock_dependencies, tmp_path):
     app._on_hotkey_change("play_key", "f5")
     assert app._config["play_key"] == "f5"
     mock_dependencies["save_config"].assert_called()
+
+
+def test_maestro_on_import_requested(mock_dependencies, tmp_path):
+    """Import request should create and start an ImportWorker."""
+    with patch("maestro.gui.workers.ImportWorker") as mock_worker_class:
+        mock_worker = Mock()
+        mock_worker_class.return_value = mock_worker
+
+        app = Maestro(songs_folder=tmp_path)
+        app.window = Mock()
+        app.window.signals = Mock()
+
+        app._on_import_requested("https://onlinesequencer.net/123")
+
+        mock_worker.start.assert_called_once()
