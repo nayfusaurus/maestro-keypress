@@ -13,7 +13,8 @@ Maestro is a Python CLI app that auto-plays MIDI songs on in-game pianos by simu
 - pydirectinput (DirectInput keyboard simulation for WWM)
 - PySide6 (Qt6 GUI with dark theme)
 - yt-dlp (YouTube audio download)
-- basic-pitch (audio-to-MIDI transcription)
+- basic-pitch (audio-to-MIDI transcription, ONNX backend)
+- onnxruntime (ML inference for basic-pitch)
 - opencv-python-headless (Synthesia frame analysis)
 
 ## Architecture
@@ -97,7 +98,7 @@ uv sync                 # Install dependencies
 
 ## Testing
 
-403 tests across multiple test files covering all modules. Run with `uv run pytest -v`. 2 tests skipped (Windows-only focus detection).
+405 tests across multiple test files covering all modules. Run with `uv run pytest -v`. 2 tests skipped (Windows-only focus detection).
 
 ## GUI Features
 
@@ -161,6 +162,7 @@ uv sync                 # Install dependencies
 - **Fixed sidebar width**: 300px sidebar instead of percentage — controls stay compact at any resolution.
 - **Import panel compact**: Import bar is ~80px tall — occasional action shouldn't compete with song list focal point.
 - **Column gap not separator**: 24px gap between columns, no visible divider line.
+- **ONNX inference backend**: basic-pitch supports TF/TFLite/ONNX/CoreML backends. ONNX Runtime is used for PyInstaller builds (~200MB vs TF's ~1.5GB). TF is excluded from the bundle; basic-pitch auto-detects ONNX at runtime via try/except ImportError.
 - **Demucs optional**: Not bundled in exe (~1GB). Downloaded to ~/.maestro/models/ via Settings.
 - **Window sizing**: 80% of primary screen, minimum 900x600, centered on launch.
 - **Event caching**: Built events are cached and reused when only speed changes, invalidated on layout/transpose/sharp changes.
@@ -194,3 +196,5 @@ uv run pyinstaller Maestro.spec --noconfirm
 ```
 
 Build config is in `Maestro.spec`. Output: `dist/Maestro.exe`
+
+**ML Backend:** basic-pitch uses ONNX Runtime for audio-to-MIDI inference (not TensorFlow). TF is excluded from the bundle to keep exe size ~200-250MB. basic-pitch auto-detects the ONNX backend at runtime.

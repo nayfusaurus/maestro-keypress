@@ -87,7 +87,6 @@ def test_song_discovery(songs_folder):
 def test_drums_layout_integration(tmp_path, mock_keyboard, mock_config):
     """Test drums layout integration with validation and compatibility."""
     from maestro.key_layout import KeyLayout
-    from maestro.gui import SongPicker
 
     # Create songs folder with drum-compatible MIDI
     songs_folder = tmp_path / "songs"

@@ -724,6 +724,10 @@ class MainWindow(QMainWindow):
 
     def _show_settings(self) -> None:
         """Show the Settings dialog."""
+        from maestro.importers.youtube import is_demucs_available
+
+        demucs_model_dir = Path.home() / ".maestro" / "models" / "htdemucs"
+
         dialog = SettingsDialog(
             parent=self,
             transpose=self._transpose,
@@ -733,6 +737,7 @@ class MainWindow(QMainWindow):
             play_key=self._play_key,
             stop_key=self._stop_key,
             emergency_key=self._emergency_key,
+            demucs_available=is_demucs_available(demucs_model_dir),
         )
 
         # Connect settings signals

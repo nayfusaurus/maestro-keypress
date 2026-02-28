@@ -4,15 +4,13 @@ Coordinates hotkey listening, GUI, and playback.
 """
 
 import signal
-import threading
-import time
+import sys
 from pathlib import Path
 
 from pynput import keyboard
 
 from maestro.config import load_config, save_config
 from maestro.game_mode import GameMode
-from maestro.gui import SongPicker
 from maestro.key_layout import KeyLayout
 from maestro.logger import setup_logger
 from maestro.parser import parse_midi
@@ -65,6 +63,10 @@ class Maestro:
         self.player = Player()
         self._listener: keyboard.Listener | None = None
         self._countdown: int = 0
+        self._countdown_timer = None
+        self._update_timer = None
+        self._prev_push_state: str = "Stopped"
+        self._import_worker = None
 
         # Apply saved settings
         game_mode_str = self._config.get("game_mode", "Heartopia")
@@ -85,40 +87,7 @@ class Maestro:
         # Restore sharp handling
         self.player.sharp_handling = self._config.get("sharp_handling", "skip")
 
-        self.picker = SongPicker(
-            songs_folder=self.songs_folder,
-            on_play=self._on_play,
-            on_stop=self.stop,
-            get_state=self._get_state_string,
-            get_position=lambda: self.player.position,
-            get_duration=lambda: self.player.duration,
-            get_current_song=self._get_current_song_name,
-            on_exit=self._exit,
-            on_game_change=self._on_game_change,
-            get_last_key=lambda: self.player.last_key,
-            on_speed_change=self._on_speed_change,
-            get_upcoming_notes=self.player.get_upcoming_notes,
-            on_lookahead_change=self._on_lookahead_change,
-            initial_lookahead=self._config.get("preview_lookahead", 5),
-            initial_transpose=self._config.get("transpose", False),
-            initial_show_preview=self._config.get("show_preview", False),
-            on_transpose_change=self._on_transpose_change,
-            on_show_preview_change=self._on_show_preview_change,
-            on_folder_change=self._on_folder_change,
-            on_layout_change=self._on_layout_change,
-            initial_layout=self.player.key_layout,
-            get_note_compatibility=self._get_note_compatibility,
-            on_favorite_toggle=self._on_favorite_toggle,
-            get_favorites=self._get_favorites,
-            on_sharp_handling_change=self._on_sharp_handling_change,
-            initial_sharp_handling=self._config.get("sharp_handling", "skip"),
-            on_hotkey_change=self._on_hotkey_change,
-            initial_play_key=self._config.get("play_key", "f2"),
-            initial_stop_key=self._config.get("stop_key", "f3"),
-            initial_emergency_key=self._config.get("emergency_stop_key", "escape"),
-        )
-
-        self._gui_thread: threading.Thread | None = None
+        self.window = None  # Created in start()
 
     def _get_hotkey(self, config_key: str, default: str) -> keyboard.Key | None:
         """Get a pynput Key from config string name."""
@@ -132,16 +101,71 @@ class Maestro:
         self._config["speed"] = self.player.speed
         save_config(self._config)
 
-    def _on_folder_change(self, folder: Path) -> None:
+    def _connect_signals(self) -> None:
+        """Wire GUI signals to Maestro slots."""
+        s = self.window.signals
+
+        # User action signals
+        s.play_requested.connect(self._on_play)
+        s.stop_requested.connect(self.stop)
+        s.exit_requested.connect(self._exit)
+        s.game_mode_changed.connect(self._on_game_change)
+        s.folder_changed.connect(self._on_folder_change)
+        s.layout_changed.connect(self._on_layout_change)
+        s.speed_changed.connect(self._on_speed_change)
+        s.lookahead_changed.connect(self._on_lookahead_change)
+        s.transpose_changed.connect(self._on_transpose_change)
+        s.show_preview_changed.connect(self._on_show_preview_change)
+        s.favorite_toggled.connect(self._on_favorite_toggle)
+        s.sharp_handling_changed.connect(self._on_sharp_handling_change)
+        s.hotkey_changed.connect(self._on_hotkey_change)
+        s.note_compatibility_requested.connect(self._on_note_compatibility_requested)
+        s.import_requested.connect(self._on_import_requested)
+
+    def _push_state_updates(self) -> None:
+        """Push current state to GUI via signals. Called every 200ms by QTimer."""
+        if self.window is None:
+            return
+
+        s = self.window.signals
+
+        # State
+        state_str = self._get_state_string()
+        s.state_updated.emit(state_str)
+
+        # Position
+        s.position_updated.emit(self.player.position, self.player.duration)
+
+        # Current song
+        name = self._get_current_song_name() or ""
+        s.current_song_updated.emit(name)
+
+        # Last key
+        s.last_key_updated.emit(self.player.last_key)
+
+        # Upcoming notes (for piano roll)
+        lookahead = self._config.get("preview_lookahead", 5)
+        notes = self.player.get_upcoming_notes(float(lookahead))
+        s.upcoming_notes_updated.emit(notes)
+
+        # Detect song finish (PLAYING -> STOPPED transition)
+        if self._prev_push_state == "Playing" and state_str == "Stopped":
+            s.song_finished.emit()
+        self._prev_push_state = state_str
+
+    def _on_folder_change(self, folder) -> None:
         """Handle folder change from GUI."""
-        self.songs_folder = folder
+        self.songs_folder = Path(folder) if not isinstance(folder, Path) else folder
         self._save_config()
 
-    def _on_game_change(self, mode: GameMode) -> None:
+    def _on_game_change(self, mode_str: str) -> None:
         """Handle game mode change from GUI."""
-        self.player.game_mode = mode
+        for mode in GameMode:
+            if mode.value == mode_str:
+                self.player.game_mode = mode
+                break
         self._save_config()
-        print(f"Game mode: {mode.value}")
+        print(f"Game mode: {mode_str}")
 
     def _on_speed_change(self, speed: float) -> None:
         """Handle speed change from GUI."""
@@ -164,10 +188,13 @@ class Maestro:
         self._config["show_preview"] = show_preview
         self._save_config()
 
-    def _on_layout_change(self, layout: KeyLayout) -> None:
+    def _on_layout_change(self, layout_str: str) -> None:
         """Handle key layout change from GUI."""
-        self.player.key_layout = layout
-        self._config["key_layout"] = layout.value
+        for layout in KeyLayout:
+            if layout.value == layout_str:
+                self.player.key_layout = layout
+                self._config["key_layout"] = layout.value
+                break
         self._save_config()
 
     def _on_favorite_toggle(self, song_name: str, is_favorite: bool) -> None:
@@ -197,6 +224,13 @@ class Maestro:
         self._save_config()
         print(f"Hotkey '{config_key}' changed to '{key_name}'")
 
+    def _on_note_compatibility_requested(self, song_path) -> None:
+        """Calculate note compatibility and emit result back to GUI."""
+        song_path = Path(song_path) if not isinstance(song_path, Path) else song_path
+        playable, total = self._get_note_compatibility(song_path)
+        if self.window:
+            self.window.signals.note_compatibility_result.emit(playable, total)
+
     def _get_note_compatibility(self, song_path: Path) -> tuple[int, int]:
         """Calculate how many notes in a song are playable with current layout.
 
@@ -217,8 +251,31 @@ class Maestro:
 
         return (playable, total)
 
-    def _on_play(self, song_path: Path) -> None:
+    def _on_import_requested(self, url: str) -> None:
+        """Handle import request from GUI."""
+        from maestro.gui.workers import ImportWorker
+
+        self._import_worker = ImportWorker(
+            url=url,
+            dest_folder=self.songs_folder,
+            isolate_piano=False,  # TODO: check demucs availability
+        )
+        self._import_worker.progress.connect(
+            lambda text: self.window.signals.import_progress.emit(text)
+        )
+        self._import_worker.finished.connect(
+            lambda filename: self.window.signals.import_finished.emit(filename)
+        )
+        self._import_worker.error.connect(
+            lambda msg: self.window.signals.import_error.emit(msg)
+        )
+        self._import_worker.start()
+
+    def _on_play(self, song_path) -> None:
         """Handle play request from GUI."""
+        from PySide6.QtCore import QTimer
+
+        song_path = Path(song_path) if not isinstance(song_path, Path) else song_path
         self.player.stop()
 
         # Track recently played
@@ -235,23 +292,32 @@ class Maestro:
         except Exception as e:
             error_msg = f"Cannot play {song_path.name}: {e}"
             self.logger.error(f"Failed to load '{song_path}': {e}")
-            self.picker.set_error(error_msg)
+            if self.window:
+                self.window.signals.error_occurred.emit(error_msg)
             return
 
-        # Start playback after countdown
-        def countdown_play():
-            for i in range(self.STARTUP_DELAY, 0, -1):
-                self._countdown = i
-                print(f"Playing '{song_path.stem}' in {i}...")
-                time.sleep(1)
-                if self.player.state == PlaybackState.PLAYING:
-                    self._countdown = 0
-                    return
-            self._countdown = 0
+        # Start countdown using QTimer instead of sleep-based thread
+        self._countdown = self.STARTUP_DELAY
+        if self.window:
+            self.window.signals.countdown_tick.emit(self._countdown)
+
+        self._countdown_timer = QTimer()
+        self._countdown_timer.timeout.connect(self._countdown_step)
+        self._countdown_timer.start(1000)
+
+    def _countdown_step(self) -> None:
+        """Handle one tick of the countdown timer."""
+        self._countdown -= 1
+
+        if self.window:
+            self.window.signals.countdown_tick.emit(self._countdown)
+
+        if self._countdown <= 0:
+            if self._countdown_timer:
+                self._countdown_timer.stop()
+                self._countdown_timer = None
             if self.player.state == PlaybackState.STOPPED:
                 self.player.play()
-
-        threading.Thread(target=countdown_play, daemon=True).start()
 
     def _get_state_string(self) -> str:
         """Get current playback state as string."""
@@ -265,19 +331,6 @@ class Maestro:
             return self.player.current_song.stem
         return None
 
-    def show_picker(self) -> None:
-        """Show the song picker GUI."""
-        if self._gui_thread is None or not self._gui_thread.is_alive():
-            self._gui_thread = threading.Thread(target=self._run_gui, daemon=True)
-            self._gui_thread.start()
-        else:
-            self.picker.show()
-
-    def _run_gui(self) -> None:
-        """Run the GUI in a separate thread."""
-        self.picker.show()
-        self.picker.run()
-
     def play(self) -> None:
         """Start playback if song is loaded."""
         if self.player.current_song and self.player.state == PlaybackState.STOPPED:
@@ -286,23 +339,67 @@ class Maestro:
     def stop(self) -> None:
         """Stop playback."""
         self._countdown = 0
+        if self._countdown_timer:
+            self._countdown_timer.stop()
+            self._countdown_timer = None
         self.player.stop()
 
     def _exit(self) -> None:
         """Exit the application."""
+        from PySide6.QtWidgets import QApplication
+
         print("\nExiting...")
         self._save_config()
         self.stop()
         if self._listener:
             self._listener.stop()
+        QApplication.quit()
 
     def start(self) -> None:
-        """Start the application with hotkey listening."""
-        play_key = self._get_hotkey("play_key", "f2")
-        stop_key = self._get_hotkey("stop_key", "f3")
-        emergency_key = self._get_hotkey("emergency_stop_key", "escape")
+        """Start the application with Qt event loop on main thread."""
+        from PySide6.QtCore import QTimer
+        from PySide6.QtWidgets import QApplication
 
-        # Show help text with configured keys
+        from maestro.gui import MainWindow
+        from maestro.gui.theme import apply_theme
+
+        app = QApplication(sys.argv)
+        apply_theme(app)
+
+        # Create main window
+        self.window = MainWindow(
+            songs_folder=self.songs_folder,
+            config=self._config,
+        )
+        self._connect_signals()
+
+        # Send initial favorites to GUI
+        self.window.signals.favorites_loaded.emit(self._get_favorites())
+
+        self.window.show()
+
+        # Start pynput listener (non-blocking, runs in its own thread)
+        self._setup_listener()
+
+        # Start 200ms update timer for state pushes
+        self._update_timer = QTimer()
+        self._update_timer.timeout.connect(self._push_state_updates)
+        self._update_timer.start(200)
+
+        # Signal handlers — need a timer for signal delivery in Qt
+        def _handle_signal(signum, frame):
+            self.player._release_all_keys()
+            self._exit()
+
+        signal.signal(signal.SIGINT, _handle_signal)
+        signal.signal(signal.SIGTERM, _handle_signal)
+
+        # Timer to allow Python signal handlers to fire within Qt event loop
+        self._signal_timer = QTimer()
+        self._signal_timer.timeout.connect(lambda: None)
+        self._signal_timer.start(500)
+
+        # Show help text
         play_name = self._config.get("play_key", "f2").upper()
         stop_name = self._config.get("stop_key", "f3").upper()
         emergency_name = self._config.get("emergency_stop_key", "escape").upper()
@@ -314,15 +411,13 @@ class Maestro:
         print("  Ctrl+C: Exit")
         print()
 
-        # Show GUI immediately
-        self.show_picker()
+        sys.exit(app.exec())
 
-        def _handle_signal(signum, frame):
-            self.player._release_all_keys()
-            self._exit()
-
-        signal.signal(signal.SIGINT, _handle_signal)
-        signal.signal(signal.SIGTERM, _handle_signal)
+    def _setup_listener(self) -> None:
+        """Set up and start the pynput keyboard listener."""
+        play_key = self._get_hotkey("play_key", "f2")
+        stop_key = self._get_hotkey("stop_key", "f3")
+        emergency_key = self._get_hotkey("emergency_stop_key", "escape")
 
         def on_press(key):
             if key == play_key:
@@ -340,10 +435,6 @@ class Maestro:
 
         self._listener = keyboard.Listener(on_press=on_press)
         self._listener.start()
-        try:
-            self._listener.join()
-        except KeyboardInterrupt:
-            self._exit()
 
 
 def main():

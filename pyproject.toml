@@ -17,6 +17,7 @@ dependencies = [
     "basic-pitch>=0.4.0",
     "numpy<2",
     "opencv-python-headless>=4.9.0",
+    "onnxruntime>=1.17.0",
 ]
 
 [project.scripts]
@@ -25,6 +26,14 @@ maestro = "maestro:main"
 [build-system]
 requires = ["uv_build>=0.9.26,<0.10.0"]
 build-backend = "uv_build"
+
+[tool.uv]
+# tensorflow-io-gcs-filesystem (transitive dep of tensorflow, which is a
+# transitive dep of basic-pitch) has no Windows wheels. We use ONNX Runtime
+# for inference, not TensorFlow, so this package is not needed at runtime.
+override-dependencies = [
+    "tensorflow-io-gcs-filesystem>=0.23.1; sys_platform != 'win32'",
+]
 
 [dependency-groups]
 dev = [
