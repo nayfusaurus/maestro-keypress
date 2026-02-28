@@ -25,6 +25,7 @@ class SettingsDialog(QDialog):
     show_preview_changed = Signal(bool)
     sharp_handling_changed = Signal(str)
     hotkey_changed = Signal(str, str)  # config_key, key_name
+    demucs_download_requested = Signal()  # User wants to download demucs
 
     def __init__(
         self,
@@ -36,10 +37,11 @@ class SettingsDialog(QDialog):
         play_key: str,
         stop_key: str,
         emergency_key: str,
+        demucs_available: bool = False,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Settings")
-        self.setFixedSize(340, 400)
+        self.setFixedSize(340, 520)
         self.setModal(True)
 
         self._play_key = play_key
@@ -135,6 +137,32 @@ class SettingsDialog(QDialog):
         emergency_row.addWidget(emergency_bind_btn)
         layout.addLayout(emergency_row)
 
+        layout.addSpacing(8)
+
+        # Demucs section
+        demucs_label = QLabel("PIANO ISOLATION")
+        demucs_label.setProperty("class", "overline")
+        layout.addWidget(demucs_label)
+
+        demucs_status_row = QHBoxLayout()
+        self._demucs_status = QLabel(
+            "Model: Installed" if demucs_available else "Model: Not installed"
+        )
+        self._demucs_status.setProperty("class", "caption")
+        if demucs_available:
+            self._demucs_status.setProperty("state", "finished")
+        demucs_status_row.addWidget(self._demucs_status)
+        demucs_status_row.addStretch()
+        layout.addLayout(demucs_status_row)
+
+        self._demucs_btn = QPushButton(
+            "Remove Model" if demucs_available else "Download Model"
+        )
+        if demucs_available:
+            self._demucs_btn.setProperty("class", "ghost")
+        self._demucs_btn.clicked.connect(self._on_demucs_click)
+        layout.addWidget(self._demucs_btn)
+
         # Close button
         close_btn = QPushButton("Close")
         close_btn.setProperty("class", "primary")
@@ -226,3 +254,7 @@ class SettingsDialog(QDialog):
         elif new_key == self._emergency_key and current_action != "emergency_stop_key":
             return "Emergency Stop"
         return None
+
+    def _on_demucs_click(self) -> None:
+        """Handle demucs download/remove button click."""
+        self.demucs_download_requested.emit()
