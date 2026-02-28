@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QFileDialog,
     QHBoxLayout,
@@ -21,6 +22,7 @@ from maestro.game_mode import GameMode
 from maestro.gui.about_dialog import AboutDialog, DisclaimerDialog
 from maestro.gui.constants import APP_VERSION, GITHUB_REPO
 from maestro.gui.controls_panel import ControlsPanel
+from maestro.gui.import_panel import ImportPanel
 from maestro.gui.piano_roll import PianoRollWidget
 from maestro.gui.progress_panel import NowPlayingPanel
 from maestro.gui.settings_dialog import SettingsDialog
@@ -91,9 +93,23 @@ class MainWindow(QMainWindow):
     def _setup_window(self) -> None:
         """Configure the main window properties."""
         self.setWindowTitle(self._original_title)
-        self.setMinimumSize(440, 620)
-        self.setMaximumWidth(540)
-        self.resize(460, 720)
+
+        # Size to 80% of screen, minimum 900x600
+        self.setMinimumSize(900, 600)
+        primary = QApplication.primaryScreen()
+        if primary is None:
+            self.resize(900, 600)
+            return
+        screen = primary.availableGeometry()
+        width = int(screen.width() * 0.8)
+        height = int(screen.height() * 0.8)
+        self.resize(width, height)
+
+        # Center on screen
+        self.move(
+            screen.x() + (screen.width() - width) // 2,
+            screen.y() + (screen.height() - height) // 2,
+        )
 
         # Set window icon
         try:
@@ -123,38 +139,53 @@ class MainWindow(QMainWindow):
         help_menu.addAction("About", self._show_about)
 
     def _create_ui(self) -> None:
-        """Build the main UI layout with three visual zones."""
+        """Build the main UI with a two-column layout (sidebar + main area)."""
         central = QWidget()
         self.setCentralWidget(central)
-        main_layout = QVBoxLayout(central)
-        main_layout.setSpacing(0)
-        main_layout.setContentsMargins(16, 8, 16, 16)
+        root_layout = QVBoxLayout(central)
+        root_layout.setSpacing(0)
+        root_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Update banner (hidden by default)
+        # Update banner (hidden by default, spans full width)
         self._update_banner = UpdateBanner()
-        main_layout.addWidget(self._update_banner)
+        root_layout.addWidget(self._update_banner)
 
-        # ── Zone 1: Header (config/settings) ──────────────────────────
+        # Two-column layout
+        columns = QHBoxLayout()
+        columns.setSpacing(0)
+        columns.setContentsMargins(0, 0, 0, 0)
 
-        header_zone = QVBoxLayout()
-        header_zone.setSpacing(8)
+        # ── Left Column: Sidebar (fixed 300px) ───────────────────────
+
+        sidebar = QWidget()
+        sidebar.setFixedWidth(300)
+        sidebar_layout = QVBoxLayout(sidebar)
+        sidebar_layout.setContentsMargins(16, 16, 16, 16)
+        sidebar_layout.setSpacing(16)
+
+        # -- Settings Card --
+        settings_card = QWidget()
+        settings_card.setProperty("class", "surface-card")
+        settings_card_layout = QVBoxLayout(settings_card)
+        settings_card_layout.setContentsMargins(16, 16, 16, 16)
+        settings_card_layout.setSpacing(8)
 
         # Folder selection row
         folder_label = QLabel("FOLDER")
         folder_label.setProperty("class", "overline")
-        header_zone.addWidget(folder_label)
+        settings_card_layout.addWidget(folder_label)
         folder_row = QHBoxLayout()
         self._folder_label = QLabel(str(self.songs_folder))
         self._folder_label.setProperty("class", "caption")
         folder_row.addWidget(self._folder_label, stretch=1)
         browse_btn = self._make_button("Browse...", self._on_browse_click)
         folder_row.addWidget(browse_btn)
-        header_zone.addLayout(folder_row)
+        settings_card_layout.addLayout(folder_row)
 
         # Game mode row
         game_label = QLabel("GAME")
         game_label.setProperty("class", "overline")
-        header_zone.addWidget(game_label)
+        settings_card_layout.addWidget(game_label)
         game_row = QHBoxLayout()
         self._game_combo = QComboBox()
         self._game_combo.addItems([mode.value for mode in GameMode])
@@ -163,7 +194,7 @@ class MainWindow(QMainWindow):
         self._game_combo.currentTextChanged.connect(self._on_game_mode_change)
         game_row.addWidget(self._game_combo)
         game_row.addStretch()
-        header_zone.addLayout(game_row)
+        settings_card_layout.addLayout(game_row)
 
         # Key layout row (Heartopia only)
         self._layout_row = QWidget()
@@ -181,13 +212,13 @@ class MainWindow(QMainWindow):
         layout_combo_row.addWidget(self._layout_combo)
         layout_combo_row.addStretch()
         layout_row_inner.addLayout(layout_combo_row)
-        header_zone.addWidget(self._layout_row)
+        settings_card_layout.addWidget(self._layout_row)
         self._update_layout_visibility()
 
         # Speed control row
         speed_label = QLabel("SPEED")
         speed_label.setProperty("class", "overline")
-        header_zone.addWidget(speed_label)
+        settings_card_layout.addWidget(speed_label)
         speed_row = QHBoxLayout()
         self._speed_slider = QSlider(Qt.Orientation.Horizontal)
         self._speed_slider.setRange(25, 150)
@@ -198,56 +229,31 @@ class MainWindow(QMainWindow):
         self._speed_label = QLabel(f"{speed_val:.2f}x")
         self._speed_label.setFixedWidth(45)
         speed_row.addWidget(self._speed_label)
-        header_zone.addLayout(speed_row)
+        settings_card_layout.addLayout(speed_row)
 
-        main_layout.addLayout(header_zone)
-        main_layout.addSpacing(16)
+        sidebar_layout.addWidget(settings_card)
 
-        # ── Zone 2: Song Browser (dominant area) ──────────────────────
-
-        browser_zone = QVBoxLayout()
-        browser_zone.setSpacing(8)
-
-        # Search bar (no label, placeholder text instead)
-        self._search_entry = QLineEdit()
-        self._search_entry.setPlaceholderText("Filter songs...")
-        self._search_entry.textChanged.connect(self._on_search_change)
-        browser_zone.addWidget(self._search_entry)
-
-        # Song list (takes majority of space)
-        self._song_list = SongListWidget()
-        self._song_list.song_selected.connect(self._on_song_select)
-        self._song_list.song_double_clicked.connect(self._on_double_click)
-        browser_zone.addWidget(self._song_list, stretch=2)
-
-        # Song detail label
-        self._song_detail_label = QLabel("Select a song to see details")
-        self._song_detail_label.setProperty("class", "caption")
-        self._song_detail_label.setWordWrap(True)
-        browser_zone.addWidget(self._song_detail_label)
-
-        main_layout.addLayout(browser_zone, stretch=2)
-        main_layout.addSpacing(16)
-
-        # ── Zone 3: Transport/Playback (anchored bottom) ─────────────
-
-        transport_zone = QVBoxLayout()
-        transport_zone.setSpacing(8)
+        # -- Transport Card --
+        transport_card = QWidget()
+        transport_card.setProperty("class", "surface-card")
+        transport_card_layout = QVBoxLayout(transport_card)
+        transport_card_layout.setContentsMargins(16, 16, 16, 16)
+        transport_card_layout.setSpacing(8)
 
         # Error label (hidden by default)
         self._error_label = QLabel()
         self._error_label.setProperty("state", "error")
         self._error_label.setWordWrap(True)
         self._error_label.setVisible(False)
-        transport_zone.addWidget(self._error_label)
+        transport_card_layout.addWidget(self._error_label)
 
         # Now Playing panel
         self._now_playing = NowPlayingPanel()
-        transport_zone.addWidget(self._now_playing)
+        transport_card_layout.addWidget(self._now_playing)
 
         # Control buttons
         self._controls = ControlsPanel()
-        transport_zone.addWidget(self._controls)
+        transport_card_layout.addWidget(self._controls)
 
         # Status and Key display
         status_row = QHBoxLayout()
@@ -256,7 +262,7 @@ class MainWindow(QMainWindow):
         status_row.addStretch()
         self._key_label = QLabel("Key: -")
         status_row.addWidget(self._key_label)
-        transport_zone.addLayout(status_row)
+        transport_card_layout.addLayout(status_row)
 
         # Note Preview panel (conditionally shown)
         self._preview_container = QWidget()
@@ -279,10 +285,46 @@ class MainWindow(QMainWindow):
         self._piano_roll = PianoRollWidget()
         preview_layout.addWidget(self._piano_roll)
 
-        transport_zone.addWidget(self._preview_container)
+        transport_card_layout.addWidget(self._preview_container)
         self._preview_container.setVisible(self._show_preview)
 
-        main_layout.addLayout(transport_zone)
+        sidebar_layout.addWidget(transport_card)
+        sidebar_layout.addStretch()
+
+        columns.addWidget(sidebar)
+
+        # ── Right Column: Main Area ───────────────────────────────────
+
+        main_area = QWidget()
+        main_area_layout = QVBoxLayout(main_area)
+        main_area_layout.setContentsMargins(24, 16, 16, 16)
+        main_area_layout.setSpacing(12)
+
+        # Import panel (compact bar)
+        self._import_panel = ImportPanel()
+        main_area_layout.addWidget(self._import_panel)
+
+        # Search bar
+        self._search_entry = QLineEdit()
+        self._search_entry.setPlaceholderText("Filter songs...")
+        self._search_entry.textChanged.connect(self._on_search_change)
+        main_area_layout.addWidget(self._search_entry)
+
+        # Song list (takes majority of space)
+        self._song_list = SongListWidget()
+        self._song_list.song_selected.connect(self._on_song_select)
+        self._song_list.song_double_clicked.connect(self._on_double_click)
+        main_area_layout.addWidget(self._song_list, stretch=1)
+
+        # Song detail label
+        self._song_detail_label = QLabel("Select a song to see details")
+        self._song_detail_label.setProperty("class", "caption")
+        self._song_detail_label.setWordWrap(True)
+        main_area_layout.addWidget(self._song_detail_label)
+
+        columns.addWidget(main_area, stretch=1)
+
+        root_layout.addLayout(columns, stretch=1)
 
     def _connect_internal_signals(self) -> None:
         """Connect internal widget signals to MainWindow methods and MaestroSignals."""
@@ -303,6 +345,12 @@ class MainWindow(QMainWindow):
         self.signals.song_finished.connect(self._on_song_finished)
         self.signals.countdown_tick.connect(self._on_countdown_tick)
         self.signals.favorites_loaded.connect(self._on_favorites_loaded)
+
+        # Import panel
+        self._import_panel.import_clicked.connect(self._on_import_request)
+        self.signals.import_progress.connect(self._import_panel.show_progress)
+        self.signals.import_finished.connect(self._on_import_finished)
+        self.signals.import_error.connect(self._import_panel.show_error)
 
     def _make_button(self, text: str, callback) -> QWidget:
         """Create a styled button."""
@@ -397,6 +445,18 @@ class MainWindow(QMainWindow):
 
     # --- User action handlers ---
 
+    def _should_auto_minimize(self) -> bool:
+        """Check if auto-minimize should be applied.
+
+        Returns False when the app is on a secondary monitor.
+        """
+        screens = QApplication.screens()
+        if len(screens) <= 1:
+            return True
+        window_screen = self.screen()
+        primary_screen = QApplication.primaryScreen()
+        return window_screen == primary_screen
+
     def _on_play_click(self) -> None:
         """Handle play button click."""
         self._last_error = ""
@@ -404,8 +464,9 @@ class MainWindow(QMainWindow):
         song = self._song_list.get_selected_song()
         if song:
             self.signals.play_requested.emit(song)
-            self.showMinimized()
-            self._auto_minimized = True
+            if self._should_auto_minimize():
+                self.showMinimized()
+                self._auto_minimized = True
 
     def _on_stop_click(self) -> None:
         """Handle stop button click."""
@@ -487,6 +548,17 @@ class MainWindow(QMainWindow):
 
         self._update_favorite_button()
         self._apply_search_filter()
+
+    def _on_import_request(self, url: str, isolate: bool) -> None:
+        """Handle import button click from ImportPanel."""
+        self._import_panel.set_importing(True)
+        self.signals.import_requested.emit(url)
+
+    def _on_import_finished(self, filename: str) -> None:
+        """Handle successful import completion."""
+        self._import_panel.set_importing(False)
+        self._import_panel.show_success(f"Downloaded: {filename}")
+        self._refresh_songs()
 
     def _update_favorite_button(self) -> None:
         """Update favorite button star based on selected song."""
