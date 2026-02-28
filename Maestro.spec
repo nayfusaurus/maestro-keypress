@@ -20,11 +20,27 @@ a = Analysis(
     hiddenimports=[
         'pynput.keyboard._win32',
         'pynput.mouse._win32',
+        'PySide6.QtCore',
+        'PySide6.QtGui',
+        'PySide6.QtWidgets',
+        'yt_dlp',
+        'basic_pitch',
+        'cv2',
     ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=[
+        'tkinter',
+        'PySide6.QtNetwork',
+        'PySide6.QtQml',
+        'PySide6.QtQuick',
+        'PySide6.QtSvg',
+        'PySide6.QtXml',
+        'PySide6.Qt3DCore',
+        'PySide6.QtMultimedia',
+        'PySide6.QtWebEngine',
+    ],
     noarchive=False,
 )
 
