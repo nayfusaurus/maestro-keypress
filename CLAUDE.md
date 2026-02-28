@@ -11,12 +11,12 @@ Maestro is a Python CLI app that auto-plays MIDI songs on in-game pianos by simu
 - mido (MIDI parsing)
 - pynput (keyboard simulation + global hotkeys)
 - pydirectinput (DirectInput keyboard simulation for WWM)
-- tkinter (GUI)
+- PySide6 (Qt6 GUI with dark theme)
 
 ## Architecture
 
-```
-Maestro (main.py) - coordinates everything
+```text
+Maestro (main.py) - coordinates everything, Qt event loop on main thread
     ├── Player (player.py) - event-driven playback engine with caching
     │       ├── parser.py - MIDI parsing with multi-tempo support
     │       ├── keymap.py - 22-key Heartopia mapping (C3-C6)
@@ -27,7 +27,21 @@ Maestro (main.py) - coordinates everything
     │       ├── keymap_wwm.py - Where Winds Meet mapping
     │       ├── key_layout.py - KeyLayout enum
     │       └── game_mode.py - GameMode enum
-    ├── SongPicker (gui.py) - Tkinter GUI with validation, favorites, hotkey remapping
+    ├── gui/ - PySide6 GUI package (signal/slot architecture, dark theme)
+    │       ├── __init__.py - public API exports
+    │       ├── main_window.py - MainWindow(QMainWindow), composes all widgets
+    │       ├── signals.py - MaestroSignals(QObject) with all Signal definitions
+    │       ├── song_list.py - SongListWidget with custom delegate (rich two-line items)
+    │       ├── piano_roll.py - PianoRollWidget (custom paintEvent, accent-colored)
+    │       ├── progress_panel.py - NowPlayingPanel (transport-style, thin progress bar)
+    │       ├── controls_panel.py - Play/Stop/Favorite/Refresh (primary/secondary/ghost tiers)
+    │       ├── settings_dialog.py - Settings with hotkey press-to-bind
+    │       ├── about_dialog.py - About and Disclaimer dialogs
+    │       ├── update_banner.py - Dismissable update notification
+    │       ├── workers.py - ValidationWorker + UpdateCheckWorker (QThread)
+    │       ├── constants.py - APP_VERSION, BINDABLE_KEYS, BINDABLE_KEYS_QT
+    │       ├── theme.py - Design tokens (SPACING, RADIUS, FONT, COLORS) + QSS stylesheet
+    │       └── utils.py - get_songs_from_folder(), format_time(), center_dialog()
     ├── config.py - settings persistence with validation
     └── logger.py - rotating file logger
 ```
@@ -44,8 +58,13 @@ Maestro (main.py) - coordinates everything
 - `src/maestro/game_mode.py` - GameMode enum for game selection
 - `src/maestro/parser.py` - Parses MIDI files into Note objects with multi-tempo support and MIDI info extraction
 - `src/maestro/player.py` - Event-driven playback engine with chord support, focus detection, stuck key protection, and event caching
-- `src/maestro/gui.py` - Tkinter song picker with validation, favorites, song info, hotkey remapping, incremental validation
-- `src/maestro/main.py` - Main coordinator with configurable hotkeys, emergency stop, hotkey conflict detection, and layout/sharp handling callbacks
+- `src/maestro/gui/` - PySide6 GUI package (signal/slot, dark theme, split into modules)
+- `src/maestro/gui/main_window.py` - MainWindow(QMainWindow) composing all widgets
+- `src/maestro/gui/signals.py` - MaestroSignals with all Signal definitions (GUI↔backend communication)
+- `src/maestro/gui/workers.py` - ValidationWorker and UpdateCheckWorker (QThread)
+- `src/maestro/gui/settings_dialog.py` - Settings dialog with hotkey press-to-bind and conflict detection
+- `src/maestro/gui/theme.py` - Design token system (SPACING, RADIUS, FONT, COLORS) + Catppuccin Mocha QSS with class/state selectors
+- `src/maestro/main.py` - Main coordinator with Qt event loop, signal/slot connections, QTimer state pushes
 - `src/maestro/config.py` - JSON config management with validation and settings persistence
 - `src/maestro/logger.py` - Rotating file handler for error logging
 
@@ -65,7 +84,7 @@ uv sync                 # Install dependencies
 
 ## Testing
 
-362 tests across multiple test files covering all modules. Run with `uv run pytest -v`. 2 tests skipped (Windows-only focus detection).
+354 tests across multiple test files covering all modules. Run with `uv run pytest -v`. 2 tests skipped (Windows-only focus detection).
 
 ## GUI Features
 
@@ -73,8 +92,8 @@ uv sync                 # Install dependencies
 - **Menu bar**: File menu (Open Log, Settings, Exit) and Help menu (About, Disclaimer)
 - **Settings dialog**: Modal dialog with transpose, preview panel toggles, sharp handling, and hotkey remapping
 - **Search bar**: Filter songs by name in real-time
-- **Progress bar**: Visual playback position with time display (M:SS / M:SS)
-- **Now Playing panel**: Shows current song name
+- **Progress bar**: Transport-style thin (4px) progress bar with flanking time display (M:SS | bar | M:SS)
+- **Now Playing panel**: Surface-card styled panel with song name and transport controls
 - **Error display**: Shows errors prominently in red label above Now Playing panel
 - **Browse button**: Change songs folder without restarting
 - **Speed slider**: Adjust playback speed (0.25x - 1.5x)
@@ -82,8 +101,8 @@ uv sync                 # Install dependencies
 - **Piano roll preview**: Optional lookahead panel showing upcoming notes (hidden by default)
 - **Settings persistence**: Folder, game mode, speed, transpose, preview visibility, key layout, sharp handling, favorites, hotkeys saved between sessions
 - **Keys layout dropdown**: 22-key, 15-key Double Row, 15-key Triple Row, Conga/Cajon (8-key) (Heartopia only, hidden for WWM)
-- **MIDI validation**: Background scan with green/red/gray status indicators (green=valid, red=invalid, gray=pending), incremental with mtime caching
-- **Song info**: Duration, BPM, note count for selected song
+- **Rich song list**: Two-line items with left accent bar (green/red/gray), favorite star, duration, BPM, note count via custom QStyledItemDelegate
+- **MIDI validation**: Background scan with color-coded accent bars, incremental with mtime caching
 - **Note compatibility**: Percentage of playable notes for current layout
 - **Favorites**: Star toggle, favorites sorted first in the song list
 - **Recently played**: Tracked (capped at 20)
@@ -94,6 +113,9 @@ uv sync                 # Install dependencies
 - **Song sorting**: Favorites > valid > pending > invalid (alphabetical within each group)
 - **Multi-line song details**: Song info panel wraps long text across multiple lines
 - **Auto-minimize on play**: Window minimizes to taskbar when playback starts
+- **Button hierarchy**: Primary (accent Play), Secondary (Stop), Ghost (Favorite, Refresh) button tiers
+- **Design token system**: Centralized SPACING, RADIUS, FONT, COLORS tokens in theme.py — no inline styles
+- **Three-zone layout**: Header (config), Song Browser (dominant), Transport (playback) with intentional spacing
 
 ## Design Decisions
 
@@ -104,7 +126,7 @@ uv sync                 # Install dependencies
 - **Error logging**: Rotating log file (1MB max, 3 backups) for debugging
 - **Transposition**: Optional (off by default). When enabled, notes outside the playable range are transposed into range. When disabled, out-of-range notes are skipped. Disabled for drums layout.
 - **Preview panel**: Optional piano roll showing upcoming notes (hidden by default)
-- **Threading**: Player runs in daemon thread; GUI runs in separate thread
+- **Threading**: Qt event loop runs on main thread; pynput listener in background thread; player in daemon thread
 - **Minimum keypress timing**: 50ms minimum between keypresses for game registration
 - **Speed range**: 0.25x - 1.5x playback speed
 - **DirectInput for WWM**: Where Winds Meet requires DirectInput; uses pydirectinput (Windows-only, falls back to pynput elsewhere)
@@ -125,6 +147,10 @@ uv sync                 # Install dependencies
 - **MIDI extensions**: Supports both `.mid` and `.midi` file extensions.
 - **Hotkey conflict detection**: Warns users if they try to bind the same key to multiple actions.
 - **Window restore on finish**: Window automatically restores from minimized state when song finishes.
+- **Design tokens**: Centralized design system in theme.py with SPACING (4px grid), RADIUS, FONT scale, and COLORS (tonal surface hierarchy). All styling via QSS class/state selectors — no inline setStyleSheet calls.
+- **Tonal surfaces**: Depth communicated through surface color hierarchy (surface0/1/2) instead of uniform borders. Borders used sparingly (focused inputs, list container only).
+- **QSS class selectors**: Widgets styled via setProperty("class", "primary"/"ghost"/"caption"/"overline"/"title"/"surface-card"/"banner"/"key-badge") and dynamic state via setProperty("state", "finished"/"error") with unpolish/polish.
+- **Custom item delegate**: SongListWidget uses QStyledItemDelegate for rich two-line items with accent bar, star, metadata — painted via QPainter, not QSS.
 - **Pinned dependencies**: All dependencies pinned to specific versions for reproducibility.
 - **Code quality**: Linted with ruff and mypy in CI for type safety.
 - **Security scanning**: pip-audit scans for vulnerabilities in dependencies on every CI run.
