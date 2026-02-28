@@ -2,6 +2,7 @@
 
 from unittest.mock import Mock, patch
 
+import numpy as np
 import pytest
 
 from maestro.gui.workers import DemucsDownloadWorker, ImportWorker
@@ -10,6 +11,7 @@ from maestro.importers.online_sequencer import (
     extract_sequence_id,
     fetch_song_title,
 )
+from maestro.importers.synthesia import detect_synthesia_pattern
 from maestro.importers.youtube import (
     download_audio,
     extract_video_id,
@@ -219,10 +221,6 @@ class TestIsolatePiano:
 
 
 # ── Synthesia detection tests ────────────────────────────────────────────
-
-import numpy as np
-
-from maestro.importers.synthesia import detect_synthesia_pattern
 
 
 class TestSynthesiaDetection:

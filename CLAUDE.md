@@ -12,6 +12,9 @@ Maestro is a Python CLI app that auto-plays MIDI songs on in-game pianos by simu
 - pynput (keyboard simulation + global hotkeys)
 - pydirectinput (DirectInput keyboard simulation for WWM)
 - PySide6 (Qt6 GUI with dark theme)
+- yt-dlp (YouTube audio download)
+- basic-pitch (audio-to-MIDI transcription)
+- opencv-python-headless (Synthesia frame analysis)
 
 ## Architecture
 
@@ -29,19 +32,25 @@ Maestro (main.py) - coordinates everything, Qt event loop on main thread
     │       └── game_mode.py - GameMode enum
     ├── gui/ - PySide6 GUI package (signal/slot architecture, dark theme)
     │       ├── __init__.py - public API exports
-    │       ├── main_window.py - MainWindow(QMainWindow), composes all widgets
+    │       ├── main_window.py - MainWindow(QMainWindow), two-column layout
     │       ├── signals.py - MaestroSignals(QObject) with all Signal definitions
     │       ├── song_list.py - SongListWidget with custom delegate (rich two-line items)
     │       ├── piano_roll.py - PianoRollWidget (custom paintEvent, accent-colored)
     │       ├── progress_panel.py - NowPlayingPanel (transport-style, thin progress bar)
     │       ├── controls_panel.py - Play/Stop/Favorite/Refresh (primary/secondary/ghost tiers)
-    │       ├── settings_dialog.py - Settings with hotkey press-to-bind
+    │       ├── import_panel.py - ImportPanel (URL input bar for OnlineSequencer/YouTube)
+    │       ├── settings_dialog.py - Settings with hotkey press-to-bind + demucs management
     │       ├── about_dialog.py - About and Disclaimer dialogs
     │       ├── update_banner.py - Dismissable update notification
-    │       ├── workers.py - ValidationWorker + UpdateCheckWorker (QThread)
+    │       ├── workers.py - ValidationWorker, UpdateCheckWorker, ImportWorker, DemucsDownloadWorker
     │       ├── constants.py - APP_VERSION, BINDABLE_KEYS, BINDABLE_KEYS_QT
     │       ├── theme.py - Design tokens (SPACING, RADIUS, FONT, COLORS) + QSS stylesheet
     │       └── utils.py - get_songs_from_folder(), format_time(), center_dialog()
+    ├── importers/ - URL import modules
+    │       ├── __init__.py
+    │       ├── online_sequencer.py - OnlineSequencer MIDI download
+    │       ├── youtube.py - YouTube audio download + MIDI transcription
+    │       └── synthesia.py - Synthesia visual detection (OpenCV)
     ├── config.py - settings persistence with validation
     └── logger.py - rotating file logger
 ```
@@ -58,12 +67,16 @@ Maestro (main.py) - coordinates everything, Qt event loop on main thread
 - `src/maestro/game_mode.py` - GameMode enum for game selection
 - `src/maestro/parser.py` - Parses MIDI files into Note objects with multi-tempo support and MIDI info extraction
 - `src/maestro/player.py` - Event-driven playback engine with chord support, focus detection, stuck key protection, and event caching
-- `src/maestro/gui/` - PySide6 GUI package (signal/slot, dark theme, split into modules)
-- `src/maestro/gui/main_window.py` - MainWindow(QMainWindow) composing all widgets
+- `src/maestro/gui/` - PySide6 GUI package (signal/slot, dark theme, two-column layout)
+- `src/maestro/gui/main_window.py` - MainWindow(QMainWindow) with sidebar + main area layout
 - `src/maestro/gui/signals.py` - MaestroSignals with all Signal definitions (GUI↔backend communication)
-- `src/maestro/gui/workers.py` - ValidationWorker and UpdateCheckWorker (QThread)
-- `src/maestro/gui/settings_dialog.py` - Settings dialog with hotkey press-to-bind and conflict detection
+- `src/maestro/gui/workers.py` - ValidationWorker, UpdateCheckWorker, ImportWorker, DemucsDownloadWorker (QThread)
+- `src/maestro/gui/import_panel.py` - Compact URL import bar for OnlineSequencer and YouTube
+- `src/maestro/gui/settings_dialog.py` - Settings dialog with hotkey press-to-bind, conflict detection, and demucs management
 - `src/maestro/gui/theme.py` - Design token system (SPACING, RADIUS, FONT, COLORS) + Catppuccin Mocha QSS with class/state selectors
+- `src/maestro/importers/online_sequencer.py` - OnlineSequencer MIDI download (extract ID, fetch title, download)
+- `src/maestro/importers/youtube.py` - YouTube audio download (yt-dlp) + MIDI transcription (basic-pitch) + piano isolation (demucs)
+- `src/maestro/importers/synthesia.py` - Synthesia visual detection via OpenCV frame analysis
 - `src/maestro/main.py` - Main coordinator with Qt event loop, signal/slot connections, QTimer state pushes
 - `src/maestro/config.py` - JSON config management with validation and settings persistence
 - `src/maestro/logger.py` - Rotating file handler for error logging
@@ -84,7 +97,7 @@ uv sync                 # Install dependencies
 
 ## Testing
 
-354 tests across multiple test files covering all modules. Run with `uv run pytest -v`. 2 tests skipped (Windows-only focus detection).
+403 tests across multiple test files covering all modules. Run with `uv run pytest -v`. 2 tests skipped (Windows-only focus detection).
 
 ## GUI Features
 
@@ -112,10 +125,15 @@ uv sync                 # Install dependencies
 - **Disclaimer**: ToS/disclaimer under Help menu
 - **Song sorting**: Favorites > valid > pending > invalid (alphabetical within each group)
 - **Multi-line song details**: Song info panel wraps long text across multiple lines
-- **Auto-minimize on play**: Window minimizes to taskbar when playback starts
+- **Auto-minimize on play**: Window minimizes to taskbar when playback starts (primary monitor only)
+- **Multi-monitor detection**: Skips auto-minimize when app is on secondary screen
+- **Import panel**: Compact URL input bar for importing from OnlineSequencer and YouTube
+- **YouTube-to-MIDI**: Audio download via yt-dlp, transcription via basic-pitch, optional piano isolation via demucs
+- **Synthesia detection**: OpenCV-based frame analysis for Synthesia video detection
+- **Demucs management**: Download/remove piano isolation model from Settings dialog
 - **Button hierarchy**: Primary (accent Play), Secondary (Stop), Ghost (Favorite, Refresh) button tiers
 - **Design token system**: Centralized SPACING, RADIUS, FONT, COLORS tokens in theme.py — no inline styles
-- **Three-zone layout**: Header (config), Song Browser (dominant), Transport (playback) with intentional spacing
+- **Two-column layout**: Fixed 300px sidebar (settings + transport) + main area (import + song browser)
 
 ## Design Decisions
 
@@ -138,8 +156,13 @@ uv sync                 # Install dependencies
 - **Multi-tempo MIDI**: Parser tracks tempo changes inline for correct timing across tempo changes.
 - **Sharp handling**: 15-key layouts only have natural notes. Sharp notes can be skipped or snapped to nearest natural. Disabled for drums layout.
 - **Max MIDI size**: 10MB limit to reject oversized files before parsing.
-- **Auto-minimize**: Window iconifies when playback starts so the game window is unobstructed.
+- **Auto-minimize**: Window iconifies when playback starts so the game window is unobstructed. Skipped on secondary monitors.
 - **No always-on-top**: Window does not force itself above other windows.
+- **Fixed sidebar width**: 300px sidebar instead of percentage — controls stay compact at any resolution.
+- **Import panel compact**: Import bar is ~80px tall — occasional action shouldn't compete with song list focal point.
+- **Column gap not separator**: 24px gap between columns, no visible divider line.
+- **Demucs optional**: Not bundled in exe (~1GB). Downloaded to ~/.maestro/models/ via Settings.
+- **Window sizing**: 80% of primary screen, minimum 900x600, centered on launch.
 - **Event caching**: Built events are cached and reused when only speed changes, invalidated on layout/transpose/sharp changes.
 - **Incremental validation**: MIDI files are validated incrementally using mtime caching to avoid re-parsing unchanged files.
 - **Drums layout**: Uses chromatic MIDI notes 60-67 (C4-G4, conga drums). Transpose and sharp handling are disabled for drums.
