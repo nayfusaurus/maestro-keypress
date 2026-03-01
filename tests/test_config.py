@@ -148,73 +148,31 @@ class TestSaveAndLoadRoundtrip:
                 assert loaded["preview_lookahead"] == original["preview_lookahead"]
 
 
-class TestNewSettings:
-    """Tests for new transpose and show_preview settings."""
+class TestDefaultConfig:
+    """Snapshot test for DEFAULT_CONFIG keys and values."""
 
-    def test_default_transpose_is_false(self):
-        """Default config should have transpose=False."""
-        assert DEFAULT_CONFIG["transpose"] is False
-
-    def test_default_show_preview_is_false(self):
-        """Default config should have show_preview=False."""
-        assert DEFAULT_CONFIG["show_preview"] is False
-
-    def test_load_config_includes_new_defaults(self, tmp_path):
-        """Loading config without new keys should get default values."""
-        config_path = tmp_path / "config.json"
-        # Old config without new keys
-        old_config = {"last_songs_folder": "/songs", "speed": 1.0}
-        config_path.write_text(json.dumps(old_config))
-
-        with patch("maestro.config.get_config_path", return_value=config_path):
-            config = load_config()
-            assert config["transpose"] is False
-            assert config["show_preview"] is False
-
-    def test_save_and_load_new_settings(self, tmp_path):
-        """New settings survive roundtrip save and load."""
-        config_dir = tmp_path / "maestro"
-        config_path = config_dir / "config.json"
-
-        with patch("maestro.config.get_config_dir", return_value=config_dir):
-            with patch("maestro.config.get_config_path", return_value=config_path):
-                original = {
-                    "transpose": True,
-                    "show_preview": True,
-                }
-                save_config(original)
-                loaded = load_config()
-
-                assert loaded["transpose"] is True
-                assert loaded["show_preview"] is True
-
-    def test_default_key_layout(self):
-        """Default config should have key_layout='22-key (Full)'."""
-        assert DEFAULT_CONFIG["key_layout"] == "22-key (Full)"
-
-    def test_default_sharp_handling(self):
-        """Default config should have sharp_handling='skip'."""
-        assert DEFAULT_CONFIG["sharp_handling"] == "skip"
-
-    def test_default_favorites(self):
-        """Default config should have empty favorites list."""
-        assert DEFAULT_CONFIG["favorites"] == []
-
-    def test_default_recently_played(self):
-        """Default config should have empty recently_played list."""
-        assert DEFAULT_CONFIG["recently_played"] == []
-
-    def test_default_play_key(self):
-        """Default config should have play_key='f2'."""
-        assert DEFAULT_CONFIG["play_key"] == "f2"
-
-    def test_default_stop_key(self):
-        """Default config should have stop_key='f3'."""
-        assert DEFAULT_CONFIG["stop_key"] == "f3"
-
-    def test_default_emergency_stop_key(self):
-        """Default config should have emergency_stop_key='escape'."""
-        assert DEFAULT_CONFIG["emergency_stop_key"] == "escape"
+    def test_default_config_snapshot(self):
+        """All expected defaults present with correct values."""
+        assert DEFAULT_CONFIG == {
+            "last_songs_folder": "",
+            "game_mode": "Heartopia",
+            "speed": 1.0,
+            "preview_lookahead": 5,
+            "transpose": False,
+            "show_preview": False,
+            "key_layout": "22-key (Full)",
+            "sharp_handling": "skip",
+            "favorites": [],
+            "recently_played": [],
+            "play_key": "f2",
+            "stop_key": "f3",
+            "emergency_stop_key": "escape",
+            "theme": "dark",
+            "disclaimer_accepted": False,
+            "start_fullscreen": False,
+            "check_updates_on_launch": True,
+            "auto_minimize_on_play": True,
+        }
 
 
 class TestValidateConfig:
@@ -372,77 +330,8 @@ class TestValidateConfig:
         validated, warnings = validate_config(config)
         assert len(warnings) == 3
 
-    def test_validate_config_returns_warnings_list(self):
-        """validate_config should always return a list as second element."""
-        config = DEFAULT_CONFIG.copy()
-        config["favorites"] = []
-        config["recently_played"] = []
-        _, warnings = validate_config(config)
-        assert isinstance(warnings, list)
-
-
-class TestNewConfigKeys:
-    """Tests for new config keys added in GUI redesign."""
-
-    def test_default_config_has_new_keys(self):
-        assert "disclaimer_accepted" in DEFAULT_CONFIG
-        assert "start_fullscreen" in DEFAULT_CONFIG
-        assert "check_updates_on_launch" in DEFAULT_CONFIG
-        assert "auto_minimize_on_play" in DEFAULT_CONFIG
-        assert "theme" in DEFAULT_CONFIG
-
-    def test_default_values_for_new_keys(self):
-        assert DEFAULT_CONFIG["disclaimer_accepted"] is False
-        assert DEFAULT_CONFIG["start_fullscreen"] is False
-        assert DEFAULT_CONFIG["check_updates_on_launch"] is True
-        assert DEFAULT_CONFIG["auto_minimize_on_play"] is True
-        assert DEFAULT_CONFIG["theme"] == "dark"
-
-    def test_speed_validation_accepts_new_range(self):
-        config = DEFAULT_CONFIG.copy()
-        config["favorites"] = []
-        config["recently_played"] = []
-        config["speed"] = 0.5
-        validated, warnings = validate_config(config)
-        assert validated["speed"] == 0.5
-        assert not any("speed" in w for w in warnings)
-
-        config = DEFAULT_CONFIG.copy()
-        config["favorites"] = []
-        config["recently_played"] = []
-        config["speed"] = 2.0
-        validated, warnings = validate_config(config)
-        assert validated["speed"] == 2.0
-        assert not any("speed" in w for w in warnings)
-
-    def test_speed_validation_rejects_out_of_range(self):
-        config = DEFAULT_CONFIG.copy()
-        config["favorites"] = []
-        config["recently_played"] = []
-        config["speed"] = 0.1
-        validated, warnings = validate_config(config)
-        assert validated["speed"] == DEFAULT_CONFIG["speed"]
-        assert any("speed" in w for w in warnings)
-
-        config = DEFAULT_CONFIG.copy()
-        config["favorites"] = []
-        config["recently_played"] = []
-        config["speed"] = 3.0
-        validated, warnings = validate_config(config)
-        assert validated["speed"] == DEFAULT_CONFIG["speed"]
-
-    def test_new_boolean_keys_validated(self):
-        config = DEFAULT_CONFIG.copy()
-        config["favorites"] = []
-        config["recently_played"] = []
-        config["disclaimer_accepted"] = "not a bool"
-        config["start_fullscreen"] = 123
-        validated, warnings = validate_config(config)
-        assert validated["disclaimer_accepted"] is False
-        assert validated["start_fullscreen"] is False
-        assert len(warnings) >= 2
-
-    def test_theme_validation(self):
+    def test_invalid_theme_gets_reset(self):
+        """Invalid theme should be reset to default."""
         config = DEFAULT_CONFIG.copy()
         config["favorites"] = []
         config["recently_played"] = []

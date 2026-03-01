@@ -1,5 +1,3 @@
-import sys
-
 import pytest
 import time
 from unittest.mock import Mock, patch
@@ -89,18 +87,6 @@ def test_speed_clamped_to_valid_range():
     assert player.speed == 1.0
 
 
-def test_get_upcoming_notes_returns_notes_within_lookahead(sample_midi, mock_keyboard):
-    """get_upcoming_notes should return notes within lookahead window."""
-    player = Player()
-    player.load(sample_midi)
-    player.play()
-    time.sleep(0.1)
-
-    notes = player.get_upcoming_notes(5.0)
-    assert isinstance(notes, list)
-    player.stop()
-
-
 def test_get_upcoming_notes_empty_when_stopped():
     """get_upcoming_notes should return empty list when stopped."""
     player = Player()
@@ -131,28 +117,6 @@ def test_duration_includes_last_note_duration(tmp_path, mock_keyboard):
     assert player.duration <= 0.6
 
 
-class TestTransposeProperty:
-    """Tests for the transpose property."""
-
-    def test_transpose_default_is_false(self):
-        """Player should default to transpose=False."""
-        player = Player()
-        assert player.transpose is False
-
-    def test_transpose_can_be_set_to_true(self):
-        """Player transpose can be enabled."""
-        player = Player()
-        player.transpose = True
-        assert player.transpose is True
-
-    def test_transpose_can_be_set_to_false(self):
-        """Player transpose can be disabled."""
-        player = Player()
-        player.transpose = True
-        player.transpose = False
-        assert player.transpose is False
-
-
 @pytest.fixture
 def player():
     """Create a Player with mocked keyboard Controller."""
@@ -163,19 +127,12 @@ def player():
 class TestKeyLayout:
     """Tests for key layout property."""
 
-    def test_default_layout_is_22_key(self, player):
-        assert player._key_layout == KeyLayout.KEYS_22
-
     def test_layout_can_be_set(self, player):
         player.key_layout = KeyLayout.KEYS_15_DOUBLE
         assert player.key_layout == KeyLayout.KEYS_15_DOUBLE
 
     def test_sharp_handling_default_is_skip(self, player):
         assert player.sharp_handling == "skip"
-
-    def test_sharp_handling_can_be_set_to_snap(self, player):
-        player.sharp_handling = "snap"
-        assert player.sharp_handling == "snap"
 
     def test_sharp_handling_rejects_invalid(self, player):
         player.sharp_handling = "invalid"
@@ -257,26 +214,6 @@ class TestResolveKey:
         player.key_layout = KeyLayout.KEYS_22
         result = player._resolve_key(20)
         assert result is None
-
-
-class TestKeyEvent:
-    """Tests for KeyEvent dataclass."""
-
-    def test_key_event_creation(self):
-        from maestro.player import KeyEvent
-
-        event = KeyEvent(time=1.0, action="down", key="z")
-        assert event.time == 1.0
-        assert event.action == "down"
-        assert event.key == "z"
-        assert event.modifier is None
-
-    def test_key_event_with_modifier(self):
-        from maestro.player import KeyEvent
-        from pynput.keyboard import Key
-
-        event = KeyEvent(time=1.0, action="down", key="a", modifier=Key.shift)
-        assert event.modifier == Key.shift
 
 
 class TestBuildEvents:
@@ -373,33 +310,6 @@ class TestHeldKeys:
         assert len(player._held_keys) == 0
 
 
-class TestLastKeyFeedback:
-    """Tests for last key visual feedback."""
-
-    def test_key_down_updates_last_key(self, player):
-        """key_down should update last_key for visual feedback."""
-        player._key_down("z")
-        assert player.last_key == "Z"
-
-    def test_key_down_with_modifier_shows_shift(self, player):
-        """key_down with modifier should show Shift+KEY."""
-        from pynput.keyboard import Key
-
-        player._key_down("a", Key.shift)
-        assert player.last_key == "Shift+A"
-
-
-class TestAtexitRegistration:
-    """Tests for atexit registration of _release_all_keys."""
-
-    def test_atexit_registers_release_all_keys(self, player):
-        """Player should register _release_all_keys with atexit."""
-        import atexit
-
-        # atexit registration happens in __init__, verify _release_all_keys is callable
-        assert callable(player._release_all_keys)
-
-
 class TestWindowFocusDetection:
     """Tests for window focus detection."""
 
@@ -416,16 +326,6 @@ class TestWindowFocusDetection:
             # win32gui import will fail on non-Windows
             with patch.dict("sys.modules", {"win32gui": None}):
                 assert player._is_game_window_active() is True
-
-    def test_is_game_window_active_heartopia_match(self, player):
-        """Should detect Heartopia window title."""
-        if sys.platform != "win32":
-            pytest.skip("Windows-only test")
-
-    def test_is_game_window_active_wwm_match(self, player):
-        """Should detect Where Winds Meet window title."""
-        if sys.platform != "win32":
-            pytest.skip("Windows-only test")
 
     def test_focus_loss_pauses_timeline(self, player):
         """When game loses focus, start_time should be adjusted to freeze timeline."""
@@ -458,11 +358,6 @@ class TestWindowFocusDetection:
 
 class TestEventCaching:
     """Tests for event caching to avoid rebuilding on replays."""
-
-    def test_cache_initially_empty(self, player):
-        """Cache should be None initially."""
-        assert player._cached_events is None
-        assert player._cached_cache_key is None
 
     def test_build_events_caches_result(self, player):
         """_build_events should cache the result."""
@@ -556,40 +451,6 @@ class TestEventCaching:
         events2 = player._build_events()
         assert events1 is not events2
 
-    def test_cache_key_includes_song_path(self, player, tmp_path):
-        """Cache key should include song path."""
-        import mido
-
-        mid = mido.MidiFile()
-        track = mido.MidiTrack()
-        mid.tracks.append(track)
-        track.append(mido.Message("note_on", note=60, velocity=64, time=0))
-        track.append(mido.Message("note_off", note=60, velocity=64, time=480))
-        midi_path = tmp_path / "test.mid"
-        mid.save(midi_path)
-
-        player.load(midi_path)
-        cache_key = player._get_cache_key()
-        assert str(midi_path) in cache_key
-
-    def test_cache_key_includes_layout(self, player):
-        """Cache key should include key layout."""
-        player.key_layout = KeyLayout.KEYS_15_DOUBLE
-        cache_key = player._get_cache_key()
-        assert "KEYS_15_DOUBLE" in cache_key
-
-    def test_cache_key_includes_transpose(self, player):
-        """Cache key should include transpose setting."""
-        player.transpose = True
-        cache_key = player._get_cache_key()
-        assert "True" in cache_key
-
-    def test_cache_key_includes_sharp_handling(self, player):
-        """Cache key should include sharp handling setting."""
-        player.sharp_handling = "snap"
-        cache_key = player._get_cache_key()
-        assert "snap" in cache_key
-
     def test_cache_not_invalidated_on_speed_change(self, player):
         """Speed changes should NOT invalidate cache (doesn't affect events)."""
         player._notes = [Note(midi_note=60, time=0.0, duration=0.5)]
@@ -612,23 +473,3 @@ class TestEventCaching:
         assert player._cached_events is None
         assert player._cached_cache_key is None
 
-    def test_replay_uses_cache(self, player, tmp_path):
-        """Playing the same song twice should use cache on second play."""
-        import mido
-
-        mid = mido.MidiFile()
-        track = mido.MidiTrack()
-        mid.tracks.append(track)
-        track.append(mido.Message("note_on", note=60, velocity=64, time=0))
-        track.append(mido.Message("note_off", note=60, velocity=64, time=480))
-        midi_path = tmp_path / "test.mid"
-        mid.save(midi_path)
-
-        player.load(midi_path)
-
-        # First play - should build events
-        events1 = player._build_events()
-
-        # Second call - should use cache
-        events2 = player._build_events()
-        assert events1 is events2

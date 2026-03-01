@@ -110,7 +110,7 @@ uv sync                 # Install dependencies
 
 ## Testing
 
-448 tests across multiple test files covering all modules. Run with `uv run pytest -v`. 2 tests skipped (Windows-only focus detection).
+219 tests across multiple test files covering all modules. Run with `uv run pytest -v`.
 
 ## GUI Features
 

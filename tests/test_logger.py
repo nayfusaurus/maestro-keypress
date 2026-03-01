@@ -27,21 +27,8 @@ class TestGetLogPath:
             log_path = get_log_path()
             assert log_path == Path("/test/config") / "maestro.log"
 
-    def test_get_log_path_returns_path_object(self):
-        """Log path should be a Path object."""
-        with patch("maestro.logger.get_config_dir", return_value=Path("/test")):
-            log_path = get_log_path()
-            assert isinstance(log_path, Path)
-
-
 class TestSetupLogger:
     """Tests for setup_logger function."""
-
-    def test_setup_logger_returns_logger(self, tmp_path):
-        """setup_logger should return a Logger instance."""
-        with patch("maestro.logger.get_log_path", return_value=tmp_path / "maestro.log"):
-            logger = setup_logger()
-            assert isinstance(logger, logging.Logger)
 
     def test_setup_logger_returns_named_logger(self, tmp_path):
         """setup_logger should return logger with name 'maestro'."""

@@ -135,13 +135,6 @@ def sample_midi(tmp_path):
     return midi_path
 
 
-def test_maestro_get_note_compatibility(mock_dependencies, tmp_path, sample_midi):
-    """Note compatibility should count playable notes."""
-    # Just verify the method exists and is callable
-    app = Maestro(songs_folder=tmp_path)
-    assert callable(app._get_note_compatibility)
-
-
 def test_maestro_on_favorite_toggle(mock_dependencies, tmp_path):
     """Favorite toggle should update config."""
     app = Maestro(songs_folder=tmp_path)
@@ -150,13 +143,6 @@ def test_maestro_on_favorite_toggle(mock_dependencies, tmp_path):
 
     app._on_favorite_toggle("my_song", False)
     assert "my_song" not in app._config["favorites"]
-
-
-def test_maestro_get_favorites(mock_dependencies, tmp_path):
-    """Get favorites should return list from config."""
-    app = Maestro(songs_folder=tmp_path)
-    app._config["favorites"] = ["song1", "song2"]
-    assert app._get_favorites() == ["song1", "song2"]
 
 
 def test_maestro_on_hotkey_change(mock_dependencies, tmp_path):

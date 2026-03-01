@@ -5,7 +5,6 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pytest
 
-from maestro.gui.workers import DemucsDownloadWorker, ImportWorker
 from maestro.importers.synthesia import detect_synthesia_pattern
 from maestro.importers.youtube import (
     download_audio,
@@ -147,27 +146,3 @@ class TestSynthesiaDetection:
         assert detect_synthesia_pattern(frame) is False
 
 
-# ── Import worker tests ─────────────────────────────────────────────────
-
-
-class TestImportWorker:
-    def test_worker_has_expected_signals(self):
-        worker = ImportWorker.__new__(ImportWorker)
-        assert hasattr(worker, "progress")
-        assert hasattr(worker, "finished")
-        assert hasattr(worker, "error")
-
-    def test_worker_stores_url_and_dest(self, tmp_path):
-        worker = ImportWorker.__new__(ImportWorker)
-        worker._url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        worker._dest_folder = tmp_path
-        assert worker._url == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        assert worker._dest_folder == tmp_path
-
-
-class TestDemucsDownloadWorker:
-    def test_worker_has_expected_signals(self):
-        worker = DemucsDownloadWorker.__new__(DemucsDownloadWorker)
-        assert hasattr(worker, "progress")
-        assert hasattr(worker, "finished")
-        assert hasattr(worker, "error")

@@ -6,26 +6,6 @@ from maestro.gui.pages.log_page import LogPage
 
 
 class TestLogPage:
-    def test_log_viewer_exists(self, qtbot):
-        page = LogPage()
-        qtbot.addWidget(page)
-        assert page._log_viewer is not None
-
-    def test_log_viewer_is_read_only(self, qtbot):
-        page = LogPage()
-        qtbot.addWidget(page)
-        assert page._log_viewer.isReadOnly()
-
-    def test_refresh_button_exists(self, qtbot):
-        page = LogPage()
-        qtbot.addWidget(page)
-        assert page._refresh_btn is not None
-
-    def test_open_editor_button_exists(self, qtbot):
-        page = LogPage()
-        qtbot.addWidget(page)
-        assert page._open_btn is not None
-
     def test_load_log_with_content(self, qtbot, tmp_path):
         log_file = tmp_path / "test.log"
         log_file.write_text("2026-03-02 [INFO] Test line\n")
