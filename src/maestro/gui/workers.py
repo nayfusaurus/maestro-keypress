@@ -16,7 +16,9 @@ class ValidationWorker(QThread):
     Uses mtime caching to skip unchanged files. Computes note compatibility inline.
     """
 
-    song_validated = Signal(str, str, dict, list, int, int)  # path_str, status, info, notes, playable, total
+    song_validated = Signal(
+        str, str, dict, list, int, int
+    )  # path_str, status, info, notes, playable, total
     validation_finished = Signal()
 
     def __init__(
@@ -57,6 +59,7 @@ class ValidationWorker(QThread):
         playable = 0
         for note in notes:
             midi = note.midi_note
+            result: object = None
             if self._game_mode == GameMode.WHERE_WINDS_MEET.value:
                 result = midi_note_to_key_wwm(midi, transpose=self._transpose)
             elif self._key_layout == KeyLayout.KEYS_15_DOUBLE:
@@ -185,9 +188,7 @@ class ImportWorker(QThread):
             if video_id:
                 self._import_youtube()
             else:
-                self.error.emit(
-                    "Unsupported URL. Paste a YouTube link."
-                )
+                self.error.emit("Unsupported URL. Paste a YouTube link.")
         except Exception as e:
             self.error.emit(str(e))
 
@@ -267,7 +268,9 @@ class DemucsDownloadWorker(QThread):
             )
 
             if result.returncode != 0:
-                logger.error("Demucs install failed (rc=%d): %s", result.returncode, result.stderr[:500])
+                logger.error(
+                    "Demucs install failed (rc=%d): %s", result.returncode, result.stderr[:500]
+                )
                 self.error.emit(f"Model download failed: {result.stderr[:200]}")
                 return
 

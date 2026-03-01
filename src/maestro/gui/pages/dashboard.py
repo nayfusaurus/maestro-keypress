@@ -62,9 +62,7 @@ class DashboardPage(QWidget):
         self._left_scroll.setWidgetResizable(True)
         self._left_scroll.setFixedWidth(400)
         self._left_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._left_scroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
+        self._left_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         sidebar = QWidget()
         sidebar_layout = QVBoxLayout(sidebar)
@@ -119,9 +117,7 @@ class DashboardPage(QWidget):
         card = QWidget()
         card.setProperty("class", "surface-card")
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(
-            SPACING["lg"], SPACING["lg"], SPACING["lg"], SPACING["lg"]
-        )
+        layout.setContentsMargins(SPACING["lg"], SPACING["lg"], SPACING["lg"], SPACING["lg"])
         layout.setSpacing(SPACING["sm"])
 
         self._import_panel = ImportPanel()
@@ -145,9 +141,7 @@ class DashboardPage(QWidget):
         card = QWidget()
         card.setProperty("class", "surface-card")
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(
-            SPACING["lg"], SPACING["lg"], SPACING["lg"], SPACING["lg"]
-        )
+        layout.setContentsMargins(SPACING["lg"], SPACING["lg"], SPACING["lg"], SPACING["lg"])
         layout.setSpacing(SPACING["sm"])
 
         # Game mode row
@@ -193,9 +187,7 @@ class DashboardPage(QWidget):
         sharp_inner.addStretch()
         self._sharp_combo = QComboBox()
         self._sharp_combo.addItems(["skip", "snap"])
-        self._sharp_combo.setCurrentText(
-            self._config.get("sharp_handling", "skip")
-        )
+        self._sharp_combo.setCurrentText(self._config.get("sharp_handling", "skip"))
         sharp_inner.addWidget(self._sharp_combo)
         layout.addWidget(self._sharp_row)
 
@@ -206,9 +198,7 @@ class DashboardPage(QWidget):
         transpose_lbl.setProperty("class", "caption")
         transpose_row.addWidget(transpose_lbl)
         transpose_row.addStretch()
-        self._transpose_toggle = ToggleSwitch(
-            checked=self._config.get("transpose", False)
-        )
+        self._transpose_toggle = ToggleSwitch(checked=self._config.get("transpose", False))
         transpose_row.addWidget(self._transpose_toggle)
         layout.addLayout(transpose_row)
 
@@ -219,9 +209,7 @@ class DashboardPage(QWidget):
         preview_lbl.setProperty("class", "caption")
         preview_row.addWidget(preview_lbl)
         preview_row.addStretch()
-        self._preview_toggle = ToggleSwitch(
-            checked=self._config.get("show_preview", False)
-        )
+        self._preview_toggle = ToggleSwitch(checked=self._config.get("show_preview", False))
         preview_row.addWidget(self._preview_toggle)
         layout.addLayout(preview_row)
 
@@ -232,9 +220,7 @@ class DashboardPage(QWidget):
         card = QWidget()
         card.setProperty("class", "surface-card")
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(
-            SPACING["lg"], SPACING["lg"], SPACING["lg"], SPACING["lg"]
-        )
+        layout.setContentsMargins(SPACING["lg"], SPACING["lg"], SPACING["lg"], SPACING["lg"])
         layout.setSpacing(SPACING["sm"])
 
         # Error label (hidden by default)
@@ -309,9 +295,7 @@ class DashboardPage(QWidget):
         preview_layout.addWidget(self._piano_roll)
 
         layout.addWidget(self._preview_container)
-        self._preview_container.setVisible(
-            self._config.get("show_preview", False)
-        )
+        self._preview_container.setVisible(self._config.get("show_preview", False))
 
         parent_layout.addWidget(card)
 
@@ -319,9 +303,7 @@ class DashboardPage(QWidget):
 
     def _update_layout_visibility(self) -> None:
         """Hide the key layout row when WWM is selected."""
-        is_wwm = (
-            self._game_combo.currentText() == GameMode.WHERE_WINDS_MEET.value
-        )
+        is_wwm = self._game_combo.currentText() == GameMode.WHERE_WINDS_MEET.value
         self._layout_row.setVisible(not is_wwm)
 
     def _update_options_state(self) -> None:

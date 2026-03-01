@@ -28,15 +28,23 @@ requires = ["uv_build>=0.9.26,<0.10.0"]
 build-backend = "uv_build"
 
 [tool.uv]
-# tensorflow-io-gcs-filesystem (transitive dep of tensorflow, which is a
-# transitive dep of basic-pitch) has no Windows wheels. We use ONNX Runtime
-# for inference, not TensorFlow, so this package is not needed at runtime.
+# basic-pitch lists tensorflow as a hard dependency, but it auto-detects
+# ONNX Runtime at runtime via try/except ImportError. We exclude the entire
+# TF ecosystem to:
+#   1. Fix Python 3.12+ compatibility (TF 2.14 has no cp312 wheels)
+#   2. Eliminate ~1.5GB of unused dependencies
+#   3. Remove transitive CVEs in keras/protobuf that pip-audit flags
 override-dependencies = [
-    "tensorflow-io-gcs-filesystem>=0.23.1; sys_platform != 'win32'",
+    # Exclude TF and its heavy transitive deps (we use ONNX Runtime)
+    "tensorflow>=2.0.0; sys_platform == 'never'",
+    "tensorflow-io-gcs-filesystem>=0.23.1; sys_platform == 'never'",
     # basic-pitch pins resampy<0.4.3, but 0.4.3 drops the pkg_resources
     # dependency (uses importlib.resources instead). Without this override,
     # setuptools must be installed just for pkg_resources.
     "resampy>=0.4.3",
+    # onnxruntime requires protobuf with no upper bound.
+    # Override to >=5.29.6 to fix CVE-2026-0994.
+    "protobuf>=5.29.6",
 ]
 
 [dependency-groups]

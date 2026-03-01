@@ -121,9 +121,7 @@ class SettingsPage(QWidget):
         card = QWidget()
         card.setProperty("class", "surface-card")
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(
-            SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"]
-        )
+        lay.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
         lay.setSpacing(SPACING["sm"])
 
         heading = QLabel("Library")
@@ -150,9 +148,7 @@ class SettingsPage(QWidget):
         card = QWidget()
         card.setProperty("class", "surface-card")
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(
-            SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"]
-        )
+        lay.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
         lay.setSpacing(SPACING["sm"])
 
         heading = QLabel("Appearance")
@@ -160,9 +156,7 @@ class SettingsPage(QWidget):
         lay.addWidget(heading)
 
         # Dark mode toggle
-        self._theme_toggle = ToggleSwitch(
-            checked=(self._config.get("theme", "dark") == "dark")
-        )
+        self._theme_toggle = ToggleSwitch(checked=(self._config.get("theme", "dark") == "dark"))
         self._theme_toggle.toggled.connect(self._on_theme_toggled)
         lay.addLayout(self._toggle_row("Dark mode", self._theme_toggle))
 
@@ -187,9 +181,7 @@ class SettingsPage(QWidget):
         card = QWidget()
         card.setProperty("class", "surface-card")
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(
-            SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"]
-        )
+        lay.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
         lay.setSpacing(SPACING["sm"])
 
         heading = QLabel("Hotkeys")
@@ -211,9 +203,7 @@ class SettingsPage(QWidget):
         lay.addLayout(stop_row)
 
         # Emergency stop key row
-        self._hotkey_emergency_label = QLabel(
-            self._display_key(self._emergency_key)
-        )
+        self._hotkey_emergency_label = QLabel(self._display_key(self._emergency_key))
         emergency_row, self._emergency_bind_btn = self._hotkey_row(
             "Emergency", self._hotkey_emergency_label, "emergency_stop_key"
         )
@@ -226,9 +216,7 @@ class SettingsPage(QWidget):
         card = QWidget()
         card.setProperty("class", "surface-card")
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(
-            SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"]
-        )
+        lay.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
         lay.setSpacing(SPACING["sm"])
 
         heading = QLabel("Piano Isolation")
@@ -264,9 +252,7 @@ class SettingsPage(QWidget):
         card = QWidget()
         card.setProperty("class", "surface-card")
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(
-            SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"]
-        )
+        lay.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
         lay.setSpacing(SPACING["sm"])
 
         heading = QLabel("Updates")

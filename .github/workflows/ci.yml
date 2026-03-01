@@ -17,6 +17,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.11"
 
       - name: Install dependencies
         run: uv sync
@@ -35,6 +37,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.11"
 
       - name: Install dependencies
         run: uv sync
@@ -57,6 +61,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.11"
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y xvfb python3-tk
@@ -77,11 +83,11 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.11"
 
       - name: Install dependencies
-        run: |
-          uv sync
-          uv add pyinstaller --dev
+        run: uv sync
 
       - name: Build exe
         run: uv run pyinstaller Maestro.spec --noconfirm

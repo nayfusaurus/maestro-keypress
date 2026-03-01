@@ -4,14 +4,20 @@ Downloads audio from YouTube via yt-dlp, optionally isolates piano
 with demucs, and transcribes to MIDI with basic-pitch.
 """
 
+from __future__ import annotations
+
 import os
 import re
 import shutil
 import subprocess  # nosec B404
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yt_dlp
+
+if TYPE_CHECKING:
+    import pretty_midi
 
 
 def _get_ffmpeg_location() -> str | None:
@@ -29,7 +35,7 @@ def _get_ffmpeg_location() -> str | None:
     if getattr(sys, "frozen", False):
         meipass = getattr(sys, "_MEIPASS", None)
         if meipass and (Path(meipass) / "ffmpeg.exe").exists():
-            return meipass
+            return str(meipass)
         exe_dir = str(Path(sys.executable).parent)
         if (Path(exe_dir) / "ffmpeg.exe").exists():
             return exe_dir
@@ -68,16 +74,19 @@ def _get_ffmpeg_location() -> str | None:
         if userprofile:
             search_dirs.append(Path(userprofile) / "scoop" / "shims")
         # Common manual install locations
-        search_dirs.extend([
-            Path(r"C:\ffmpeg\bin"),
-            Path(r"C:\Program Files\ffmpeg\bin"),
-        ])
+        search_dirs.extend(
+            [
+                Path(r"C:\ffmpeg\bin"),
+                Path(r"C:\Program Files\ffmpeg\bin"),
+            ]
+        )
 
         for d in search_dirs:
             if d.is_dir() and (d / "ffmpeg.exe").exists():
                 return str(d)
 
     return None
+
 
 _YT_PATTERNS = [
     re.compile(r"(?:https?://)?(?:www\.)?youtube\.com/watch\?v=([a-zA-Z0-9_-]{11})"),
@@ -148,7 +157,7 @@ def download_audio(url: str, dest_folder: Path) -> tuple[Path, str]:
     return audio_path, title
 
 
-def _trim_leading_silence(midi_data: "pretty_midi.PrettyMIDI", lead_in: float = 0.05) -> None:  # noqa: F821
+def _trim_leading_silence(midi_data: pretty_midi.PrettyMIDI, lead_in: float = 0.05) -> None:
     """Shift all MIDI notes so the first note starts at `lead_in` seconds.
 
     Modifies midi_data in place. If there are no notes, does nothing.

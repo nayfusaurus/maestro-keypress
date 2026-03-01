@@ -3,9 +3,18 @@
 Coordinates hotkey listening, GUI, and playback.
 """
 
+from __future__ import annotations
+
 import signal
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QTimer
+
+    from maestro.gui import MainWindow
+    from maestro.gui.workers import ImportWorker
 
 from pynput import keyboard
 
@@ -63,10 +72,10 @@ class Maestro:
         self.player = Player()
         self._listener: keyboard.Listener | None = None
         self._countdown: int = 0
-        self._countdown_timer = None
-        self._update_timer = None
+        self._countdown_timer: QTimer | None = None
+        self._update_timer: QTimer | None = None
         self._prev_push_state: str = "Stopped"
-        self._import_worker = None
+        self._import_worker: ImportWorker | None = None
 
         # Apply saved settings
         game_mode_str = self._config.get("game_mode", "Heartopia")
@@ -87,7 +96,7 @@ class Maestro:
         # Restore sharp handling
         self.player.sharp_handling = self._config.get("sharp_handling", "skip")
 
-        self.window = None  # Created in start()
+        self.window: MainWindow | None = None  # Created in start()
 
     def _get_hotkey(self, config_key: str, default: str) -> keyboard.Key | None:
         """Get a pynput Key from config string name."""
@@ -103,6 +112,7 @@ class Maestro:
 
     def _connect_signals(self) -> None:
         """Wire GUI signals to Maestro slots."""
+        assert self.window is not None  # nosec B101
         s = self.window.signals
 
         # User action signals
@@ -270,6 +280,7 @@ class Maestro:
 
     def _on_import_requested(self, url: str, isolate_piano: bool = False) -> None:
         """Handle import request from GUI."""
+        assert self.window is not None  # nosec B101
         from maestro.gui.workers import ImportWorker
 
         self._import_worker = ImportWorker(
@@ -283,9 +294,7 @@ class Maestro:
         self._import_worker.finished.connect(
             lambda filename: self.window.signals.import_finished.emit(filename)
         )
-        self._import_worker.error.connect(
-            lambda msg: self.window.signals.import_error.emit(msg)
-        )
+        self._import_worker.error.connect(lambda msg: self.window.signals.import_error.emit(msg))
         self._import_worker.start()
 
     def _on_play(self, song_path) -> None:
@@ -381,6 +390,7 @@ class Maestro:
         # the default Python/PyInstaller icon.
         if sys.platform == "win32":
             import ctypes
+
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("maestro.app")  # type: ignore[union-attr]
 
         app = QApplication(sys.argv)
@@ -389,6 +399,7 @@ class Maestro:
         # Windows assigns the taskbar icon when the first window appears,
         # so this must happen before the splash screen.
         from PySide6.QtGui import QIcon
+
         if getattr(sys, "frozen", False):
             _base = Path(getattr(sys, "_MEIPASS", ""))
         else:

@@ -40,7 +40,6 @@ assets/ffmpeg/
 
 # uv
 uv.lock
-.python-version
 
 # Worktrees
 .worktrees/

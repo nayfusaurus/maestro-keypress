@@ -133,8 +133,9 @@ class ToggleSwitch(QWidget):
 
         # --- Draw track (rounded rectangle) ---
         track_path = QPainterPath()
-        track_path.addRoundedRect(0.0, 0.0, float(_WIDTH), float(_HEIGHT),
-                                  _TRACK_RADIUS, _TRACK_RADIUS)
+        track_path.addRoundedRect(
+            0.0, 0.0, float(_WIDTH), float(_HEIGHT), _TRACK_RADIUS, _TRACK_RADIUS
+        )
         painter.setPen(track_color)
         painter.setBrush(track_color)
         painter.drawPath(track_path)

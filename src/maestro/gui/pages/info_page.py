@@ -38,9 +38,7 @@ class InfoPage(QWidget):
     disclaimer_accepted = Signal()
     disclaimer_rejected = Signal()
 
-    def __init__(
-        self, first_launch: bool = False, parent: QWidget | None = None
-    ) -> None:
+    def __init__(self, first_launch: bool = False, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._first_launch = first_launch
 
@@ -59,9 +57,7 @@ class InfoPage(QWidget):
         about_card = QWidget()
         about_card.setProperty("class", "surface-card")
         about_layout = QVBoxLayout(about_card)
-        about_layout.setContentsMargins(
-            SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"]
-        )
+        about_layout.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
         about_layout.setSpacing(SPACING["sm"])
 
         # Title

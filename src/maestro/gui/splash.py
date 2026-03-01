@@ -80,8 +80,12 @@ class SplashScreen(QWidget):
         p.setFont(status_font)
         p.setPen(QColor(self._SUBTEXT))
         p.drawText(
-            self._BAR_MARGIN, 90, self._W - 2 * self._BAR_MARGIN, 24,
-            Qt.AlignmentFlag.AlignCenter, self._status,
+            self._BAR_MARGIN,
+            90,
+            self._W - 2 * self._BAR_MARGIN,
+            24,
+            Qt.AlignmentFlag.AlignCenter,
+            self._status,
         )
 
         # Progress bar track
@@ -89,7 +93,12 @@ class SplashScreen(QWidget):
         bar_w = self._W - 2 * self._BAR_MARGIN
         track_path = QPainterPath()
         track_path.addRoundedRect(
-            self._BAR_MARGIN, bar_y, bar_w, self._BAR_H, 2, 2,
+            self._BAR_MARGIN,
+            bar_y,
+            bar_w,
+            self._BAR_H,
+            2,
+            2,
         )
         p.fillPath(track_path, QColor(self._SURFACE))
 
@@ -98,7 +107,12 @@ class SplashScreen(QWidget):
             fill_w = int(bar_w * self._progress / 100)
             fill_path = QPainterPath()
             fill_path.addRoundedRect(
-                self._BAR_MARGIN, bar_y, fill_w, self._BAR_H, 2, 2,
+                self._BAR_MARGIN,
+                bar_y,
+                fill_w,
+                self._BAR_H,
+                2,
+                2,
             )
             p.fillPath(fill_path, QColor(self._ACCENT))
 
@@ -108,8 +122,12 @@ class SplashScreen(QWidget):
         p.setFont(pct_font)
         p.setPen(QColor(self._SUBTEXT))
         p.drawText(
-            self._BAR_MARGIN, 134, bar_w, 20,
-            Qt.AlignmentFlag.AlignCenter, f"{self._progress}%",
+            self._BAR_MARGIN,
+            134,
+            bar_w,
+            20,
+            Qt.AlignmentFlag.AlignCenter,
+            f"{self._progress}%",
         )
 
         p.end()

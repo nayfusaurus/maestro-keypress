@@ -143,15 +143,13 @@ class MainWindow(QMainWindow):
 
         self._dashboard = DashboardPage(config)
         self._settings = SettingsPage(config)
-        self._info = InfoPage(
-            first_launch=not config.get("disclaimer_accepted", False)
-        )
+        self._info = InfoPage(first_launch=not config.get("disclaimer_accepted", False))
         self._log = LogPage()
 
-        self._stack.addWidget(self._dashboard)   # index 0
-        self._stack.addWidget(self._settings)     # index 1
-        self._stack.addWidget(self._info)         # index 2
-        self._stack.addWidget(self._log)          # index 3
+        self._stack.addWidget(self._dashboard)  # index 0
+        self._stack.addWidget(self._settings)  # index 1
+        self._stack.addWidget(self._info)  # index 2
+        self._stack.addWidget(self._log)  # index 3
 
         root.addWidget(self._stack, stretch=1)
         self.setCentralWidget(central)
@@ -210,9 +208,7 @@ class MainWindow(QMainWindow):
         self.signals.current_song_updated.connect(d._now_playing.update_song)
         self.signals.last_key_updated.connect(self._on_last_key_updated)
         self.signals.upcoming_notes_updated.connect(self._on_upcoming_notes_updated)
-        self.signals.note_compatibility_result.connect(
-            self._on_note_compatibility_result
-        )
+        self.signals.note_compatibility_result.connect(self._on_note_compatibility_result)
         self.signals.error_occurred.connect(self._on_error)
         self.signals.song_finished.connect(self._on_song_finished)
         self.signals.countdown_tick.connect(self._on_countdown_tick)
@@ -287,17 +283,13 @@ class MainWindow(QMainWindow):
 
     def _on_upcoming_notes_updated(self, notes: list) -> None:
         """Handle upcoming notes update from backend."""
-        self._dashboard._piano_roll.set_notes(
-            notes, self._current_position, float(self._lookahead)
-        )
+        self._dashboard._piano_roll.set_notes(notes, self._current_position, float(self._lookahead))
 
     def _on_note_compatibility_result(self, playable: int, total: int) -> None:
         """Handle note compatibility result — update the song item."""
         song = self._dashboard._song_list.get_selected_song()
         if song:
-            self._dashboard._song_list.update_song_compatibility(
-                str(song), playable, total
-            )
+            self._dashboard._song_list.update_song_compatibility(str(song), playable, total)
 
     def _on_error(self, message: str) -> None:
         """Display an error message on the dashboard."""
@@ -547,9 +539,7 @@ class MainWindow(QMainWindow):
         """Apply current search filter to song list."""
         search_term = self._dashboard._search_entry.text()
         favorites = getattr(self, "_favorites", [])
-        self._dashboard._song_list.apply_filter(
-            search_term, favorites, self._validation_results
-        )
+        self._dashboard._song_list.apply_filter(search_term, favorites, self._validation_results)
 
     def _start_validation(self) -> None:
         """Start background MIDI validation."""
@@ -568,9 +558,7 @@ class MainWindow(QMainWindow):
             song_notes=self._song_notes,
         )
         self._validation_worker.song_validated.connect(self._on_song_validated)
-        self._validation_worker.validation_finished.connect(
-            self._on_validation_finished
-        )
+        self._validation_worker.validation_finished.connect(self._on_validation_finished)
         self._validation_worker.start()
 
     def _on_song_validated(
@@ -586,13 +574,9 @@ class MainWindow(QMainWindow):
         self._validation_results[path_str] = status
         self._song_info[path_str] = info
         self._song_notes[path_str] = notes
-        self._dashboard._song_list.on_song_validated(
-            path_str, status, info, notes
-        )
+        self._dashboard._song_list.on_song_validated(path_str, status, info, notes)
         if status == "valid" and total > 0:
-            self._dashboard._song_list.update_song_compatibility(
-                path_str, playable, total
-            )
+            self._dashboard._song_list.update_song_compatibility(path_str, playable, total)
 
     def _on_validation_finished(self) -> None:
         """Handle validation completion."""
@@ -609,9 +593,7 @@ class MainWindow(QMainWindow):
     def _on_update_check_result(self, update_info) -> None:
         """Handle background update check result."""
         if update_info.has_update:
-            self._settings.set_update_status(
-                f"Update available: v{update_info.latest_version}"
-            )
+            self._settings.set_update_status(f"Update available: v{update_info.latest_version}")
             # Show badge on settings icon
             self._rail.set_badge(PAGE_SETTINGS, True)
 
@@ -629,9 +611,7 @@ class MainWindow(QMainWindow):
         if update_info.error:
             self._settings.set_update_status(f"Error: {update_info.error}")
         elif update_info.has_update:
-            self._settings.set_update_status(
-                f"Update available: v{update_info.latest_version}"
-            )
+            self._settings.set_update_status(f"Update available: v{update_info.latest_version}")
             self._rail.set_badge(PAGE_SETTINGS, True)
         else:
             self._settings.set_update_status(f"Up to date (v{APP_VERSION})")
@@ -695,9 +675,7 @@ class MainWindow(QMainWindow):
         """Handle demucs download failure."""
         import logging
 
-        logging.getLogger("maestro").error(
-            "Demucs model download failed: %s", error
-        )
+        logging.getLogger("maestro").error("Demucs model download failed: %s", error)
         self._settings.set_demucs_downloading(False)
         self._settings._demucs_status.setText("Download failed")
         self._settings._demucs_status.setProperty("state", "error")

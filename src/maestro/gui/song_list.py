@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from PySide6.QtCore import QRect, QSize, Qt, Signal
+from PySide6.QtCore import QModelIndex, QPersistentModelIndex, QRect, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPainter
 from PySide6.QtWidgets import (
     QListWidget,
@@ -40,7 +40,9 @@ class SongItemDelegate(QStyledItemDelegate):
     _LINE2_H = 24
 
     def sizeHint(  # noqa: N802
-        self, option: QStyleOptionViewItem, index: "QModelIndex"  # noqa: F821
+        self,
+        option: QStyleOptionViewItem,
+        index: QModelIndex | QPersistentModelIndex,
     ) -> QSize:
         return QSize(option.rect.width(), self._ITEM_H)
 
@@ -48,7 +50,7 @@ class SongItemDelegate(QStyledItemDelegate):
         self,
         painter: QPainter,
         option: QStyleOptionViewItem,
-        index: "QModelIndex",  # noqa: F821
+        index: QModelIndex | QPersistentModelIndex,
     ) -> None:
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -115,7 +117,9 @@ class SongItemDelegate(QStyledItemDelegate):
         # Song name (left, elided to fit)
         name_w = cw - dur_w
         elided = painter.fontMetrics().elidedText(
-            meta["stem"], Qt.TextElideMode.ElideRight, name_w,
+            meta["stem"],
+            Qt.TextElideMode.ElideRight,
+            name_w,
         )
         painter.setPen(QColor(COLORS["text"]))
         painter.drawText(
@@ -145,7 +149,9 @@ class SongItemDelegate(QStyledItemDelegate):
         elif status == "invalid":
             painter.setPen(QColor(COLORS["red"]))
             painter.drawText(
-                line2, Qt.AlignmentFlag.AlignVCenter, "Invalid MIDI file",
+                line2,
+                Qt.AlignmentFlag.AlignVCenter,
+                "Invalid MIDI file",
             )
         else:
             parts: list[str] = []
@@ -163,7 +169,9 @@ class SongItemDelegate(QStyledItemDelegate):
             if parts:
                 painter.setPen(QColor(COLORS["subtext"]))
                 painter.drawText(
-                    line2, Qt.AlignmentFlag.AlignVCenter, " \u00b7 ".join(parts),
+                    line2,
+                    Qt.AlignmentFlag.AlignVCenter,
+                    " \u00b7 ".join(parts),
                 )
 
         painter.restore()
@@ -263,9 +271,7 @@ class SongListWidget(QListWidget):
                 item.setText(meta["stem"])
                 break
 
-    def update_song_compatibility(
-        self, path_str: str, playable: int, total: int
-    ) -> None:
+    def update_song_compatibility(self, path_str: str, playable: int, total: int) -> None:
         """Update compatibility info for a song and repaint its item."""
         self._song_compatibility[path_str] = (playable, total)
         for i in range(self.count()):

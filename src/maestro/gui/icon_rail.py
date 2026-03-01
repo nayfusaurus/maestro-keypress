@@ -150,9 +150,9 @@ class IconRail(QWidget):
     def event(self, ev: QEvent) -> bool:
         """Handle QEvent.ToolTip to show icon labels."""
         if ev.type() == QEvent.Type.ToolTip:
-            idx = self._hit_test(ev.pos().y())  # type: ignore[union-attr]
+            idx = self._hit_test(ev.pos().y())  # type: ignore[attr-defined]
             if 0 <= idx < len(_ICON_LABELS):
-                QToolTip.showText(ev.globalPos(), _ICON_LABELS[idx], self)  # type: ignore[union-attr]
+                QToolTip.showText(ev.globalPos(), _ICON_LABELS[idx], self)  # type: ignore[attr-defined]
             else:
                 QToolTip.hideText()
             return True
