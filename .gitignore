@@ -27,6 +27,9 @@ Thumbs.db
 # Docs
 docs/
 
+# Claude Code project instructions (local only)
+CLAUDE.md
+
 # Build
 dist/
 build/
