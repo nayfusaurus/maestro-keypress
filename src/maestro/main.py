@@ -119,8 +119,12 @@ class Maestro:
         s.favorite_toggled.connect(self._on_favorite_toggle)
         s.sharp_handling_changed.connect(self._on_sharp_handling_change)
         s.hotkey_changed.connect(self._on_hotkey_change)
+        s.theme_changed.connect(self._on_theme_change)
         s.note_compatibility_requested.connect(self._on_note_compatibility_requested)
         s.import_requested.connect(self._on_import_requested)
+
+        # Disclaimer acceptance from info page
+        self.window._info.disclaimer_accepted.connect(self._on_disclaimer_accepted)
 
     def _push_state_updates(self) -> None:
         """Push current state to GUI via signals. Called every 200ms by QTimer."""
@@ -223,6 +227,19 @@ class Maestro:
         self._config[config_key] = key_name
         self._save_config()
         print(f"Hotkey '{config_key}' changed to '{key_name}'")
+
+    def _on_theme_change(self, theme: str) -> None:
+        """Handle theme change from GUI."""
+        self._config["theme"] = theme
+        self._save_config()
+
+    def _on_disclaimer_accepted(self) -> None:
+        """Handle disclaimer acceptance from info page."""
+        self._config["disclaimer_accepted"] = True
+        self._save_config()
+        # Send favorites to GUI now that disclaimer is accepted
+        if self.window:
+            self.window.signals.favorites_loaded.emit(self._get_favorites())
 
     def _on_note_compatibility_requested(self, song_path) -> None:
         """Calculate note compatibility and emit result back to GUI."""
@@ -390,8 +407,9 @@ class Maestro:
         )
         self._connect_signals()
 
-        # Send initial favorites to GUI
-        self.window.signals.favorites_loaded.emit(self._get_favorites())
+        # Send initial favorites to GUI (skip if first launch — disclaimer not yet accepted)
+        if self._config.get("disclaimer_accepted", False):
+            self.window.signals.favorites_loaded.emit(self._get_favorites())
 
         # Stage 4: Show window and close splash
         splash.set_progress(100, "Ready")

@@ -256,7 +256,6 @@ class MainWindow(QMainWindow):
         self._rail.set_active(PAGE_DASHBOARD)
         self._stack.setCurrentIndex(PAGE_DASHBOARD)
         self.setWindowTitle("Maestro - Dashboard")
-        self.signals.theme_changed.emit("accepted")  # Signal to save config
 
     def _on_disclaimer_rejected(self) -> None:
         """Handle disclaimer rejection — close app."""
@@ -502,8 +501,6 @@ class MainWindow(QMainWindow):
 
     def _on_theme_change(self, theme: str) -> None:
         """Handle theme toggle from settings page."""
-        if theme == "accepted":
-            return  # Disclaimer accepted signal, not a theme change
         dark = theme == "dark"
         app = QApplication.instance()
         if isinstance(app, QApplication):
