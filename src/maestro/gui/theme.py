@@ -1,8 +1,7 @@
-"""Dark theme stylesheet for the Maestro GUI.
+"""Theme system for the Maestro GUI.
 
-Design tokens and Catppuccin Mocha-inspired dark color palette with
-tonal surface hierarchy, spacing scale, typographic scale, and
-comprehensive QSS for all Qt widgets.
+Supports dark (Catppuccin Mocha) and light (Catppuccin Latte) themes with
+shared design tokens, tonal surface hierarchy, and comprehensive QSS.
 """
 
 from PySide6.QtWidgets import QApplication
@@ -18,28 +17,28 @@ RADIUS = {"sm": 4, "md": 8, "lg": 12}
 FONT_FAMILY = '"Segoe UI", "SF Pro Display", "Helvetica Neue", Arial, sans-serif'
 
 FONT = {
-    "title": {"size": 14, "weight": 600},
-    "body": {"size": 10, "weight": 400},
-    "caption": {"size": 9, "weight": 400},
-    "label": {"size": 8, "weight": 600},
-    "overline": {"size": 7, "weight": 700},
+    "title": {"size": 19, "weight": 600},
+    "body": {"size": 13, "weight": 400},
+    "caption": {"size": 12, "weight": 400},
+    "label": {"size": 11, "weight": 600},
+    "overline": {"size": 10, "weight": 700},
 }
 
 # ---------------------------------------------------------------------------
-# Color Palette — Catppuccin Mocha with tonal surface hierarchy
+# Color Palettes
 # ---------------------------------------------------------------------------
 
-COLORS = {
+DARK_COLORS = {
     "base": "#1e1e2e",
-    "surface0": "#232334",
-    "surface1": "#2a2a3c",
-    "surface2": "#313244",
-    "surface_hover": "#3b3d52",
-    "surface_active": "#45475a",
-    "overlay": "#585b70",
-    "subtext": "#6c7086",
+    "surface0": "#292940",
+    "surface1": "#313244",
+    "surface2": "#3b3d52",
+    "surface_hover": "#45475a",
+    "surface_active": "#585b70",
+    "overlay": "#7f849c",
+    "subtext": "#a6adc8",
     "text": "#cdd6f4",
-    "text_dim": "#a6adc8",
+    "text_dim": "#bac2de",
     "accent": "#89b4fa",
     "accent_hover": "#a6c8ff",
     "accent_dim": "#5d7cbf",
@@ -48,77 +47,118 @@ COLORS = {
     "red": "#f38ba8",
     "red_dark": "#d32f2f",
     "yellow": "#f9e2af",
-    "pending": "#6c7086",
+    "pending": "#7f849c",
     "link": "#89b4fa",
 }
 
+LIGHT_COLORS = {
+    "base": "#eff1f5",
+    "surface0": "#ffffff",
+    "surface1": "#e6e9ef",
+    "surface2": "#ccd0da",
+    "surface_hover": "#bcc0cc",
+    "surface_active": "#acb0be",
+    "overlay": "#9ca0b0",
+    "subtext": "#6c6f85",
+    "text": "#4c4f69",
+    "text_dim": "#5c5f77",
+    "accent": "#1e66f5",
+    "accent_hover": "#1252cc",
+    "accent_dim": "#7287fd",
+    "green": "#40a02b",
+    "green_dark": "#2d8a1f",
+    "red": "#d20f39",
+    "red_dark": "#b01030",
+    "yellow": "#df8e1d",
+    "pending": "#9ca0b0",
+    "link": "#1e66f5",
+}
+
+# Mutable reference to current theme colors — updated by apply_theme().
+# Other modules import this dict and read values during paint/layout,
+# so they automatically pick up the active theme.
+COLORS: dict[str, str] = dict(DARK_COLORS)
+
 # ---------------------------------------------------------------------------
-# Dark Theme QSS
+# QSS Builder
 # ---------------------------------------------------------------------------
 
-DARK_THEME = f"""
+
+def _build_qss(c: dict[str, str]) -> str:
+    """Build the complete QSS stylesheet from a color dict."""
+    return f"""
 /* ── Global ─────────────────────────────────────────────────────────── */
 
 * {{
     font-family: {FONT_FAMILY};
+    font-size: {FONT["body"]["size"]}pt;
 }}
 
 /* ── Top-level containers ───────────────────────────────────────────── */
 
 QMainWindow, QDialog {{
-    background-color: {COLORS["base"]};
-    color: {COLORS["text"]};
+    background-color: {c["base"]};
+    color: {c["text"]};
+}}
+
+QWidget {{
+    background-color: {c["base"]};
+    color: {c["text"]};
 }}
 
 /* ── Labels ─────────────────────────────────────────────────────────── */
 
 QLabel {{
-    color: {COLORS["text"]};
+    color: {c["text"]};
+    font-size: {FONT["body"]["size"]}pt;
 }}
 
 QLabel[class="caption"] {{
-    color: {COLORS["subtext"]};
-    font-size: 9pt;
+    color: {c["subtext"]};
+    font-size: {FONT["caption"]["size"]}pt;
 }}
 
 QLabel[class="overline"] {{
-    color: {COLORS["overlay"]};
-    font-size: 7pt;
+    color: {c["overlay"]};
+    font-size: {FONT["overline"]["size"]}pt;
     font-weight: 700;
+    letter-spacing: 1px;
 }}
 
 QLabel[class="title"] {{
-    font-size: 14pt;
+    font-size: {FONT["title"]["size"]}pt;
     font-weight: 600;
 }}
 
 QLabel[class="key-badge"] {{
-    background-color: {COLORS["surface2"]};
-    border: 1px solid {COLORS["surface_active"]};
+    background-color: {c["surface2"]};
+    border: 1px solid {c["surface_active"]};
     border-radius: 6px;
-    padding: 4px 8px;
+    padding: 4px 10px;
     font-weight: 600;
+    font-size: {FONT["caption"]["size"]}pt;
 }}
 
 QLabel[state="finished"] {{
-    color: {COLORS["green"]};
+    color: {c["green"]};
 }}
 
 QLabel[state="error"] {{
-    color: {COLORS["red"]};
+    color: {c["red"]};
     font-weight: 600;
 }}
 
 /* ── List Widget ────────────────────────────────────────────────────── */
 
 QListWidget {{
-    background-color: {COLORS["surface1"]};
-    color: {COLORS["text"]};
-    border: 1px solid {COLORS["surface_active"]};
+    background-color: {c["surface0"]};
+    color: {c["text"]};
+    border: 1px solid {c["surface_active"]};
     border-radius: 8px;
-    selection-background-color: {COLORS["surface_hover"]};
-    selection-color: {COLORS["text"]};
+    selection-background-color: {c["surface_hover"]};
+    selection-color: {c["text"]};
     outline: none;
+    font-size: {FONT["body"]["size"]}pt;
 }}
 
 QListWidget::item {{
@@ -126,42 +166,43 @@ QListWidget::item {{
 }}
 
 QListWidget::item:hover {{
-    background-color: {COLORS["surface_hover"]};
+    background-color: {c["surface_hover"]};
 }}
 
 /* ── Push Buttons ───────────────────────────────────────────────────── */
 
 QPushButton {{
-    background-color: {COLORS["surface2"]};
-    color: {COLORS["text"]};
+    background-color: {c["surface2"]};
+    color: {c["text"]};
     border: none;
     border-radius: 6px;
     padding: 6px 16px;
     min-height: 28px;
+    font-size: {FONT["body"]["size"]}pt;
 }}
 
 QPushButton:hover {{
-    background-color: {COLORS["surface_hover"]};
+    background-color: {c["surface_hover"]};
 }}
 
 QPushButton:pressed {{
-    background-color: {COLORS["surface_active"]};
+    background-color: {c["surface_active"]};
 }}
 
 QPushButton:disabled {{
-    background-color: {COLORS["surface1"]};
-    color: {COLORS["subtext"]};
+    background-color: {c["surface1"]};
+    color: {c["subtext"]};
 }}
 
 QPushButton[class="primary"] {{
-    background-color: {COLORS["accent"]};
-    color: {COLORS["base"]};
+    background-color: {c["accent"]};
+    color: {c["base"]};
     font-weight: 600;
     border: none;
 }}
 
 QPushButton[class="primary"]:hover {{
-    background-color: {COLORS["accent_hover"]};
+    background-color: {c["accent_hover"]};
 }}
 
 QPushButton[class="ghost"] {{
@@ -171,17 +212,18 @@ QPushButton[class="ghost"] {{
 }}
 
 QPushButton[class="ghost"]:hover {{
-    background-color: {COLORS["surface2"]};
+    background-color: {c["surface2"]};
 }}
 
 /* ── Combo Box ──────────────────────────────────────────────────────── */
 
 QComboBox {{
-    background-color: {COLORS["surface2"]};
-    color: {COLORS["text"]};
+    background-color: {c["surface2"]};
+    color: {c["text"]};
     border: none;
     border-radius: 6px;
     padding: 6px 12px;
+    font-size: {FONT["body"]["size"]}pt;
 }}
 
 QComboBox::drop-down {{
@@ -193,42 +235,42 @@ QComboBox::down-arrow {{
     image: none;
     border-left: 4px solid transparent;
     border-right: 4px solid transparent;
-    border-top: 5px solid {COLORS["text"]};
+    border-top: 5px solid {c["text"]};
     margin-right: 6px;
 }}
 
 QComboBox QAbstractItemView {{
-    background-color: {COLORS["surface1"]};
-    color: {COLORS["text"]};
-    selection-background-color: {COLORS["surface_hover"]};
-    border: 1px solid {COLORS["surface2"]};
+    background-color: {c["surface1"]};
+    color: {c["text"]};
+    selection-background-color: {c["surface_hover"]};
+    border: 1px solid {c["surface2"]};
     outline: none;
 }}
 
 /* ── Slider ─────────────────────────────────────────────────────────── */
 
 QSlider::groove:horizontal {{
-    background: {COLORS["surface_active"]};
+    background: {c["surface_active"]};
     height: 4px;
     border-radius: 2px;
 }}
 
 QSlider::handle:horizontal {{
-    background: {COLORS["accent"]};
-    width: 12px;
-    height: 12px;
-    margin: -4px 0;
-    border-radius: 6px;
+    background: {c["accent"]};
+    width: 14px;
+    height: 14px;
+    margin: -5px 0;
+    border-radius: 7px;
 }}
 
 QSlider::handle:horizontal:hover {{
-    background: {COLORS["accent_hover"]};
+    background: {c["accent_hover"]};
 }}
 
 /* ── Progress Bar ───────────────────────────────────────────────────── */
 
 QProgressBar {{
-    background-color: {COLORS["surface2"]};
+    background-color: {c["surface2"]};
     border: none;
     border-radius: 2px;
     min-height: 4px;
@@ -237,7 +279,7 @@ QProgressBar {{
 }}
 
 QProgressBar::chunk {{
-    background-color: {COLORS["accent"]};
+    background-color: {c["accent"]};
     border-radius: 2px;
 }}
 
@@ -245,7 +287,7 @@ QProgressBar::chunk {{
 
 QGroupBox {{
     border: none;
-    color: {COLORS["text"]};
+    color: {c["text"]};
     margin-top: 8px;
     padding-top: 16px;
     font-weight: bold;
@@ -260,24 +302,26 @@ QGroupBox::title {{
 /* ── Line Edit ──────────────────────────────────────────────────────── */
 
 QLineEdit {{
-    background-color: {COLORS["surface1"]};
-    color: {COLORS["text"]};
-    border: 1px solid {COLORS["surface2"]};
+    background-color: {c["surface1"]};
+    color: {c["text"]};
+    border: 1px solid {c["surface2"]};
     border-radius: 6px;
     padding: 6px 12px;
     min-height: 28px;
+    font-size: {FONT["body"]["size"]}pt;
 }}
 
 QLineEdit:focus {{
-    border-color: {COLORS["accent"]};
+    border-color: {c["accent"]};
 }}
 
 /* ── Menu Bar ───────────────────────────────────────────────────────── */
 
 QMenuBar {{
-    background-color: {COLORS["base"]};
-    color: {COLORS["text"]};
-    border-bottom: 1px solid {COLORS["surface2"]};
+    background-color: {c["base"]};
+    color: {c["text"]};
+    border-bottom: 1px solid {c["surface2"]};
+    font-size: {FONT["body"]["size"]}pt;
 }}
 
 QMenuBar::item {{
@@ -285,18 +329,19 @@ QMenuBar::item {{
 }}
 
 QMenuBar::item:selected {{
-    background-color: {COLORS["surface_hover"]};
+    background-color: {c["surface_hover"]};
     border-radius: 4px;
 }}
 
 /* ── Menu ────────────────────────────────────────────────────────────── */
 
 QMenu {{
-    background-color: {COLORS["surface1"]};
-    color: {COLORS["text"]};
-    border: 1px solid {COLORS["surface2"]};
+    background-color: {c["surface0"]};
+    color: {c["text"]};
+    border: 1px solid {c["surface2"]};
     border-radius: 8px;
     padding: 4px;
+    font-size: {FONT["body"]["size"]}pt;
 }}
 
 QMenu::item {{
@@ -305,67 +350,76 @@ QMenu::item {{
 }}
 
 QMenu::item:selected {{
-    background-color: {COLORS["surface_hover"]};
+    background-color: {c["surface_hover"]};
 }}
 
 QMenu::separator {{
     height: 1px;
-    background: {COLORS["surface_active"]};
+    background: {c["surface_active"]};
     margin: 4px 8px;
 }}
 
 /* ── Text Edit ──────────────────────────────────────────────────────── */
 
 QTextEdit {{
-    background-color: {COLORS["surface1"]};
-    color: {COLORS["text"]};
-    border: 1px solid {COLORS["surface2"]};
+    background-color: {c["surface1"]};
+    color: {c["text"]};
+    border: 1px solid {c["surface2"]};
     border-radius: 8px;
+    font-size: {FONT["body"]["size"]}pt;
 }}
 
 /* ── Check Box ──────────────────────────────────────────────────────── */
 
 QCheckBox {{
-    color: {COLORS["text"]};
+    color: {c["text"]};
     spacing: 8px;
+    font-size: {FONT["body"]["size"]}pt;
 }}
 
 QCheckBox::indicator {{
-    width: 16px;
-    height: 16px;
-    border: 1px solid {COLORS["overlay"]};
+    width: 18px;
+    height: 18px;
+    border: 1px solid {c["overlay"]};
     border-radius: 4px;
-    background-color: {COLORS["surface2"]};
+    background-color: {c["surface2"]};
 }}
 
 QCheckBox::indicator:checked {{
-    background-color: {COLORS["accent"]};
-    border-color: {COLORS["accent"]};
+    background-color: {c["accent"]};
+    border-color: {c["accent"]};
 }}
 
 QCheckBox::indicator:hover {{
-    border-color: {COLORS["accent"]};
+    border-color: {c["accent"]};
 }}
 
 QCheckBox:disabled {{
-    color: {COLORS["subtext"]};
+    color: {c["subtext"]};
+}}
+
+/* ── Scroll Area ───────────────────────────────────────────────────── */
+
+QScrollArea {{
+    background-color: {c["base"]};
+    border: none;
 }}
 
 /* ── Scroll Bars ────────────────────────────────────────────────────── */
 
 QScrollBar:vertical {{
-    background: {COLORS["base"]};
-    width: 6px;
+    background: transparent;
+    width: 8px;
 }}
 
 QScrollBar::handle:vertical {{
-    background: {COLORS["overlay"]};
-    border-radius: 3px;
+    background: {c["overlay"]};
+    border-radius: 4px;
     min-height: 20px;
 }}
 
 QScrollBar::handle:vertical:hover {{
-    background: {COLORS["subtext"]};
+    background: {c["subtext"]};
 }}
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
@@ -377,18 +431,18 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
 }}
 
 QScrollBar:horizontal {{
-    background: {COLORS["base"]};
-    height: 6px;
+    background: transparent;
+    height: 8px;
 }}
 
 QScrollBar::handle:horizontal {{
-    background: {COLORS["overlay"]};
-    border-radius: 3px;
+    background: {c["overlay"]};
+    border-radius: 4px;
     min-width: 20px;
 }}
 
 QScrollBar::handle:horizontal:hover {{
-    background: {COLORS["subtext"]};
+    background: {c["subtext"]};
 }}
 
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
@@ -402,24 +456,64 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{
 /* ── Semantic Widgets ───────────────────────────────────────────────── */
 
 QWidget[class="surface-card"] {{
-    background-color: {COLORS["surface0"]};
+    background-color: {c["surface0"]};
+    border: 1px solid {c["surface2"]};
     border-radius: 8px;
 }}
 
+QWidget[class="surface-card-flat"] {{
+    background-color: transparent;
+    border: none;
+    border-radius: 0px;
+}}
+
 QFrame[class="banner"] {{
-    background-color: {COLORS["surface0"]};
+    background-color: {c["surface0"]};
     border-radius: 8px;
-    border: 1px solid {COLORS["surface2"]};
+    border: 1px solid {c["surface2"]};
+}}
+
+/* ── Section heading (dimmer than overline, no letter-spacing) ────── */
+
+QLabel[class="section-heading"] {{
+    color: {c["subtext"]};
+    font-size: {FONT["caption"]["size"]}pt;
+    font-weight: 600;
+}}
+
+/* ── Separator line ─────────────────────────────────────────────────── */
+
+QFrame[class="separator"] {{
+    background-color: {c["surface2"]};
+    max-height: 1px;
+    min-height: 1px;
+    margin: 6px 0px;
 }}
 
 /* ── Horizontal/Vertical Lines ──────────────────────────────────────── */
 
 QFrame[frameShape="4"] {{
-    color: {COLORS["surface_active"]};
+    color: {c["surface_active"]};
 }}
 """
 
 
-def apply_theme(app: QApplication) -> None:
-    """Apply the dark theme to the application."""
-    app.setStyleSheet(DARK_THEME)
+# Pre-built dark theme for backward compatibility
+DARK_THEME = _build_qss(DARK_COLORS)
+
+# Track current theme name
+_current_theme: str = "dark"
+
+
+def apply_theme(app: QApplication, dark: bool = True) -> None:
+    """Apply the dark or light theme to the application."""
+    global _current_theme
+    source = DARK_COLORS if dark else LIGHT_COLORS
+    COLORS.update(source)
+    _current_theme = "dark" if dark else "light"
+    app.setStyleSheet(_build_qss(source))
+
+
+def is_dark_theme() -> bool:
+    """Return True if the current theme is dark."""
+    return _current_theme == "dark"

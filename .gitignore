@@ -32,6 +32,9 @@ dist/
 build/
 *.egg-info/
 
+# Bundled binaries (downloaded by scripts/download_ffmpeg.py)
+assets/ffmpeg/
+
 # uv
 uv.lock
 .python-version

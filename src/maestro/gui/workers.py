@@ -13,16 +13,19 @@ class ValidationWorker(QThread):
     """Background thread that validates MIDI files.
 
     Emits song_validated for each file processed, and validation_finished when done.
-    Uses mtime caching to skip unchanged files.
+    Uses mtime caching to skip unchanged files. Computes note compatibility inline.
     """
 
-    song_validated = Signal(str, str, dict, list)  # path_str, status, info_dict, notes_list
+    song_validated = Signal(str, str, dict, list, int, int)  # path_str, status, info, notes, playable, total
     validation_finished = Signal()
 
     def __init__(
         self,
         songs: list[Path],
         key_layout: KeyLayout,
+        game_mode: str,
+        transpose: bool,
+        sharp_handling: str,
         validation_cache: dict[str, tuple[float, bool]],
         song_info: dict[str, dict],
         song_notes: dict[str, list],
@@ -30,9 +33,50 @@ class ValidationWorker(QThread):
         super().__init__()
         self._songs = list(songs)
         self._key_layout = key_layout
+        self._game_mode = game_mode
+        self._transpose = transpose
+        self._sharp_handling = sharp_handling
         self._validation_cache = validation_cache
         self._song_info = song_info
         self._song_notes = song_notes
+
+    def _compute_compatibility(self, notes: list) -> tuple[int, int]:
+        """Calculate how many notes are playable with current layout."""
+        from maestro.game_mode import GameMode
+        from maestro.keymap import midi_note_to_key
+        from maestro.keymap_15_double import midi_note_to_key_15_double
+        from maestro.keymap_15_triple import midi_note_to_key_15_triple
+        from maestro.keymap_drums import midi_note_to_key as midi_note_to_key_drums
+        from maestro.keymap_wwm import midi_note_to_key_wwm
+        from maestro.keymap_xylophone import midi_note_to_key as midi_note_to_key_xylophone
+
+        total = len(notes)
+        if total == 0:
+            return (0, 0)
+
+        playable = 0
+        for note in notes:
+            midi = note.midi_note
+            if self._game_mode == GameMode.WHERE_WINDS_MEET.value:
+                result = midi_note_to_key_wwm(midi, transpose=self._transpose)
+            elif self._key_layout == KeyLayout.KEYS_15_DOUBLE:
+                result = midi_note_to_key_15_double(
+                    midi, transpose=self._transpose, sharp_handling=self._sharp_handling
+                )
+            elif self._key_layout == KeyLayout.KEYS_15_TRIPLE:
+                result = midi_note_to_key_15_triple(
+                    midi, transpose=self._transpose, sharp_handling=self._sharp_handling
+                )
+            elif self._key_layout == KeyLayout.DRUMS:
+                result = midi_note_to_key_drums(midi, transpose=False)
+            elif self._key_layout == KeyLayout.XYLOPHONE:
+                result = midi_note_to_key_xylophone(midi, transpose=False)
+            else:
+                result = midi_note_to_key(midi, transpose=self._transpose)
+            if result is not None:
+                playable += 1
+
+        return (playable, total)
 
     def run(self) -> None:
         """Validate all songs, emitting results as signals."""
@@ -43,14 +87,14 @@ class ValidationWorker(QThread):
 
             # Check if file still exists
             if not song.exists():
-                self.song_validated.emit(song_str, "invalid", empty_info.copy(), [])
+                self.song_validated.emit(song_str, "invalid", empty_info.copy(), [], 0, 0)
                 continue
 
             # Get current mtime
             try:
                 current_mtime = song.stat().st_mtime
             except OSError:
-                self.song_validated.emit(song_str, "invalid", empty_info.copy(), [])
+                self.song_validated.emit(song_str, "invalid", empty_info.copy(), [], 0, 0)
                 continue
 
             # Check cache
@@ -62,9 +106,13 @@ class ValidationWorker(QThread):
                         # Reuse existing info/notes from the shared dicts
                         info = self._song_info.get(song_str, empty_info.copy())
                         notes = self._song_notes.get(song_str, [])
-                        self.song_validated.emit(song_str, "valid", info, notes)
+                        try:
+                            playable, total = self._compute_compatibility(notes)
+                        except Exception:
+                            playable, total = 0, 0
+                        self.song_validated.emit(song_str, "valid", info, notes, playable, total)
                     else:
-                        self.song_validated.emit(song_str, "invalid", empty_info.copy(), [])
+                        self.song_validated.emit(song_str, "invalid", empty_info.copy(), [], 0, 0)
                     continue
 
             # File changed or not in cache — validate it
@@ -77,14 +125,18 @@ class ValidationWorker(QThread):
                     has_drum_notes = any(60 <= note.midi_note <= 67 for note in notes)
                     if not has_drum_notes:
                         self._validation_cache[song_str] = (current_mtime, False)
-                        self.song_validated.emit(song_str, "invalid", empty_info.copy(), [])
+                        self.song_validated.emit(song_str, "invalid", empty_info.copy(), [], 0, 0)
                         continue
 
                 self._validation_cache[song_str] = (current_mtime, True)
-                self.song_validated.emit(song_str, "valid", info, notes)
+                try:
+                    playable, total = self._compute_compatibility(notes)
+                except Exception:
+                    playable, total = 0, 0
+                self.song_validated.emit(song_str, "valid", info, notes, playable, total)
             except Exception:
                 self._validation_cache[song_str] = (current_mtime, False)
-                self.song_validated.emit(song_str, "invalid", empty_info.copy(), [])
+                self.song_validated.emit(song_str, "invalid", empty_info.copy(), [], 0, 0)
 
         self.validation_finished.emit()
 
@@ -107,7 +159,7 @@ class UpdateCheckWorker(QThread):
 
 
 class ImportWorker(QThread):
-    """Background thread that handles URL import (OnlineSequencer or YouTube).
+    """Background thread that handles YouTube URL import.
 
     Detects the URL type, runs the appropriate pipeline, and emits signals
     for progress, completion, and errors.
@@ -125,54 +177,59 @@ class ImportWorker(QThread):
 
     def run(self) -> None:
         """Run the import pipeline based on URL type."""
-        from maestro.importers.online_sequencer import extract_sequence_id
         from maestro.importers.youtube import extract_video_id
 
         try:
-            sequence_id = extract_sequence_id(self._url)
             video_id = extract_video_id(self._url)
 
-            if sequence_id:
-                self._import_online_sequencer(sequence_id)
-            elif video_id:
+            if video_id:
                 self._import_youtube()
             else:
                 self.error.emit(
-                    "Unsupported URL. Paste an OnlineSequencer or YouTube link."
+                    "Unsupported URL. Paste a YouTube link."
                 )
         except Exception as e:
             self.error.emit(str(e))
 
-    def _import_online_sequencer(self, sequence_id: str) -> None:
-        from maestro.importers.online_sequencer import download_midi, fetch_song_title
-
-        self.progress.emit("Fetching song info...")
-        title = fetch_song_title(sequence_id)
-
-        self.progress.emit("Downloading MIDI...")
-        result = download_midi(sequence_id, self._dest_folder, title)
-
-        self.finished.emit(result.name)
-
     def _import_youtube(self) -> None:
+        import logging
+
         from maestro.importers.youtube import (
             download_audio,
             isolate_piano,
             transcribe_audio,
         )
 
+        logger = logging.getLogger("maestro")
+        logger.info("YouTube import started: %s", self._url)
+
         self.progress.emit("Downloading audio...")
-        audio_path, title = download_audio(self._url, self._dest_folder)
+        try:
+            audio_path, title = download_audio(self._url, self._dest_folder)
+            logger.info("Audio downloaded: %s (%s)", title, audio_path)
+        except Exception as e:
+            msg = str(e)
+            logger.error("Audio download failed: %s", msg)
+            if "ffprobe" in msg or "ffmpeg" in msg:
+                self.error.emit(
+                    "ffmpeg not found. Install it from https://ffmpeg.org "
+                    "and make sure ffmpeg.exe is on your PATH, then restart Maestro."
+                )
+                return
+            raise
 
         if self._isolate_piano:
             self.progress.emit("Isolating piano...")
             try:
                 audio_path = isolate_piano(audio_path, self._dest_folder)
-            except Exception:
+                logger.info("Piano isolation complete: %s", audio_path)
+            except Exception as e:
+                logger.warning("Piano isolation failed: %s", e)
                 self.progress.emit("Piano isolation failed, using full audio...")
 
         self.progress.emit("Transcribing to MIDI...")
         result = transcribe_audio(audio_path, self._dest_folder, title)
+        logger.info("YouTube import finished: %s", result.name)
 
         self.finished.emit(result.name)
 
@@ -190,24 +247,33 @@ class DemucsDownloadWorker(QThread):
 
     def run(self) -> None:
         """Download and set up the demucs model."""
+        import logging
         import subprocess
+
+        logger = logging.getLogger("maestro")
+        logger.info("Demucs download started, target: %s", self._model_dir)
 
         try:
             self.progress.emit("Installing demucs model...")
             self._model_dir.mkdir(parents=True, exist_ok=True)
 
+            cmd = ["pip", "install", "demucs", "--target", str(self._model_dir)]
+            logger.info("Running: %s", " ".join(cmd))
             result = subprocess.run(
-                ["pip", "install", "demucs", "--target", str(self._model_dir)],
+                cmd,
                 capture_output=True,
                 text=True,
                 check=False,
             )
 
             if result.returncode != 0:
+                logger.error("Demucs install failed (rc=%d): %s", result.returncode, result.stderr[:500])
                 self.error.emit(f"Model download failed: {result.stderr[:200]}")
                 return
 
+            logger.info("Demucs model installed successfully")
             self.progress.emit("Model installed successfully")
             self.finished.emit()
         except Exception as e:
+            logger.error("Demucs download exception: %s", e)
             self.error.emit(f"Download failed: {e}")

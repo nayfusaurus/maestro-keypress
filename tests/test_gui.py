@@ -8,8 +8,7 @@ import pytest
 from maestro.gui import BINDABLE_KEYS, get_songs_from_folder
 from maestro.gui.constants import BINDABLE_KEYS_QT
 from maestro.gui.import_panel import ImportPanel
-from maestro.gui.settings_dialog import SettingsDialog
-from maestro.gui.utils import format_time
+from maestro.gui.utils import check_hotkey_conflict, format_time
 from maestro.key_layout import KeyLayout
 
 
@@ -78,79 +77,49 @@ def test_bindable_keys_qt_contains_f_keys():
         assert BINDABLE_KEYS_QT[key] == f"f{i}"
 
 
-# --- SettingsDialog hotkey conflict tests ---
-# These tests use the SettingsDialog._check_hotkey_conflict method
+# --- Hotkey conflict detection tests ---
+# These test the standalone check_hotkey_conflict function
 
 
-@pytest.fixture
-def settings_keys():
-    """Default hotkey settings for conflict detection tests."""
-    return {
-        "play_key": "f2",
-        "stop_key": "f3",
-        "emergency_key": "escape",
-    }
-
-
-def test_check_hotkey_conflict_detects_play_conflict(settings_keys):
-    """_check_hotkey_conflict should detect conflicts with play key."""
-    dialog = SettingsDialog.__new__(SettingsDialog)
-    dialog._play_key = settings_keys["play_key"]
-    dialog._stop_key = settings_keys["stop_key"]
-    dialog._emergency_key = settings_keys["emergency_key"]
-
+def test_check_hotkey_conflict_detects_play_conflict():
+    """check_hotkey_conflict should detect conflicts with play key."""
     # Trying to bind f2 to stop should conflict with play
-    conflict = dialog._check_hotkey_conflict("f2", "stop_key")
+    conflict = check_hotkey_conflict("f2", "stop_key", "f2", "f3", "escape")
     assert conflict == "Play"
 
     # Trying to bind f2 to play itself should not conflict
-    conflict = dialog._check_hotkey_conflict("f2", "play_key")
+    conflict = check_hotkey_conflict("f2", "play_key", "f2", "f3", "escape")
     assert conflict is None
 
 
-def test_check_hotkey_conflict_detects_stop_conflict(settings_keys):
-    """_check_hotkey_conflict should detect conflicts with stop key."""
-    dialog = SettingsDialog.__new__(SettingsDialog)
-    dialog._play_key = settings_keys["play_key"]
-    dialog._stop_key = settings_keys["stop_key"]
-    dialog._emergency_key = settings_keys["emergency_key"]
-
+def test_check_hotkey_conflict_detects_stop_conflict():
+    """check_hotkey_conflict should detect conflicts with stop key."""
     # Trying to bind f3 to play should conflict with stop
-    conflict = dialog._check_hotkey_conflict("f3", "play_key")
+    conflict = check_hotkey_conflict("f3", "play_key", "f2", "f3", "escape")
     assert conflict == "Stop"
 
     # Trying to bind f3 to stop itself should not conflict
-    conflict = dialog._check_hotkey_conflict("f3", "stop_key")
+    conflict = check_hotkey_conflict("f3", "stop_key", "f2", "f3", "escape")
     assert conflict is None
 
 
-def test_check_hotkey_conflict_detects_emergency_conflict(settings_keys):
-    """_check_hotkey_conflict should detect conflicts with emergency key."""
-    dialog = SettingsDialog.__new__(SettingsDialog)
-    dialog._play_key = settings_keys["play_key"]
-    dialog._stop_key = settings_keys["stop_key"]
-    dialog._emergency_key = settings_keys["emergency_key"]
-
+def test_check_hotkey_conflict_detects_emergency_conflict():
+    """check_hotkey_conflict should detect conflicts with emergency key."""
     # Trying to bind escape to play should conflict with emergency
-    conflict = dialog._check_hotkey_conflict("escape", "play_key")
+    conflict = check_hotkey_conflict("escape", "play_key", "f2", "f3", "escape")
     assert conflict == "Emergency Stop"
 
     # Trying to bind escape to emergency itself should not conflict
-    conflict = dialog._check_hotkey_conflict("escape", "emergency_stop_key")
+    conflict = check_hotkey_conflict("escape", "emergency_stop_key", "f2", "f3", "escape")
     assert conflict is None
 
 
-def test_check_hotkey_conflict_no_conflict(settings_keys):
-    """_check_hotkey_conflict should return None when there's no conflict."""
-    dialog = SettingsDialog.__new__(SettingsDialog)
-    dialog._play_key = settings_keys["play_key"]
-    dialog._stop_key = settings_keys["stop_key"]
-    dialog._emergency_key = settings_keys["emergency_key"]
-
+def test_check_hotkey_conflict_no_conflict():
+    """check_hotkey_conflict should return None when there's no conflict."""
     # Trying to bind f5 to anything should not conflict
-    assert dialog._check_hotkey_conflict("f5", "play_key") is None
-    assert dialog._check_hotkey_conflict("f5", "stop_key") is None
-    assert dialog._check_hotkey_conflict("f5", "emergency_stop_key") is None
+    assert check_hotkey_conflict("f5", "play_key", "f2", "f3", "escape") is None
+    assert check_hotkey_conflict("f5", "stop_key", "f2", "f3", "escape") is None
+    assert check_hotkey_conflict("f5", "emergency_stop_key", "f2", "f3", "escape") is None
 
 
 # --- Validation caching tests ---
@@ -190,24 +159,26 @@ def test_validation_uses_cache_for_unchanged_files(tmp_path):
     song_notes[str(test_song)] = []
 
     # Mock get_midi_info and parse_midi to track if they're called
-    with patch("maestro.gui.workers.get_midi_info") as mock_info:
-        with patch("maestro.gui.workers.parse_midi") as mock_parse:
-            # Run validation logic inline (same as ValidationWorker.run)
-            song_str = str(test_song)
-            current_mtime = test_song.stat().st_mtime
-            cached_entry = validation_cache.get(song_str)
-            if cached_entry is not None:
-                cached_mtime, cached_is_valid = cached_entry
-                if cached_mtime == current_mtime:
-                    if cached_is_valid:
-                        validation_results[song_str] = "valid"
-                    else:
-                        validation_results[song_str] = "invalid"
+    with (
+        patch("maestro.gui.workers.get_midi_info") as mock_info,
+        patch("maestro.gui.workers.parse_midi") as mock_parse,
+    ):
+        # Run validation logic inline (same as ValidationWorker.run)
+        song_str = str(test_song)
+        current_mtime = test_song.stat().st_mtime
+        cached_entry = validation_cache.get(song_str)
+        if cached_entry is not None:
+            cached_mtime, cached_is_valid = cached_entry
+            if cached_mtime == current_mtime:
+                if cached_is_valid:
+                    validation_results[song_str] = "valid"
+                else:
+                    validation_results[song_str] = "invalid"
 
-            # Verify parsers were NOT called (cache was used)
-            mock_info.assert_not_called()
-            mock_parse.assert_not_called()
-            assert validation_results[str(test_song)] == "valid"
+        # Verify parsers were NOT called (cache was used)
+        mock_info.assert_not_called()
+        mock_parse.assert_not_called()
+        assert validation_results[str(test_song)] == "valid"
 
 
 def test_validation_revalidates_modified_files(tmp_path):
@@ -222,31 +193,33 @@ def test_validation_revalidates_modified_files(tmp_path):
     old_mtime = test_song.stat().st_mtime
     validation_cache[str(test_song)] = (old_mtime - 1000, True)
 
-    with patch("maestro.gui.workers.get_midi_info") as mock_info:
-        with patch("maestro.gui.workers.parse_midi") as mock_parse:
-            mock_info.return_value = {"duration": 60, "bpm": 120, "note_count": 100}
-            mock_parse.return_value = []
+    with (
+        patch("maestro.gui.workers.get_midi_info") as mock_info,
+        patch("maestro.gui.workers.parse_midi") as mock_parse,
+    ):
+        mock_info.return_value = {"duration": 60, "bpm": 120, "note_count": 100}
+        mock_parse.return_value = []
 
-            song_str = str(test_song)
-            current_mtime = test_song.stat().st_mtime
-            cached_entry = validation_cache.get(song_str)
-            needs_revalidation = True
-            if cached_entry is not None:
-                cached_mtime, _ = cached_entry
-                if cached_mtime == current_mtime:
-                    needs_revalidation = False
+        song_str = str(test_song)
+        current_mtime = test_song.stat().st_mtime
+        cached_entry = validation_cache.get(song_str)
+        needs_revalidation = True
+        if cached_entry is not None:
+            cached_mtime, _ = cached_entry
+            if cached_mtime == current_mtime:
+                needs_revalidation = False
 
-            if needs_revalidation:
-                mock_info(test_song)
-                mock_parse(test_song)
-                validation_results[song_str] = "valid"
-                validation_cache[song_str] = (current_mtime, True)
+        if needs_revalidation:
+            mock_info(test_song)
+            mock_parse(test_song)
+            validation_results[song_str] = "valid"
+            validation_cache[song_str] = (current_mtime, True)
 
-            mock_info.assert_called_once()
-            mock_parse.assert_called_once()
+        mock_info.assert_called_once()
+        mock_parse.assert_called_once()
 
-            new_cached_mtime, _ = validation_cache[str(test_song)]
-            assert new_cached_mtime == old_mtime
+        new_cached_mtime, _ = validation_cache[str(test_song)]
+        assert new_cached_mtime == old_mtime
 
 
 def test_validation_caches_invalid_files(tmp_path):
@@ -354,8 +327,8 @@ class TestImportPanel:
     def test_get_url_returns_input_text(self, qtbot):
         panel = ImportPanel()
         qtbot.addWidget(panel)
-        panel._url_input.setText("https://onlinesequencer.net/123")
-        assert panel.get_url() == "https://onlinesequencer.net/123"
+        panel._url_input.setText("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        assert panel.get_url() == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
     def test_set_demucs_available_enables_checkbox(self, qtbot):
         panel = ImportPanel()

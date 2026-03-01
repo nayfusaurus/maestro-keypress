@@ -36,3 +36,24 @@ def center_dialog(dialog: QDialog, parent: QWidget) -> None:
     x = parent_geo.x() + (parent_geo.width() - dialog_geo.width()) // 2
     y = parent_geo.y() + (parent_geo.height() - dialog_geo.height()) // 2
     dialog.move(x, y)
+
+
+def check_hotkey_conflict(
+    new_key: str,
+    current_action: str,
+    play_key: str,
+    stop_key: str,
+    emergency_key: str,
+) -> str | None:
+    """Check if a key is already bound to another action.
+
+    Returns:
+        The name of the conflicting action, or None if no conflict.
+    """
+    if new_key == play_key and current_action != "play_key":
+        return "Play"
+    elif new_key == stop_key and current_action != "stop_key":
+        return "Stop"
+    elif new_key == emergency_key and current_action != "emergency_stop_key":
+        return "Emergency Stop"
+    return None

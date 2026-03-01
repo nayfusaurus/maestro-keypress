@@ -26,10 +26,28 @@ PROJ_ROOT = Path(SPECPATH)
 # No hook exists for basic-pitch, so we must collect manually.
 bp_data = collect_data_files('basic_pitch')
 
+# Collect ffmpeg/ffprobe binaries if present in assets/ffmpeg/
+# These are placed next to the exe so yt-dlp can find them.
+ffmpeg_dir = PROJ_ROOT / 'assets' / 'ffmpeg'
+ffmpeg_binaries = []
+if ffmpeg_dir.is_dir():
+    for name in ['ffmpeg.exe', 'ffprobe.exe', 'ffmpeg', 'ffprobe']:
+        p = ffmpeg_dir / name
+        if p.exists():
+            ffmpeg_binaries.append((str(p), '.'))
+    if not ffmpeg_binaries:
+        print('WARNING: assets/ffmpeg/ exists but no ffmpeg binaries found!')
+else:
+    print('')
+    print('ERROR: assets/ffmpeg/ not found — YouTube import will not work!')
+    print('       Run first:  python scripts/download_ffmpeg.py')
+    print('')
+    sys.exit(1)
+
 a = Analysis(
     [str(PROJ_ROOT / 'src' / 'maestro' / 'main.py')],
     pathex=[str(PROJ_ROOT / 'src')],
-    binaries=[],
+    binaries=ffmpeg_binaries,
     datas=bp_data,
     hiddenimports=[
         # --- App core ---
@@ -103,7 +121,7 @@ a = Analysis(
 
         # --- Dev/test tools ---
         'pytest',
-        'unittest',
+        # NOTE: Do NOT exclude 'unittest' — onnxruntime imports it at runtime
         'IPython',
         'matplotlib',
         'sphinx',

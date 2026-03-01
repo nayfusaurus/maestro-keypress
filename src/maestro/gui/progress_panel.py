@@ -12,10 +12,8 @@ class NowPlayingPanel(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
-        self.setProperty("class", "surface-card")
-
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
         # Song name
@@ -29,7 +27,7 @@ class NowPlayingPanel(QWidget):
 
         self._time_current = QLabel("0:00")
         self._time_current.setProperty("class", "caption")
-        self._time_current.setFixedWidth(36)
+        self._time_current.setFixedWidth(44)
         progress_row.addWidget(self._time_current)
 
         self._progress_bar = QProgressBar()
@@ -41,7 +39,7 @@ class NowPlayingPanel(QWidget):
 
         self._time_total = QLabel("0:00")
         self._time_total.setProperty("class", "caption")
-        self._time_total.setFixedWidth(36)
+        self._time_total.setFixedWidth(44)
         self._time_total.setAlignment(Qt.AlignmentFlag.AlignRight)
         progress_row.addWidget(self._time_total)
 

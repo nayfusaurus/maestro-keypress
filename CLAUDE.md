@@ -11,7 +11,7 @@ Maestro is a Python CLI app that auto-plays MIDI songs on in-game pianos by simu
 - mido (MIDI parsing)
 - pynput (keyboard simulation + global hotkeys)
 - pydirectinput (DirectInput keyboard simulation for WWM)
-- PySide6 (Qt6 GUI with dark theme)
+- PySide6 (Qt6 GUI with dark/light theme)
 - yt-dlp (YouTube audio download)
 - basic-pitch (audio-to-MIDI transcription, ONNX backend)
 - onnxruntime (ML inference for basic-pitch)
@@ -33,23 +33,22 @@ Maestro (main.py) - coordinates everything, Qt event loop on main thread
     │       └── game_mode.py - GameMode enum
     ├── gui/ - PySide6 GUI package (signal/slot architecture, dark theme)
     │       ├── __init__.py - public API exports
-    │       ├── main_window.py - MainWindow(QMainWindow), two-column layout
+    │       ├── main_window.py - MainWindow(QMainWindow), two-column layout with inline settings
     │       ├── signals.py - MaestroSignals(QObject) with all Signal definitions
     │       ├── song_list.py - SongListWidget with custom delegate (rich two-line items)
     │       ├── piano_roll.py - PianoRollWidget (custom paintEvent, accent-colored)
     │       ├── progress_panel.py - NowPlayingPanel (transport-style, thin progress bar)
     │       ├── controls_panel.py - Play/Stop/Favorite/Refresh (primary/secondary/ghost tiers)
-    │       ├── import_panel.py - ImportPanel (URL input bar for OnlineSequencer/YouTube)
-    │       ├── settings_dialog.py - Settings with hotkey press-to-bind + demucs management
+    │       ├── import_panel.py - ImportPanel (URL input bar for YouTube)
     │       ├── about_dialog.py - About and Disclaimer dialogs
     │       ├── update_banner.py - Dismissable update notification
+    │       ├── splash.py - SplashScreen (loading screen with progress bar)
     │       ├── workers.py - ValidationWorker, UpdateCheckWorker, ImportWorker, DemucsDownloadWorker
     │       ├── constants.py - APP_VERSION, BINDABLE_KEYS, BINDABLE_KEYS_QT
-    │       ├── theme.py - Design tokens (SPACING, RADIUS, FONT, COLORS) + QSS stylesheet
-    │       └── utils.py - get_songs_from_folder(), format_time(), center_dialog()
+    │       ├── theme.py - Dual theme (dark/light), design tokens, QSS builder
+    │       └── utils.py - get_songs_from_folder(), format_time(), center_dialog(), check_hotkey_conflict()
     ├── importers/ - URL import modules
     │       ├── __init__.py
-    │       ├── online_sequencer.py - OnlineSequencer MIDI download
     │       ├── youtube.py - YouTube audio download + MIDI transcription
     │       └── synthesia.py - Synthesia visual detection (OpenCV)
     ├── config.py - settings persistence with validation
@@ -69,13 +68,12 @@ Maestro (main.py) - coordinates everything, Qt event loop on main thread
 - `src/maestro/parser.py` - Parses MIDI files into Note objects with multi-tempo support and MIDI info extraction
 - `src/maestro/player.py` - Event-driven playback engine with chord support, focus detection, stuck key protection, and event caching
 - `src/maestro/gui/` - PySide6 GUI package (signal/slot, dark theme, two-column layout)
-- `src/maestro/gui/main_window.py` - MainWindow(QMainWindow) with sidebar + main area layout
+- `src/maestro/gui/main_window.py` - MainWindow(QMainWindow) with sidebar (settings + transport + options cards) + main area
 - `src/maestro/gui/signals.py` - MaestroSignals with all Signal definitions (GUI↔backend communication)
+- `src/maestro/gui/splash.py` - SplashScreen with progress bar (shown during startup, no maestro imports)
 - `src/maestro/gui/workers.py` - ValidationWorker, UpdateCheckWorker, ImportWorker, DemucsDownloadWorker (QThread)
-- `src/maestro/gui/import_panel.py` - Compact URL import bar for OnlineSequencer and YouTube
-- `src/maestro/gui/settings_dialog.py` - Settings dialog with hotkey press-to-bind, conflict detection, and demucs management
-- `src/maestro/gui/theme.py` - Design token system (SPACING, RADIUS, FONT, COLORS) + Catppuccin Mocha QSS with class/state selectors
-- `src/maestro/importers/online_sequencer.py` - OnlineSequencer MIDI download (extract ID, fetch title, download)
+- `src/maestro/gui/import_panel.py` - Compact URL import bar for YouTube
+- `src/maestro/gui/theme.py` - Dual theme system (dark/light), design tokens, QSS builder with Catppuccin palettes
 - `src/maestro/importers/youtube.py` - YouTube audio download (yt-dlp) + MIDI transcription (basic-pitch) + piano isolation (demucs)
 - `src/maestro/importers/synthesia.py` - Synthesia visual detection via OpenCV frame analysis
 - `src/maestro/main.py` - Main coordinator with Qt event loop, signal/slot connections, QTimer state pushes
@@ -98,13 +96,14 @@ uv sync                 # Install dependencies
 
 ## Testing
 
-405 tests across multiple test files covering all modules. Run with `uv run pytest -v`. 2 tests skipped (Windows-only focus detection).
+390 tests across multiple test files covering all modules. Run with `uv run pytest -v`. 2 tests skipped (Windows-only focus detection).
 
 ## GUI Features
 
+- **Splash screen**: Loading screen with progress bar appears immediately on launch, closes when main window is ready
 - **Auto-open**: GUI opens immediately on startup
-- **Menu bar**: File menu (Open Log, Settings, Exit) and Help menu (About, Disclaimer)
-- **Settings dialog**: Modal dialog with transpose, preview panel toggles, sharp handling, and hotkey remapping
+- **Menu bar**: File menu (Open Log, Exit) and Help menu (Check for Updates, Disclaimer, About)
+- **Inline settings**: All settings visible in sidebar options card (transpose, preview, sharp, theme, hotkeys, demucs)
 - **Search bar**: Filter songs by name in real-time
 - **Progress bar**: Transport-style thin (4px) progress bar with flanking time display (M:SS | bar | M:SS)
 - **Now Playing panel**: Surface-card styled panel with song name and transport controls
@@ -121,20 +120,21 @@ uv sync                 # Install dependencies
 - **Favorites**: Star toggle, favorites sorted first in the song list
 - **Recently played**: Tracked (capped at 20)
 - **Song finished notification**: Status label turns green, window title flashes, window restores from taskbar
-- **Sharp handling**: Skip or snap setting for 15-key layouts (in Settings)
-- **Hotkey remapping**: Press-to-bind UI in Settings for Play, Stop, Emergency Stop with conflict detection
+- **Sharp handling**: Skip or snap setting for 15-key layouts (in sidebar options card)
+- **Hotkey remapping**: Press-to-bind UI in sidebar for Play, Stop, Emergency Stop with conflict detection
+- **Dark/Light theme**: Catppuccin Mocha (dark) and Catppuccin Latte (light) themes, switchable from sidebar
 - **Disclaimer**: ToS/disclaimer under Help menu
 - **Song sorting**: Favorites > valid > pending > invalid (alphabetical within each group)
 - **Multi-line song details**: Song info panel wraps long text across multiple lines
 - **Auto-minimize on play**: Window minimizes to taskbar when playback starts (primary monitor only)
 - **Multi-monitor detection**: Skips auto-minimize when app is on secondary screen
-- **Import panel**: Compact URL input bar for importing from OnlineSequencer and YouTube
+- **Import panel**: Compact URL input bar for importing from YouTube
 - **YouTube-to-MIDI**: Audio download via yt-dlp, transcription via basic-pitch, optional piano isolation via demucs
 - **Synthesia detection**: OpenCV-based frame analysis for Synthesia video detection
 - **Demucs management**: Download/remove piano isolation model from Settings dialog
 - **Button hierarchy**: Primary (accent Play), Secondary (Stop), Ghost (Favorite, Refresh) button tiers
 - **Design token system**: Centralized SPACING, RADIUS, FONT, COLORS tokens in theme.py — no inline styles
-- **Two-column layout**: Fixed 300px sidebar (settings + transport) + main area (import + song browser)
+- **Two-column layout**: Fixed 480px sidebar (transport + settings) + main area (import + song browser)
 
 ## Design Decisions
 
@@ -159,7 +159,7 @@ uv sync                 # Install dependencies
 - **Max MIDI size**: 10MB limit to reject oversized files before parsing.
 - **Auto-minimize**: Window iconifies when playback starts so the game window is unobstructed. Skipped on secondary monitors.
 - **No always-on-top**: Window does not force itself above other windows.
-- **Fixed sidebar width**: 300px sidebar instead of percentage — controls stay compact at any resolution.
+- **Fixed sidebar width**: 480px sidebar instead of percentage — controls stay compact at any resolution.
 - **Import panel compact**: Import bar is ~80px tall — occasional action shouldn't compete with song list focal point.
 - **Column gap not separator**: 24px gap between columns, no visible divider line.
 - **ONNX inference backend**: basic-pitch supports TF/TFLite/ONNX/CoreML backends. ONNX Runtime is used for PyInstaller builds (~200MB vs TF's ~1.5GB). TF is excluded from the bundle; basic-pitch auto-detects ONNX at runtime via try/except ImportError.
@@ -173,6 +173,9 @@ uv sync                 # Install dependencies
 - **Hotkey conflict detection**: Warns users if they try to bind the same key to multiple actions.
 - **Window restore on finish**: Window automatically restores from minimized state when song finishes.
 - **Design tokens**: Centralized design system in theme.py with SPACING (4px grid), RADIUS, FONT scale, and COLORS (tonal surface hierarchy). All styling via QSS class/state selectors — no inline setStyleSheet calls.
+- **Dual theme**: Dark (Catppuccin Mocha) and Light (Catppuccin Latte) themes. COLORS dict is mutable — updated in-place by apply_theme() so all modules (song_list delegate, piano_roll) automatically pick up current theme during paint.
+- **Inline settings**: All settings are visible in the sidebar options card instead of a modal dialog. Hotkey press-to-bind uses grabKeyboard() for reliable key capture.
+- **Scrollable sidebar**: Sidebar content wrapped in QScrollArea to handle smaller screens where three cards (settings + transport + options) might overflow.
 - **Tonal surfaces**: Depth communicated through surface color hierarchy (surface0/1/2) instead of uniform borders. Borders used sparingly (focused inputs, list container only).
 - **QSS class selectors**: Widgets styled via setProperty("class", "primary"/"ghost"/"caption"/"overline"/"title"/"surface-card"/"banner"/"key-badge") and dynamic state via setProperty("state", "finished"/"error") with unpolish/polish.
 - **Custom item delegate**: SongListWidget uses QStyledItemDelegate for rich two-line items with accent bar, star, metadata — painted via QPainter, not QSS.

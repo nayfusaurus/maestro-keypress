@@ -177,6 +177,6 @@ def test_maestro_on_import_requested(mock_dependencies, tmp_path):
         app.window = Mock()
         app.window.signals = Mock()
 
-        app._on_import_requested("https://onlinesequencer.net/123")
+        app._on_import_requested("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
 
         mock_worker.start.assert_called_once()

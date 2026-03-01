@@ -24,8 +24,9 @@ class MaestroSignals(QObject):
     favorite_toggled = Signal(str, bool)  # song_name, is_favorite
     sharp_handling_changed = Signal(str)  # "skip" or "snap"
     hotkey_changed = Signal(str, str)  # config_key, key_name
+    theme_changed = Signal(str)  # "dark" or "light"
     note_compatibility_requested = Signal(object)  # Path
-    import_requested = Signal(str)  # URL string from import panel
+    import_requested = Signal(str, bool)  # URL string, isolate_piano
 
     # --- Maestro -> GUI (state pushes) ---
     state_updated = Signal(str)  # Playback state string

@@ -6,13 +6,17 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QComboBox,
     QFileDialog,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMainWindow,
     QMessageBox,
+    QPushButton,
+    QScrollArea,
     QSlider,
     QVBoxLayout,
     QWidget,
@@ -20,15 +24,16 @@ from PySide6.QtWidgets import (
 
 from maestro.game_mode import GameMode
 from maestro.gui.about_dialog import AboutDialog, DisclaimerDialog
-from maestro.gui.constants import APP_VERSION, GITHUB_REPO
+from maestro.gui.constants import APP_VERSION, BINDABLE_KEYS_QT, GITHUB_REPO
 from maestro.gui.controls_panel import ControlsPanel
 from maestro.gui.import_panel import ImportPanel
 from maestro.gui.piano_roll import PianoRollWidget
 from maestro.gui.progress_panel import NowPlayingPanel
-from maestro.gui.settings_dialog import SettingsDialog
 from maestro.gui.signals import MaestroSignals
 from maestro.gui.song_list import SongListWidget
+from maestro.gui.theme import apply_theme
 from maestro.gui.update_banner import UpdateBanner
+from maestro.gui.utils import check_hotkey_conflict
 from maestro.gui.workers import UpdateCheckWorker, ValidationWorker
 from maestro.key_layout import KeyLayout
 from maestro.logger import open_log_file
@@ -65,6 +70,9 @@ class MainWindow(QMainWindow):
         self._lookahead = config.get("preview_lookahead", 5)
         self._transpose = config.get("transpose", False)
         self._show_preview = config.get("show_preview", False)
+
+        # Hotkey binding state
+        self._listening_for: str | None = None
 
         # State
         self._validation_results: dict[str, str] = {}
@@ -126,7 +134,6 @@ class MainWindow(QMainWindow):
         # File menu
         file_menu = menubar.addMenu("File")
         file_menu.addAction("Open Log", self._on_open_log_click)
-        file_menu.addAction("Settings...", self._show_settings)
         file_menu.addSeparator()
         file_menu.addAction("Exit", self.close)
 
@@ -155,150 +162,33 @@ class MainWindow(QMainWindow):
         columns.setSpacing(0)
         columns.setContentsMargins(0, 0, 0, 0)
 
-        # ── Left Column: Sidebar (fixed 300px) ───────────────────────
+        # ── Left Column: Sidebar (fixed 320px, scrollable) ────────────
 
-        sidebar = QWidget()
-        sidebar.setFixedWidth(300)
-        sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(16, 16, 16, 16)
-        sidebar_layout.setSpacing(16)
+        sidebar_scroll = QScrollArea()
+        sidebar_scroll.setWidgetResizable(True)
+        sidebar_scroll.setFixedWidth(480)
+        sidebar_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        sidebar_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
-        # -- Settings Card --
-        settings_card = QWidget()
-        settings_card.setProperty("class", "surface-card")
-        settings_card_layout = QVBoxLayout(settings_card)
-        settings_card_layout.setContentsMargins(16, 16, 16, 16)
-        settings_card_layout.setSpacing(8)
+        sidebar_content = QWidget()
+        sidebar_layout = QVBoxLayout(sidebar_content)
+        sidebar_layout.setContentsMargins(12, 12, 12, 12)
+        sidebar_layout.setSpacing(12)
 
-        # Folder selection row
-        folder_label = QLabel("FOLDER")
-        folder_label.setProperty("class", "overline")
-        settings_card_layout.addWidget(folder_label)
-        folder_row = QHBoxLayout()
-        self._folder_label = QLabel(str(self.songs_folder))
-        self._folder_label.setProperty("class", "caption")
-        folder_row.addWidget(self._folder_label, stretch=1)
-        browse_btn = self._make_button("Browse...", self._on_browse_click)
-        folder_row.addWidget(browse_btn)
-        settings_card_layout.addLayout(folder_row)
+        self._create_transport_card(sidebar_layout)
+        self._create_settings_card(sidebar_layout)
 
-        # Game mode row
-        game_label = QLabel("GAME")
-        game_label.setProperty("class", "overline")
-        settings_card_layout.addWidget(game_label)
-        game_row = QHBoxLayout()
-        self._game_combo = QComboBox()
-        self._game_combo.addItems([mode.value for mode in GameMode])
-        game_mode_str = self._config.get("game_mode", GameMode.HEARTOPIA.value)
-        self._game_combo.setCurrentText(game_mode_str)
-        self._game_combo.currentTextChanged.connect(self._on_game_mode_change)
-        game_row.addWidget(self._game_combo)
-        game_row.addStretch()
-        settings_card_layout.addLayout(game_row)
-
-        # Key layout row (Heartopia only)
-        self._layout_row = QWidget()
-        layout_row_inner = QVBoxLayout(self._layout_row)
-        layout_row_inner.setContentsMargins(0, 0, 0, 0)
-        layout_row_inner.setSpacing(8)
-        keys_label = QLabel("KEYS")
-        keys_label.setProperty("class", "overline")
-        layout_row_inner.addWidget(keys_label)
-        layout_combo_row = QHBoxLayout()
-        self._layout_combo = QComboBox()
-        self._layout_combo.addItems([layout.value for layout in KeyLayout])
-        self._layout_combo.setCurrentText(self._key_layout.value)
-        self._layout_combo.currentTextChanged.connect(self._on_layout_change)
-        layout_combo_row.addWidget(self._layout_combo)
-        layout_combo_row.addStretch()
-        layout_row_inner.addLayout(layout_combo_row)
-        settings_card_layout.addWidget(self._layout_row)
-        self._update_layout_visibility()
-
-        # Speed control row
-        speed_label = QLabel("SPEED")
-        speed_label.setProperty("class", "overline")
-        settings_card_layout.addWidget(speed_label)
-        speed_row = QHBoxLayout()
-        self._speed_slider = QSlider(Qt.Orientation.Horizontal)
-        self._speed_slider.setRange(25, 150)
-        speed_val = self._config.get("speed", 1.0)
-        self._speed_slider.setValue(int(speed_val * 100))
-        self._speed_slider.valueChanged.connect(self._on_speed_change)
-        speed_row.addWidget(self._speed_slider, stretch=1)
-        self._speed_label = QLabel(f"{speed_val:.2f}x")
-        self._speed_label.setFixedWidth(45)
-        speed_row.addWidget(self._speed_label)
-        settings_card_layout.addLayout(speed_row)
-
-        sidebar_layout.addWidget(settings_card)
-
-        # -- Transport Card --
-        transport_card = QWidget()
-        transport_card.setProperty("class", "surface-card")
-        transport_card_layout = QVBoxLayout(transport_card)
-        transport_card_layout.setContentsMargins(16, 16, 16, 16)
-        transport_card_layout.setSpacing(8)
-
-        # Error label (hidden by default)
-        self._error_label = QLabel()
-        self._error_label.setProperty("state", "error")
-        self._error_label.setWordWrap(True)
-        self._error_label.setVisible(False)
-        transport_card_layout.addWidget(self._error_label)
-
-        # Now Playing panel
-        self._now_playing = NowPlayingPanel()
-        transport_card_layout.addWidget(self._now_playing)
-
-        # Control buttons
-        self._controls = ControlsPanel()
-        transport_card_layout.addWidget(self._controls)
-
-        # Status and Key display
-        status_row = QHBoxLayout()
-        self._status_label = QLabel("Status: Stopped")
-        status_row.addWidget(self._status_label)
-        status_row.addStretch()
-        self._key_label = QLabel("Key: -")
-        status_row.addWidget(self._key_label)
-        transport_card_layout.addLayout(status_row)
-
-        # Note Preview panel (conditionally shown)
-        self._preview_container = QWidget()
-        preview_layout = QVBoxLayout(self._preview_container)
-        preview_layout.setContentsMargins(0, 0, 0, 0)
-
-        # Lookahead selector
-        lookahead_row = QHBoxLayout()
-        lookahead_row.addWidget(QLabel("Lookahead:"))
-        self._lookahead_combo = QComboBox()
-        self._lookahead_combo.addItems(["2", "5", "10"])
-        self._lookahead_combo.setCurrentText(str(self._lookahead))
-        self._lookahead_combo.currentTextChanged.connect(self._on_lookahead_change)
-        lookahead_row.addWidget(self._lookahead_combo)
-        lookahead_row.addWidget(QLabel("seconds"))
-        lookahead_row.addStretch()
-        preview_layout.addLayout(lookahead_row)
-
-        # Piano roll canvas
-        self._piano_roll = PianoRollWidget()
-        preview_layout.addWidget(self._piano_roll)
-
-        transport_card_layout.addWidget(self._preview_container)
-        self._preview_container.setVisible(self._show_preview)
-
-        sidebar_layout.addWidget(transport_card)
         sidebar_layout.addStretch()
+        sidebar_scroll.setWidget(sidebar_content)
 
-        columns.addWidget(sidebar)
+        columns.addWidget(sidebar_scroll)
 
         # ── Right Column: Main Area ───────────────────────────────────
 
         main_area = QWidget()
         main_area_layout = QVBoxLayout(main_area)
-        main_area_layout.setContentsMargins(24, 16, 16, 16)
-        main_area_layout.setSpacing(12)
+        main_area_layout.setContentsMargins(16, 12, 12, 12)
+        main_area_layout.setSpacing(10)
 
         # Import panel (compact bar)
         self._import_panel = ImportPanel()
@@ -316,15 +206,317 @@ class MainWindow(QMainWindow):
         self._song_list.song_double_clicked.connect(self._on_double_click)
         main_area_layout.addWidget(self._song_list, stretch=1)
 
-        # Song detail label
-        self._song_detail_label = QLabel("Select a song to see details")
-        self._song_detail_label.setProperty("class", "caption")
-        self._song_detail_label.setWordWrap(True)
-        main_area_layout.addWidget(self._song_detail_label)
-
         columns.addWidget(main_area, stretch=1)
 
         root_layout.addLayout(columns, stretch=1)
+
+    # ── Sidebar Cards ─────────────────────────────────────────────────
+
+    def _create_settings_card(self, parent_layout: QVBoxLayout) -> None:
+        """Create the unified settings card (folder, game, keys, speed, options, hotkeys)."""
+        card = QWidget()
+        card.setProperty("class", "surface-card")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(6)
+
+        # ── Folder row ─────────────────────────────────────────────
+        folder_row = QHBoxLayout()
+        folder_row.setSpacing(6)
+        self._folder_label = QLabel(str(self.songs_folder))
+        self._folder_label.setProperty("class", "caption")
+        self._folder_label.setToolTip(str(self.songs_folder))
+        folder_row.addWidget(self._folder_label, stretch=1)
+        browse_btn = QPushButton("Browse")
+        browse_btn.setProperty("class", "ghost")
+        browse_btn.clicked.connect(self._on_browse_click)
+        folder_row.addWidget(browse_btn)
+        layout.addLayout(folder_row)
+
+        # ── Separator ──────────────────────────────────────────────
+        sep0 = QFrame()
+        sep0.setFrameShape(QFrame.Shape.HLine)
+        sep0.setProperty("class", "separator")
+        layout.addWidget(sep0)
+
+        # ── Game mode (inline label + combo) ───────────────────────
+        game_row = QHBoxLayout()
+        game_row.setSpacing(8)
+        game_lbl = QLabel("Game")
+        game_lbl.setProperty("class", "section-heading")
+        game_row.addWidget(game_lbl)
+        game_row.addStretch()
+        self._game_combo = QComboBox()
+        self._game_combo.addItems([mode.value for mode in GameMode])
+        game_mode_str = self._config.get("game_mode", GameMode.HEARTOPIA.value)
+        self._game_combo.setCurrentText(game_mode_str)
+        self._game_combo.currentTextChanged.connect(self._on_game_mode_change)
+        game_row.addWidget(self._game_combo)
+        layout.addLayout(game_row)
+
+        # ── Key layout (Heartopia only, inline) ────────────────────
+        self._layout_row = QWidget()
+        layout_row_inner = QHBoxLayout(self._layout_row)
+        layout_row_inner.setContentsMargins(0, 0, 0, 0)
+        layout_row_inner.setSpacing(8)
+        keys_lbl = QLabel("Keys")
+        keys_lbl.setProperty("class", "section-heading")
+        layout_row_inner.addWidget(keys_lbl)
+        layout_row_inner.addStretch()
+        self._layout_combo = QComboBox()
+        self._layout_combo.addItems([kl.value for kl in KeyLayout])
+        self._layout_combo.setCurrentText(self._key_layout.value)
+        self._layout_combo.currentTextChanged.connect(self._on_layout_change)
+        layout_row_inner.addWidget(self._layout_combo)
+        layout.addWidget(self._layout_row)
+        self._update_layout_visibility()
+
+        # ── Speed (inline label + slider + value) ──────────────────
+        speed_row = QHBoxLayout()
+        speed_row.setSpacing(8)
+        speed_lbl = QLabel("Speed")
+        speed_lbl.setProperty("class", "section-heading")
+        speed_row.addWidget(speed_lbl)
+        self._speed_slider = QSlider(Qt.Orientation.Horizontal)
+        self._speed_slider.setRange(25, 150)
+        speed_val = self._config.get("speed", 1.0)
+        self._speed_slider.setValue(int(speed_val * 100))
+        self._speed_slider.valueChanged.connect(self._on_speed_change)
+        speed_row.addWidget(self._speed_slider, stretch=1)
+        self._speed_label = QLabel(f"{speed_val:.2f}x")
+        self._speed_label.setFixedWidth(48)
+        speed_row.addWidget(self._speed_label)
+        layout.addLayout(speed_row)
+
+        # ── Separator ──────────────────────────────────────────────
+        sep1 = QFrame()
+        sep1.setFrameShape(QFrame.Shape.HLine)
+        sep1.setProperty("class", "separator")
+        layout.addWidget(sep1)
+
+        # ── Options ────────────────────────────────────────────────
+        self._transpose_cb = QCheckBox("Transpose to range")
+        self._transpose_cb.setChecked(self._transpose)
+        self._transpose_cb.stateChanged.connect(
+            lambda state: self._on_transpose_toggle(state == Qt.CheckState.Checked.value)
+        )
+        layout.addWidget(self._transpose_cb)
+
+        self._preview_cb = QCheckBox("Note preview")
+        self._preview_cb.setChecked(self._show_preview)
+        self._preview_cb.stateChanged.connect(
+            lambda state: self._on_show_preview_toggle(
+                state == Qt.CheckState.Checked.value
+            )
+        )
+        layout.addWidget(self._preview_cb)
+
+        # Sharp handling (inline, 15-key only)
+        self._sharp_row = QWidget()
+        sharp_inner = QHBoxLayout(self._sharp_row)
+        sharp_inner.setContentsMargins(0, 0, 0, 0)
+        sharp_inner.setSpacing(8)
+        sharp_lbl = QLabel("Sharps")
+        sharp_lbl.setProperty("class", "section-heading")
+        sharp_inner.addWidget(sharp_lbl)
+        sharp_inner.addStretch()
+        self._sharp_combo = QComboBox()
+        self._sharp_combo.addItems(["skip", "snap"])
+        self._sharp_combo.setCurrentText(self._sharp_handling)
+        self._sharp_combo.currentTextChanged.connect(self._on_sharp_handling_change)
+        sharp_inner.addWidget(self._sharp_combo)
+        layout.addWidget(self._sharp_row)
+
+        # ── Separator ──────────────────────────────────────────────
+        sep2 = QFrame()
+        sep2.setFrameShape(QFrame.Shape.HLine)
+        sep2.setProperty("class", "separator")
+        layout.addWidget(sep2)
+
+        # ── Appearance (inline theme toggle) ───────────────────────
+        theme_row = QHBoxLayout()
+        theme_row.setSpacing(8)
+        theme_lbl = QLabel("Theme")
+        theme_lbl.setProperty("class", "section-heading")
+        theme_row.addWidget(theme_lbl)
+        theme_row.addStretch()
+        self._theme_combo = QComboBox()
+        self._theme_combo.addItems(["Dark", "Light"])
+        theme_str = self._config.get("theme", "dark")
+        self._theme_combo.setCurrentText(theme_str.capitalize())
+        self._theme_combo.currentTextChanged.connect(self._on_theme_change)
+        theme_row.addWidget(self._theme_combo)
+        layout.addLayout(theme_row)
+
+        # ── Separator ──────────────────────────────────────────────
+        sep3 = QFrame()
+        sep3.setFrameShape(QFrame.Shape.HLine)
+        sep3.setProperty("class", "separator")
+        layout.addWidget(sep3)
+
+        # ── Hotkeys (compact grid) ────────────────────────────────
+        hotkey_heading = QLabel("Hotkeys")
+        hotkey_heading.setProperty("class", "section-heading")
+        layout.addWidget(hotkey_heading)
+
+        # Play key row
+        play_row = QHBoxLayout()
+        play_row.setSpacing(6)
+        play_action_lbl = QLabel("Play")
+        play_action_lbl.setProperty("class", "caption")
+        play_action_lbl.setFixedWidth(60)
+        play_row.addWidget(play_action_lbl)
+        self._hotkey_play_label = QLabel(self._play_key.upper())
+        self._hotkey_play_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._hotkey_play_label.setMinimumWidth(80)
+        self._hotkey_play_label.setProperty("class", "key-badge")
+        play_row.addWidget(self._hotkey_play_label)
+        play_bind = QPushButton("Bind")
+        play_bind.setFixedWidth(44)
+        play_bind.setProperty("class", "ghost")
+        play_bind.clicked.connect(lambda: self._start_key_bind("play_key"))
+        play_row.addWidget(play_bind)
+        play_row.addStretch()
+        layout.addLayout(play_row)
+
+        # Stop key row
+        stop_row = QHBoxLayout()
+        stop_row.setSpacing(6)
+        stop_action_lbl = QLabel("Stop")
+        stop_action_lbl.setProperty("class", "caption")
+        stop_action_lbl.setFixedWidth(60)
+        stop_row.addWidget(stop_action_lbl)
+        self._hotkey_stop_label = QLabel(self._stop_key.upper())
+        self._hotkey_stop_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._hotkey_stop_label.setMinimumWidth(80)
+        self._hotkey_stop_label.setProperty("class", "key-badge")
+        stop_row.addWidget(self._hotkey_stop_label)
+        stop_bind = QPushButton("Bind")
+        stop_bind.setFixedWidth(44)
+        stop_bind.setProperty("class", "ghost")
+        stop_bind.clicked.connect(lambda: self._start_key_bind("stop_key"))
+        stop_row.addWidget(stop_bind)
+        stop_row.addStretch()
+        layout.addLayout(stop_row)
+
+        # Emergency stop key row
+        emerg_row = QHBoxLayout()
+        emerg_row.setSpacing(6)
+        emerg_action_lbl = QLabel("Panic")
+        emerg_action_lbl.setProperty("class", "caption")
+        emerg_action_lbl.setFixedWidth(60)
+        emerg_row.addWidget(emerg_action_lbl)
+        self._hotkey_emergency_label = QLabel(self._emergency_key.upper())
+        self._hotkey_emergency_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._hotkey_emergency_label.setMinimumWidth(80)
+        self._hotkey_emergency_label.setProperty("class", "key-badge")
+        emerg_row.addWidget(self._hotkey_emergency_label)
+        emerg_bind = QPushButton("Bind")
+        emerg_bind.setFixedWidth(44)
+        emerg_bind.setProperty("class", "ghost")
+        emerg_bind.clicked.connect(lambda: self._start_key_bind("emergency_stop_key"))
+        emerg_row.addWidget(emerg_bind)
+        emerg_row.addStretch()
+        layout.addLayout(emerg_row)
+
+        # ── Separator ──────────────────────────────────────────────
+        sep4 = QFrame()
+        sep4.setFrameShape(QFrame.Shape.HLine)
+        sep4.setProperty("class", "separator")
+        layout.addWidget(sep4)
+
+        # ── Piano Isolation ────────────────────────────────────────
+        demucs_row = QHBoxLayout()
+        demucs_row.setSpacing(8)
+        demucs_available = self._check_demucs_available()
+        self._demucs_status = QLabel(
+            "Piano model installed" if demucs_available else "Piano model not installed"
+        )
+        self._demucs_status.setProperty("class", "caption")
+        if demucs_available:
+            self._demucs_status.setProperty("state", "finished")
+        demucs_row.addWidget(self._demucs_status, stretch=1)
+        self._demucs_btn = QPushButton(
+            "Remove" if demucs_available else "Download"
+        )
+        self._demucs_btn.setProperty("class", "ghost")
+        self._demucs_btn.clicked.connect(self._on_demucs_btn_click)
+        demucs_row.addWidget(self._demucs_btn)
+        layout.addLayout(demucs_row)
+
+        # Update options state based on current layout
+        self._update_options_state()
+
+        parent_layout.addWidget(card)
+
+    def _create_transport_card(self, parent_layout: QVBoxLayout) -> None:
+        """Create the transport card — focal point of the sidebar."""
+        card = QWidget()
+        card.setProperty("class", "surface-card")
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(16, 16, 16, 16)
+        card_layout.setSpacing(8)
+
+        # Error label (hidden by default)
+        self._error_label = QLabel()
+        self._error_label.setProperty("state", "error")
+        self._error_label.setWordWrap(True)
+        self._error_label.setVisible(False)
+        card_layout.addWidget(self._error_label)
+
+        # Now Playing panel
+        self._now_playing = NowPlayingPanel()
+        card_layout.addWidget(self._now_playing)
+
+        # Control buttons
+        self._controls = ControlsPanel()
+        card_layout.addWidget(self._controls)
+
+        # Status row — compact, dimmed
+        status_row = QHBoxLayout()
+        status_row.setSpacing(4)
+        self._status_label = QLabel("Stopped")
+        self._status_label.setProperty("class", "caption")
+        status_row.addWidget(self._status_label)
+        status_row.addStretch()
+        self._key_label = QLabel("")
+        self._key_label.setProperty("class", "caption")
+        status_row.addWidget(self._key_label)
+        card_layout.addLayout(status_row)
+
+        # Note Preview panel (conditionally shown)
+        self._preview_container = QWidget()
+        preview_layout = QVBoxLayout(self._preview_container)
+        preview_layout.setContentsMargins(0, 4, 0, 0)
+        preview_layout.setSpacing(4)
+
+        # Lookahead selector
+        lookahead_row = QHBoxLayout()
+        lookahead_row.setSpacing(4)
+        lookahead_lbl = QLabel("Lookahead")
+        lookahead_lbl.setProperty("class", "caption")
+        lookahead_row.addWidget(lookahead_lbl)
+        self._lookahead_combo = QComboBox()
+        self._lookahead_combo.addItems(["2", "5", "10"])
+        self._lookahead_combo.setCurrentText(str(self._lookahead))
+        self._lookahead_combo.currentTextChanged.connect(self._on_lookahead_change)
+        lookahead_row.addWidget(self._lookahead_combo)
+        sec_lbl = QLabel("sec")
+        sec_lbl.setProperty("class", "caption")
+        lookahead_row.addWidget(sec_lbl)
+        lookahead_row.addStretch()
+        preview_layout.addLayout(lookahead_row)
+
+        # Piano roll canvas
+        self._piano_roll = PianoRollWidget()
+        preview_layout.addWidget(self._piano_roll)
+
+        card_layout.addWidget(self._preview_container)
+        self._preview_container.setVisible(self._show_preview)
+
+        parent_layout.addWidget(card)
+
+    # ── Signal Connections ────────────────────────────────────────────
 
     def _connect_internal_signals(self) -> None:
         """Connect internal widget signals to MainWindow methods and MaestroSignals."""
@@ -352,19 +544,11 @@ class MainWindow(QMainWindow):
         self.signals.import_finished.connect(self._on_import_finished)
         self.signals.import_error.connect(self._import_panel.show_error)
 
-    def _make_button(self, text: str, callback) -> QWidget:
-        """Create a styled button."""
-        from PySide6.QtWidgets import QPushButton
-
-        btn = QPushButton(text)
-        btn.clicked.connect(callback)
-        return btn
-
     # --- State update handlers ---
 
     def _on_state_updated(self, state: str) -> None:
         """Handle playback state update from backend."""
-        self._status_label.setText(f"Status: {state}")
+        self._status_label.setText(state)
         if state == "Finished":
             self._status_label.setProperty("state", "finished")
         else:
@@ -383,16 +567,17 @@ class MainWindow(QMainWindow):
 
     def _on_last_key_updated(self, key: str) -> None:
         """Handle last key update from backend."""
-        self._key_label.setText(f"Key: {key or '-'}")
+        self._key_label.setText(key.upper() if key else "")
 
     def _on_upcoming_notes_updated(self, notes: list) -> None:
         """Handle upcoming notes update from backend."""
         self._piano_roll.set_notes(notes, self._current_position, float(self._lookahead))
 
     def _on_note_compatibility_result(self, playable: int, total: int) -> None:
-        """Handle note compatibility result."""
-        self._pending_compatibility = (playable, total)
-        self._update_song_detail_with_compatibility()
+        """Handle note compatibility result — update the song item directly."""
+        song = self._song_list.get_selected_song()
+        if song:
+            self._song_list.update_song_compatibility(str(song), playable, total)
 
     def _on_error(self, message: str) -> None:
         """Display an error message."""
@@ -402,9 +587,9 @@ class MainWindow(QMainWindow):
     def _on_countdown_tick(self, count: int) -> None:
         """Handle countdown tick from backend."""
         if count > 0:
-            self._status_label.setText(f"Status: Starting in {count}...")
+            self._status_label.setText(f"Starting in {count}...")
         else:
-            self._status_label.setText("Status: Playing")
+            self._status_label.setText("Playing")
 
     def _on_favorites_loaded(self, favorites: list) -> None:
         """Handle favorites list loaded from backend."""
@@ -415,7 +600,7 @@ class MainWindow(QMainWindow):
 
     def _on_song_finished(self) -> None:
         """Handle song playback completion."""
-        self._status_label.setText("Status: Finished")
+        self._status_label.setText("Finished")
         self._status_label.setProperty("state", "finished")
         self._status_label.style().unpolish(self._status_label)
         self._status_label.style().polish(self._status_label)
@@ -477,56 +662,15 @@ class MainWindow(QMainWindow):
         self._on_play_click()
 
     def _on_song_select(self, song) -> None:
-        """Handle song selection to show details."""
+        """Handle song selection — request compatibility for valid songs."""
         if song is None:
             return
 
-        info = self._song_info.get(str(song))
         status = self._validation_results.get(str(song), "pending")
-
-        if status == "pending":
-            self._song_detail_label.setText("Validating...")
-            self._song_detail_label.setProperty("class", "caption")
-            self._song_detail_label.setProperty("state", "")
-        elif status == "invalid":
-            self._song_detail_label.setText("Invalid MIDI file")
-            self._song_detail_label.setProperty("state", "error")
-            self._song_detail_label.setProperty("class", "")
-        elif info:
-            duration = info["duration"]
-            minutes = int(duration // 60)
-            secs = int(duration % 60)
-            text = f"{minutes}:{secs:02d} | {info['bpm']} BPM | {info['note_count']} notes"
-            self._song_detail_label.setText(text)
-            self._song_detail_label.setProperty("state", "")
-            self._song_detail_label.setProperty("class", "caption")
-
-            # Request note compatibility from backend
+        if status == "valid":
             self.signals.note_compatibility_requested.emit(song)
 
-        self._song_detail_label.style().unpolish(self._song_detail_label)
-        self._song_detail_label.style().polish(self._song_detail_label)
-
         self._update_favorite_button()
-
-    def _update_song_detail_with_compatibility(self) -> None:
-        """Append compatibility info to the song detail label."""
-        if not hasattr(self, "_pending_compatibility"):
-            return
-
-        playable, total = self._pending_compatibility
-        if total > 0:
-            pct = round(playable / total * 100)
-            current_text = self._song_detail_label.text()
-            if self._key_layout == KeyLayout.DRUMS:
-                compat_text = f" | {pct}% playable on Conga/Cajon (8-key) ({playable}/{total})"
-            else:
-                compat_text = f" | {pct}% playable ({playable}/{total})"
-            if pct < 100:
-                compat_text += f" - {total - playable} out of range"
-            self._song_detail_label.setText(current_text + compat_text)
-
-        del self._pending_compatibility
 
     def _on_favorite_click(self) -> None:
         """Toggle favorite for selected song."""
@@ -552,7 +696,7 @@ class MainWindow(QMainWindow):
     def _on_import_request(self, url: str, isolate: bool) -> None:
         """Handle import button click from ImportPanel."""
         self._import_panel.set_importing(True)
-        self.signals.import_requested.emit(url)
+        self.signals.import_requested.emit(url, isolate)
 
     def _on_import_finished(self, filename: str) -> None:
         """Handle successful import completion."""
@@ -586,6 +730,7 @@ class MainWindow(QMainWindow):
         """Handle game mode dropdown change."""
         self.signals.game_mode_changed.emit(selected)
         self._update_layout_visibility()
+        self._update_options_state()
 
     def _on_layout_change(self, selected: str) -> None:
         """Handle key layout dropdown change."""
@@ -594,6 +739,7 @@ class MainWindow(QMainWindow):
                 self._key_layout = layout
                 break
         self.signals.layout_changed.emit(selected)
+        self._update_options_state()
         # Refresh song detail to show updated compatibility
         self._on_song_select(self._song_list.get_selected_song())
 
@@ -601,6 +747,19 @@ class MainWindow(QMainWindow):
         """Show layout dropdown only for Heartopia."""
         is_heartopia = self._game_combo.currentText() == GameMode.HEARTOPIA.value
         self._layout_row.setVisible(is_heartopia)
+
+    def _update_options_state(self) -> None:
+        """Enable/disable options based on current layout and game mode."""
+        is_drums = self._key_layout == KeyLayout.DRUMS
+        is_xylophone = self._key_layout == KeyLayout.XYLOPHONE
+        no_transpose = is_drums or is_xylophone
+
+        self._transpose_cb.setEnabled(not no_transpose)
+        self._sharp_combo.setEnabled(not no_transpose)
+
+        # Sharp handling only relevant for 15-key layouts
+        is_15_key = self._key_layout in (KeyLayout.KEYS_15_DOUBLE, KeyLayout.KEYS_15_TRIPLE)
+        self._sharp_row.setVisible(is_15_key)
 
     def _on_speed_change(self, value: int) -> None:
         """Handle speed slider change."""
@@ -619,6 +778,109 @@ class MainWindow(QMainWindow):
         except ValueError:
             return
         self.signals.lookahead_changed.emit(self._lookahead)
+
+    # --- Options handlers ---
+
+    def _on_transpose_toggle(self, value: bool) -> None:
+        """Handle transpose checkbox toggle."""
+        self._transpose = value
+        self.signals.transpose_changed.emit(value)
+
+    def _on_show_preview_toggle(self, value: bool) -> None:
+        """Handle show preview checkbox toggle."""
+        self._show_preview = value
+        self._preview_container.setVisible(value)
+        self.signals.show_preview_changed.emit(value)
+
+    def _on_sharp_handling_change(self, value: str) -> None:
+        """Handle sharp handling dropdown change."""
+        self._sharp_handling = value
+        self.signals.sharp_handling_changed.emit(value)
+
+    def _on_theme_change(self, selected: str) -> None:
+        """Handle theme dropdown change."""
+        dark = selected == "Dark"
+        app = QApplication.instance()
+        if isinstance(app, QApplication):
+            apply_theme(app, dark=dark)
+        self.signals.theme_changed.emit("dark" if dark else "light")
+
+    # --- Hotkey binding ---
+
+    def _get_key_label(self, config_key: str) -> QLabel:
+        """Get the key display label for a config key."""
+        if config_key == "play_key":
+            return self._hotkey_play_label
+        elif config_key == "stop_key":
+            return self._hotkey_stop_label
+        return self._hotkey_emergency_label
+
+    def _start_key_bind(self, config_key: str) -> None:
+        """Enter key-binding mode for the specified action."""
+        self._listening_for = config_key
+        label = self._get_key_label(config_key)
+        label.setText("Press a key...")
+        self.grabKeyboard()
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802
+        """Handle key press for hotkey binding."""
+        if self._listening_for is None:
+            super().keyPressEvent(event)
+            return
+
+        # Release keyboard grab immediately so dialogs can receive input
+        self.releaseKeyboard()
+
+        qt_key = event.key()
+        config_key = self._listening_for
+        label = self._get_key_label(config_key)
+
+        config_value = BINDABLE_KEYS_QT.get(qt_key)
+        if config_value is None:
+            # Unsupported key — revert
+            current = getattr(self, f"_{config_key}", "")
+            label.setText(current.upper() if current else "")
+            self._listening_for = None
+            return
+
+        # Check for conflicts
+        conflict = check_hotkey_conflict(
+            config_value, config_key,
+            self._play_key, self._stop_key, self._emergency_key,
+        )
+        if conflict:
+            result = QMessageBox.question(
+                self,
+                "Hotkey Conflict",
+                f"Key {config_value.upper()} is already bound to {conflict}. Replace?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if result != QMessageBox.StandardButton.Yes:
+                current = getattr(self, f"_{config_key}", "")
+                label.setText(current.upper() if current else "")
+                self._listening_for = None
+                return
+
+            # Clear the conflicting binding's display
+            if config_value == self._play_key:
+                self._hotkey_play_label.setText("(unbound)")
+            elif config_value == self._stop_key:
+                self._hotkey_stop_label.setText("(unbound)")
+            elif config_value == self._emergency_key:
+                self._hotkey_emergency_label.setText("(unbound)")
+
+        label.setText(config_value.upper())
+
+        # Update internal state
+        if config_key == "play_key":
+            self._play_key = config_value
+        elif config_key == "stop_key":
+            self._stop_key = config_value
+        elif config_key == "emergency_stop_key":
+            self._emergency_key = config_value
+
+        self.signals.hotkey_changed.emit(config_key, config_value)
+        self._listening_for = None
 
     # --- Song management ---
 
@@ -648,6 +910,9 @@ class MainWindow(QMainWindow):
         self._validation_worker = ValidationWorker(
             songs=songs,
             key_layout=self._key_layout,
+            game_mode=self._game_combo.currentText(),
+            transpose=self._transpose,
+            sharp_handling=self._sharp_handling,
             validation_cache=self._validation_cache,
             song_info=self._song_info,
             song_notes=self._song_notes,
@@ -656,12 +921,16 @@ class MainWindow(QMainWindow):
         self._validation_worker.validation_finished.connect(self._on_validation_finished)
         self._validation_worker.start()
 
-    def _on_song_validated(self, path_str: str, status: str, info: dict, notes: list) -> None:
+    def _on_song_validated(
+        self, path_str: str, status: str, info: dict, notes: list, playable: int, total: int
+    ) -> None:
         """Handle validation result for a single song."""
         self._validation_results[path_str] = status
         self._song_info[path_str] = info
         self._song_notes[path_str] = notes
         self._song_list.on_song_validated(path_str, status, info, notes)
+        if status == "valid" and total > 0:
+            self._song_list.update_song_compatibility(path_str, playable, total)
 
     def _on_validation_finished(self) -> None:
         """Handle validation completion."""
@@ -716,63 +985,104 @@ class MainWindow(QMainWindow):
         self._last_error = message
         self._update_error_label()
 
+    # --- Helpers ---
+
+    def _check_demucs_available(self) -> bool:
+        """Check if the demucs model is installed."""
+        try:
+            from maestro.importers.youtube import is_demucs_available
+
+            model_dir = Path.home() / ".maestro" / "models" / "htdemucs"
+            return is_demucs_available(model_dir)
+        except Exception:
+            return False
+
+    def _on_demucs_btn_click(self) -> None:
+        """Handle Download/Remove Model button click."""
+        import logging
+        import shutil
+
+        logger = logging.getLogger("maestro")
+        model_dir = Path.home() / ".maestro" / "models" / "htdemucs"
+
+        if self._check_demucs_available():
+            # Remove the model
+            logger.info("Removing demucs model from %s", model_dir)
+            try:
+                shutil.rmtree(model_dir)
+                logger.info("Demucs model removed")
+            except Exception as e:
+                logger.error("Failed to remove demucs model: %s", e)
+                self.set_error(f"Failed to remove model: {e}")
+                return
+            self._update_demucs_ui(installed=False)
+        else:
+            # Download the model
+            logger.info("Starting demucs model download to %s", model_dir)
+            self._demucs_btn.setEnabled(False)
+            self._demucs_btn.setText("Downloading...")
+            self._demucs_status.setText("Downloading...")
+            self._demucs_status.setProperty("state", "")
+            self._demucs_status.style().unpolish(self._demucs_status)
+            self._demucs_status.style().polish(self._demucs_status)
+
+            from maestro.gui.workers import DemucsDownloadWorker
+
+            self._demucs_worker = DemucsDownloadWorker(model_dir)
+            self._demucs_worker.progress.connect(self._on_demucs_progress)
+            self._demucs_worker.finished.connect(self._on_demucs_finished)
+            self._demucs_worker.error.connect(self._on_demucs_error)
+            self._demucs_worker.start()
+
+    def _on_demucs_progress(self, text: str) -> None:
+        """Handle demucs download progress updates."""
+        self._demucs_status.setText(text)
+
+    def _on_demucs_finished(self) -> None:
+        """Handle successful demucs model download."""
+        import logging
+
+        logging.getLogger("maestro").info("Demucs model download complete")
+        self._update_demucs_ui(installed=True)
+
+    def _on_demucs_error(self, error: str) -> None:
+        """Handle demucs download failure."""
+        import logging
+
+        logging.getLogger("maestro").error("Demucs model download failed: %s", error)
+        self._demucs_btn.setEnabled(True)
+        self._demucs_btn.setText("Download")
+        self._demucs_status.setText("Download failed")
+        self._demucs_status.setProperty("state", "error")
+        self._demucs_status.style().unpolish(self._demucs_status)
+        self._demucs_status.style().polish(self._demucs_status)
+        self.set_error(error)
+
+    def _update_demucs_ui(self, installed: bool) -> None:
+        """Update demucs button and status label after install/remove."""
+        self._demucs_btn.setEnabled(True)
+        if installed:
+            self._demucs_btn.setText("Remove")
+            self._demucs_btn.setProperty("class", "ghost")
+            self._demucs_status.setText("Piano model installed")
+            self._demucs_status.setProperty("state", "finished")
+        else:
+            self._demucs_btn.setText("Download")
+            self._demucs_btn.setProperty("class", "ghost")
+            self._demucs_status.setText("Piano model not installed")
+            self._demucs_status.setProperty("state", "")
+        self._demucs_btn.style().unpolish(self._demucs_btn)
+        self._demucs_btn.style().polish(self._demucs_btn)
+        self._demucs_status.style().unpolish(self._demucs_status)
+        self._demucs_status.style().polish(self._demucs_status)
+        # Update import panel checkbox
+        self._import_panel.set_demucs_available(installed)
+
     # --- Menu actions ---
 
     def _on_open_log_click(self) -> None:
         """Handle Open Log menu item click."""
         open_log_file()
-
-    def _show_settings(self) -> None:
-        """Show the Settings dialog."""
-        from maestro.importers.youtube import is_demucs_available
-
-        demucs_model_dir = Path.home() / ".maestro" / "models" / "htdemucs"
-
-        dialog = SettingsDialog(
-            parent=self,
-            transpose=self._transpose,
-            show_preview=self._show_preview,
-            sharp_handling=self._sharp_handling,
-            key_layout=self._key_layout,
-            play_key=self._play_key,
-            stop_key=self._stop_key,
-            emergency_key=self._emergency_key,
-            demucs_available=is_demucs_available(demucs_model_dir),
-        )
-
-        # Connect settings signals
-        dialog.transpose_changed.connect(self._on_transpose_toggle)
-        dialog.show_preview_changed.connect(self._on_show_preview_toggle)
-        dialog.sharp_handling_changed.connect(self._on_sharp_handling_toggle)
-        dialog.hotkey_changed.connect(self._on_hotkey_change)
-
-        dialog.exec()
-
-    def _on_transpose_toggle(self, value: bool) -> None:
-        """Handle transpose checkbox toggle."""
-        self._transpose = value
-        self.signals.transpose_changed.emit(value)
-
-    def _on_show_preview_toggle(self, value: bool) -> None:
-        """Handle show preview checkbox toggle."""
-        self._show_preview = value
-        self._preview_container.setVisible(value)
-        self.signals.show_preview_changed.emit(value)
-
-    def _on_sharp_handling_toggle(self, value: str) -> None:
-        """Handle sharp handling dropdown change."""
-        self._sharp_handling = value
-        self.signals.sharp_handling_changed.emit(value)
-
-    def _on_hotkey_change(self, config_key: str, key_name: str) -> None:
-        """Handle hotkey change from settings dialog."""
-        if config_key == "play_key":
-            self._play_key = key_name
-        elif config_key == "stop_key":
-            self._stop_key = key_name
-        elif config_key == "emergency_stop_key":
-            self._emergency_key = key_name
-        self.signals.hotkey_changed.emit(config_key, key_name)
 
     def _show_about(self) -> None:
         """Show the About dialog."""
@@ -786,7 +1096,7 @@ class MainWindow(QMainWindow):
 
     # --- Window events ---
 
-    def closeEvent(self, event) -> None:
+    def closeEvent(self, event) -> None:  # noqa: N802
         """Handle window close."""
         self.signals.exit_requested.emit()
         event.accept()

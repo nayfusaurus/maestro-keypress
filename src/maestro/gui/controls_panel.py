@@ -16,33 +16,34 @@ class ControlsPanel(QWidget):
         super().__init__(parent)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 4, 0, 4)
-        layout.setSpacing(8)
+        layout.setContentsMargins(0, 2, 0, 2)
+        layout.setSpacing(6)
 
-        # Play — PRIMARY button (accent colored, larger)
+        # Play — PRIMARY button (accent colored)
         self._play_btn = QPushButton("Play")
         self._play_btn.setProperty("class", "primary")
-        self._play_btn.setMinimumHeight(36)
+        self._play_btn.setMinimumHeight(32)
         self._play_btn.clicked.connect(self.play_clicked)
         layout.addWidget(self._play_btn, stretch=1)
 
         # Stop — SECONDARY button (default surface style)
         self._stop_btn = QPushButton("Stop")
-        self._stop_btn.setMinimumHeight(36)
+        self._stop_btn.setMinimumHeight(32)
         self._stop_btn.clicked.connect(self.stop_clicked)
         layout.addWidget(self._stop_btn, stretch=1)
 
         # Favorite — GHOST button (icon-only)
         self._fav_btn = QPushButton("\u2606")  # Empty star
         self._fav_btn.setProperty("class", "ghost")
-        self._fav_btn.setFixedSize(36, 36)
+        self._fav_btn.setFixedSize(32, 32)
         self._fav_btn.clicked.connect(self.favorite_clicked)
         layout.addWidget(self._fav_btn)
 
-        # Refresh — GHOST button (icon-only)
-        self._refresh_btn = QPushButton("\u21bb")  # ↻
+        # Refresh — GHOST icon button
+        self._refresh_btn = QPushButton("\u21bb")
         self._refresh_btn.setProperty("class", "ghost")
-        self._refresh_btn.setFixedSize(36, 36)
+        self._refresh_btn.setFixedSize(32, 32)
+        self._refresh_btn.setToolTip("Refresh song list")
         self._refresh_btn.clicked.connect(self.refresh_clicked)
         layout.addWidget(self._refresh_btn)
 

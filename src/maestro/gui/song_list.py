@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QRect, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPainter
 from PySide6.QtWidgets import (
     QListWidget,
@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from maestro.gui.theme import COLORS, FONT
 from maestro.gui.utils import get_songs_from_folder
 
 
@@ -21,15 +22,27 @@ class SongItemDelegate(QStyledItemDelegate):
 
     Each item displays:
       - Left accent bar (3px, color-coded by validation status)
-      - Favorite star (filled gold or empty dim)
-      - Line 1: Song name (10pt) left-aligned, duration right-aligned
-      - Line 2: Metadata caption (9pt, dim): BPM and note count
+      - Favorite star (vertically centered)
+      - Line 1: Song name left-aligned, duration right-aligned
+      - Line 2: BPM · note count (valid) | status text (pending/invalid)
     """
+
+    # Layout grid — all values intentional, most multiples of 4
+    _ITEM_H = 68
+    _BAR_W = 3
+    _STAR_X = 10
+    _STAR_W = 24
+    _CONTENT_X = 38
+    _PAD_R = 12
+    _LINE1_Y = 8
+    _LINE1_H = 28
+    _LINE2_Y = 36
+    _LINE2_H = 24
 
     def sizeHint(  # noqa: N802
         self, option: QStyleOptionViewItem, index: "QModelIndex"  # noqa: F821
     ) -> QSize:
-        return QSize(option.rect.width(), 52)
+        return QSize(option.rect.width(), self._ITEM_H)
 
     def paint(  # noqa: N802
         self,
@@ -40,88 +53,118 @@ class SongItemDelegate(QStyledItemDelegate):
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        rect = option.rect
+        r = option.rect
         meta = index.data(Qt.ItemDataRole.UserRole)
         if meta is None:
             meta = {
-                "stem": index.data(),
+                "stem": index.data() or "",
                 "status": "pending",
                 "is_favorite": False,
                 "duration": 0,
                 "bpm": 0,
                 "note_count": 0,
             }
+        status = meta.get("status", "pending")
 
-        # Background
+        # ── Background ────────────────────────────────────────────────
         is_selected = bool(option.state & QStyle.StateFlag.State_Selected)
         is_hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
         if is_selected:
-            painter.fillRect(rect, QColor("#3b3d52"))
+            painter.fillRect(r, QColor(COLORS["surface_hover"]))
         elif is_hovered:
-            painter.fillRect(rect, QColor("#313244"))
+            painter.fillRect(r, QColor(COLORS["surface2"]))
 
-        # Left accent bar (3px)
-        status = meta.get("status", "pending")
-        accent_colors = {"valid": "#40a02b", "invalid": "#d32f2f", "pending": "#6c7086"}
-        accent = QColor(accent_colors.get(status, "#6c7086"))
-        painter.fillRect(rect.x(), rect.y(), 3, rect.height(), accent)
+        # ── Left accent bar ───────────────────────────────────────────
+        bar_color = {
+            "valid": COLORS["green_dark"],
+            "invalid": COLORS["red_dark"],
+        }.get(status, COLORS["pending"])
+        painter.fillRect(r.x(), r.y(), self._BAR_W, r.height(), QColor(bar_color))
 
-        # Favorite star
-        star_x = rect.x() + 12
-        star_y = rect.y() + rect.height() // 2
-        if meta.get("is_favorite"):
-            painter.setPen(QColor("#f9e2af"))
-            star_char = "\u2605"
-        else:
-            painter.setPen(QColor("#6c7086"))
-            star_char = "\u2606"
+        # ── Favorite star (vertically centered in full item) ──────────
         star_font = QFont()
-        star_font.setPointSize(12)
+        star_font.setPointSize(FONT["body"]["size"] + 2)
         painter.setFont(star_font)
-        painter.drawText(star_x, star_y + 5, star_char)
+        star_rect = QRect(r.x() + self._STAR_X, r.y(), self._STAR_W, r.height())
+        if meta.get("is_favorite"):
+            painter.setPen(QColor(COLORS["yellow"]))
+            painter.drawText(star_rect, Qt.AlignmentFlag.AlignVCenter, "\u2605")
+        else:
+            painter.setPen(QColor(COLORS["pending"]))
+            painter.drawText(star_rect, Qt.AlignmentFlag.AlignVCenter, "\u2606")
 
-        # Line 1: Song name
+        # ── Content area ──────────────────────────────────────────────
+        cx = r.x() + self._CONTENT_X
+        cw = r.width() - self._CONTENT_X - self._PAD_R
+
+        # -- Line 1: song name + duration --
         name_font = QFont()
-        name_font.setPointSize(10)
+        name_font.setPointSize(FONT["body"]["size"])
         painter.setFont(name_font)
-        painter.setPen(QColor("#cdd6f4"))
-        name_rect_x = rect.x() + 32
-        name_y = rect.y() + 22
-        # Leave room for duration on the right
-        name_width = rect.width() - 32 - 50
-        text = painter.fontMetrics().elidedText(
-            meta["stem"], Qt.TextElideMode.ElideRight, name_width
-        )
-        painter.drawText(name_rect_x, name_y, text)
 
-        # Duration (right-aligned, caption style)
+        # Measure duration to reserve right-side space
+        dur_text = ""
+        dur_w = 0
         duration = meta.get("duration", 0)
-        if duration > 0:
-            minutes = int(duration // 60)
-            secs = int(duration % 60)
-            dur_text = f"{minutes}:{secs:02d}"
-            caption_font = QFont()
-            caption_font.setPointSize(9)
-            painter.setFont(caption_font)
-            painter.setPen(QColor("#6c7086"))
-            dur_width = painter.fontMetrics().horizontalAdvance(dur_text)
-            painter.drawText(rect.right() - dur_width - 12, name_y, dur_text)
+        if duration > 0 and status == "valid":
+            m = int(duration // 60)
+            s = int(duration % 60)
+            dur_text = f"{m}:{s:02d}"
+            dur_w = painter.fontMetrics().horizontalAdvance(dur_text) + 12
 
-        # Line 2: Metadata
-        bpm = meta.get("bpm", 0)
-        note_count = meta.get("note_count", 0)
-        if bpm > 0 or note_count > 0:
-            meta_parts: list[str] = []
+        # Song name (left, elided to fit)
+        name_w = cw - dur_w
+        elided = painter.fontMetrics().elidedText(
+            meta["stem"], Qt.TextElideMode.ElideRight, name_w,
+        )
+        painter.setPen(QColor(COLORS["text"]))
+        painter.drawText(
+            QRect(cx, r.y() + self._LINE1_Y, name_w, self._LINE1_H),
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
+            elided,
+        )
+
+        # Duration (right-aligned, readable but not dominant)
+        if dur_text:
+            painter.setPen(QColor(COLORS["text_dim"]))
+            painter.drawText(
+                QRect(cx + name_w, r.y() + self._LINE1_Y, dur_w, self._LINE1_H),
+                Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
+                dur_text,
+            )
+
+        # -- Line 2: metadata or status text --
+        caption_font = QFont()
+        caption_font.setPointSize(FONT["caption"]["size"])
+        painter.setFont(caption_font)
+        line2 = QRect(cx, r.y() + self._LINE2_Y, cw, self._LINE2_H)
+
+        if status == "pending":
+            painter.setPen(QColor(COLORS["subtext"]))
+            painter.drawText(line2, Qt.AlignmentFlag.AlignVCenter, "Validating\u2026")
+        elif status == "invalid":
+            painter.setPen(QColor(COLORS["red"]))
+            painter.drawText(
+                line2, Qt.AlignmentFlag.AlignVCenter, "Invalid MIDI file",
+            )
+        else:
+            parts: list[str] = []
+            bpm = meta.get("bpm", 0)
+            note_count = meta.get("note_count", 0)
             if bpm > 0:
-                meta_parts.append(f"{bpm} BPM")
+                parts.append(f"{bpm} BPM")
             if note_count > 0:
-                meta_parts.append(f"{note_count} notes")
-            meta_text = " \u00b7 ".join(meta_parts)
-            caption_font = QFont()
-            caption_font.setPointSize(9)
-            painter.setFont(caption_font)
-            painter.setPen(QColor("#6c7086"))
-            painter.drawText(name_rect_x, rect.y() + 40, meta_text)
+                parts.append(f"{note_count} notes")
+            playable = meta.get("playable", 0)
+            total = meta.get("total", 0)
+            if total > 0:
+                pct = round(playable / total * 100)
+                parts.append(f"{playable}/{total} playable ({pct}%)")
+            if parts:
+                painter.setPen(QColor(COLORS["subtext"]))
+                painter.drawText(
+                    line2, Qt.AlignmentFlag.AlignVCenter, " \u00b7 ".join(parts),
+                )
 
         painter.restore()
 
@@ -148,6 +191,7 @@ class SongListWidget(QListWidget):
         self._song_info: dict[str, dict] = {}
         self._song_notes: dict[str, list] = {}
         self._validation_cache: dict[str, tuple[float, bool]] = {}
+        self._song_compatibility: dict[str, tuple[int, int]] = {}
         self._favorites: list[str] = []
 
         self._delegate = SongItemDelegate(self)
@@ -215,6 +259,25 @@ class SongListWidget(QListWidget):
                 meta["bpm"] = info.get("bpm", 0)
                 meta["note_count"] = info.get("note_count", 0)
                 item.setData(Qt.ItemDataRole.UserRole, meta)
+                # Touch display role to trigger delegate repaint
+                item.setText(meta["stem"])
+                break
+
+    def update_song_compatibility(
+        self, path_str: str, playable: int, total: int
+    ) -> None:
+        """Update compatibility info for a song and repaint its item."""
+        self._song_compatibility[path_str] = (playable, total)
+        for i in range(self.count()):
+            item = self.item(i)
+            if item is None:
+                continue
+            meta = item.data(Qt.ItemDataRole.UserRole)
+            if meta and meta.get("path_str") == path_str:
+                meta["playable"] = playable
+                meta["total"] = total
+                item.setData(Qt.ItemDataRole.UserRole, meta)
+                item.setText(meta["stem"])
                 break
 
     def get_song_info(self, song: Path) -> dict | None:
@@ -238,6 +301,7 @@ class SongListWidget(QListWidget):
             path_str = str(song)
             status = self._validation_results.get(path_str, "pending")
             info = self._song_info.get(path_str, {})
+            compat = self._song_compatibility.get(path_str, (0, 0))
             meta = {
                 "stem": song.stem,
                 "path_str": path_str,
@@ -246,6 +310,8 @@ class SongListWidget(QListWidget):
                 "duration": info.get("duration", 0),
                 "bpm": info.get("bpm", 0),
                 "note_count": info.get("note_count", 0),
+                "playable": compat[0],
+                "total": compat[1],
             }
             item.setData(Qt.ItemDataRole.UserRole, meta)
             self.addItem(item)

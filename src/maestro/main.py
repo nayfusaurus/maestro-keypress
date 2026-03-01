@@ -251,14 +251,14 @@ class Maestro:
 
         return (playable, total)
 
-    def _on_import_requested(self, url: str) -> None:
+    def _on_import_requested(self, url: str, isolate_piano: bool = False) -> None:
         """Handle import request from GUI."""
         from maestro.gui.workers import ImportWorker
 
         self._import_worker = ImportWorker(
             url=url,
             dest_folder=self.songs_folder,
-            isolate_piano=False,  # TODO: check demucs availability
+            isolate_piano=isolate_piano,
         )
         self._import_worker.progress.connect(
             lambda text: self.window.signals.import_progress.emit(text)
@@ -360,13 +360,30 @@ class Maestro:
         from PySide6.QtCore import QTimer
         from PySide6.QtWidgets import QApplication
 
-        from maestro.gui import MainWindow
+        app = QApplication(sys.argv)
+
+        # Show splash screen immediately (before heavy imports)
+        from maestro.gui.splash import SplashScreen
+
+        splash = SplashScreen()
+        splash.show()
+        app.processEvents()
+
+        # Stage 1: Load theme
+        splash.set_progress(20, "Loading theme...")
+        app.processEvents()
         from maestro.gui.theme import apply_theme
 
-        app = QApplication(sys.argv)
         apply_theme(app)
 
-        # Create main window
+        # Stage 2: Load GUI modules
+        splash.set_progress(50, "Loading interface...")
+        app.processEvents()
+        from maestro.gui import MainWindow
+
+        # Stage 3: Build main window (scans songs folder)
+        splash.set_progress(80, "Preparing songs...")
+        app.processEvents()
         self.window = MainWindow(
             songs_folder=self.songs_folder,
             config=self._config,
@@ -376,7 +393,12 @@ class Maestro:
         # Send initial favorites to GUI
         self.window.signals.favorites_loaded.emit(self._get_favorites())
 
+        # Stage 4: Show window and close splash
+        splash.set_progress(100, "Ready")
+        app.processEvents()
         self.window.show()
+        splash.close()
+        splash.deleteLater()
 
         # Start pynput listener (non-blocking, runs in its own thread)
         self._setup_listener()

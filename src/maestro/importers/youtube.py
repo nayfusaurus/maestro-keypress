@@ -4,11 +4,80 @@ Downloads audio from YouTube via yt-dlp, optionally isolates piano
 with demucs, and transcribes to MIDI with basic-pitch.
 """
 
+import os
 import re
+import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import yt_dlp
+
+
+def _get_ffmpeg_location() -> str | None:
+    """Return the directory containing ffmpeg/ffprobe, or None if on PATH.
+
+    Search order:
+    1. PyInstaller bundle (next to exe)
+    2. System PATH (shutil.which)
+    3. Common Windows install locations (winget, chocolatey, scoop, manual)
+
+    Returns a directory path for yt-dlp's ffmpeg_location option.
+    """
+    # 1. PyInstaller frozen build — binaries are extracted to sys._MEIPASS
+    #    (onefile) or live next to sys.executable (onedir). Check both.
+    if getattr(sys, "frozen", False):
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass and (Path(meipass) / "ffmpeg.exe").exists():
+            return meipass
+        exe_dir = str(Path(sys.executable).parent)
+        if (Path(exe_dir) / "ffmpeg.exe").exists():
+            return exe_dir
+        # Fallback: return exe dir and let yt-dlp report the error
+        return exe_dir
+
+    # 2. Already on PATH — no override needed
+    if shutil.which("ffmpeg") and shutil.which("ffprobe"):
+        return None
+
+    # 3. Search common Windows install locations
+    if sys.platform == "win32":
+        search_dirs = []
+        local_app = os.environ.get("LOCALAPPDATA", "")
+        if local_app:
+            # winget installs here
+            winget_base = Path(local_app) / "Microsoft" / "WinGet" / "Links"
+            search_dirs.append(winget_base)
+            # winget package directory (varies by version)
+            winget_pkgs = Path(local_app) / "Microsoft" / "WinGet" / "Packages"
+            if winget_pkgs.is_dir():
+                for pkg_dir in winget_pkgs.iterdir():
+                    if "ffmpeg" in pkg_dir.name.lower():
+                        # Look for bin/ or the package root
+                        bin_dir = pkg_dir / "ffmpeg" / "bin"
+                        if bin_dir.is_dir():
+                            search_dirs.append(bin_dir)
+                        for sub in pkg_dir.rglob("ffmpeg.exe"):
+                            search_dirs.append(sub.parent)
+                            break
+        # Chocolatey
+        choco = Path(os.environ.get("ChocolateyInstall", r"C:\ProgramData\chocolatey"))
+        search_dirs.append(choco / "bin")
+        # Scoop
+        userprofile = os.environ.get("USERPROFILE", "")
+        if userprofile:
+            search_dirs.append(Path(userprofile) / "scoop" / "shims")
+        # Common manual install locations
+        search_dirs.extend([
+            Path(r"C:\ffmpeg\bin"),
+            Path(r"C:\Program Files\ffmpeg\bin"),
+        ])
+
+        for d in search_dirs:
+            if d.is_dir() and (d / "ffmpeg.exe").exists():
+                return str(d)
+
+    return None
 
 _YT_PATTERNS = [
     re.compile(r"(?:https?://)?(?:www\.)?youtube\.com/watch\?v=([a-zA-Z0-9_-]{11})"),
@@ -45,7 +114,7 @@ def download_audio(url: str, dest_folder: Path) -> tuple[Path, str]:
 
     Raises on download failure.
     """
-    ydl_opts = {
+    ydl_opts: dict = {
         "format": "bestaudio/best",
         "postprocessors": [
             {
@@ -58,6 +127,10 @@ def download_audio(url: str, dest_folder: Path) -> tuple[Path, str]:
         "quiet": True,
         "no_warnings": True,
     }
+
+    ffmpeg_loc = _get_ffmpeg_location()
+    if ffmpeg_loc:
+        ydl_opts["ffmpeg_location"] = ffmpeg_loc
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
@@ -75,19 +148,58 @@ def download_audio(url: str, dest_folder: Path) -> tuple[Path, str]:
     return audio_path, title
 
 
+def _trim_leading_silence(midi_data: "pretty_midi.PrettyMIDI", lead_in: float = 0.05) -> None:
+    """Shift all MIDI notes so the first note starts at `lead_in` seconds.
+
+    Modifies midi_data in place. If there are no notes, does nothing.
+    """
+    import logging
+
+    logger = logging.getLogger("maestro")
+
+    # Find the earliest note start across all instruments
+    earliest = float("inf")
+    for inst in midi_data.instruments:
+        for note in inst.notes:
+            if note.start < earliest:
+                earliest = note.start
+
+    if earliest == float("inf") or earliest <= lead_in:
+        return
+
+    shift = earliest - lead_in
+    logger.info("Trimming %.2fs of leading silence", shift)
+
+    for inst in midi_data.instruments:
+        for note in inst.notes:
+            note.start = max(0.0, note.start - shift)
+            note.end = max(note.start + 0.01, note.end - shift)
+
+
 def transcribe_audio(audio_path: Path, dest_folder: Path, title: str) -> Path:
     """Transcribe an audio file to MIDI using basic-pitch.
 
     Uses a lazy import to avoid loading tensorflow at module import time.
     Returns the path to the generated MIDI file.
     """
+    import logging
+
+    logger = logging.getLogger("maestro")
+
     from basic_pitch.inference import predict
 
-    midi_data, _, _ = predict(str(audio_path))
+    logger.info("Starting transcription of %s", audio_path)
+    # predict() returns (model_output_dict, midi_data, note_events_list)
+    _, midi_data, _ = predict(str(audio_path))
+    logger.info("Transcription complete, %d instruments found", len(midi_data.instruments))
+
+    # Trim leading silence: shift all notes so the first note starts at 50ms
+    _trim_leading_silence(midi_data, lead_in=0.05)
 
     filename = f"{_sanitize_filename(title)}.mid"
     output_path = dest_folder / filename
     midi_data.write(str(output_path))
+    logger.info("MIDI saved to %s", output_path)
     return output_path
 
 

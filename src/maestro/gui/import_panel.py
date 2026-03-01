@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 
 
 class ImportPanel(QWidget):
-    """Compact URL input bar for importing songs from OnlineSequencer or YouTube.
+    """Compact URL input bar for importing songs from YouTube.
 
     Layout:
       Row 1: [URL input (stretch)] [Import button]
@@ -35,9 +35,7 @@ class ImportPanel(QWidget):
         input_row.setSpacing(8)
 
         self._url_input = QLineEdit()
-        self._url_input.setPlaceholderText(
-            "Paste OnlineSequencer or YouTube link..."
-        )
+        self._url_input.setPlaceholderText("Paste YouTube link...")
         self._url_input.returnPressed.connect(self._on_import_click)
         input_row.addWidget(self._url_input, stretch=1)
 

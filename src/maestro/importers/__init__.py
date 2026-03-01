@@ -1,1 +1,1 @@
-"""Song import modules for OnlineSequencer and YouTube sources."""
+"""Song import modules for YouTube sources."""

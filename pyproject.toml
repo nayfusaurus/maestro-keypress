@@ -33,6 +33,10 @@ build-backend = "uv_build"
 # for inference, not TensorFlow, so this package is not needed at runtime.
 override-dependencies = [
     "tensorflow-io-gcs-filesystem>=0.23.1; sys_platform != 'win32'",
+    # basic-pitch pins resampy<0.4.3, but 0.4.3 drops the pkg_resources
+    # dependency (uses importlib.resources instead). Without this override,
+    # setuptools must be installed just for pkg_resources.
+    "resampy>=0.4.3",
 ]
 
 [dependency-groups]
