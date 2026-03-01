@@ -41,14 +41,14 @@ override-dependencies = [
 
 [dependency-groups]
 dev = [
-    "bandit==1.9.3",
+    "bandit==1.9.4",
     "mypy==1.19.1",
     "pillow>=12.1.1",
     "pip-audit>=2.10.0",
-    "pyinstaller==6.18.0",
+    "pyinstaller==6.19.0",
     "pytest==9.0.2",
     "pytest-qt>=4.4.0",
-    "ruff==0.15.0",
+    "ruff==0.15.4",
     "types-requests>=2.32.4.20260107",
 ]
 
