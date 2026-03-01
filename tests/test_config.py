@@ -242,7 +242,7 @@ class TestValidateConfig:
         assert "game_mode" in warnings[0]
 
     def test_invalid_speed_too_low(self):
-        """Speed below 0.25 should be reset to default."""
+        """Speed below 0.5 should be reset to default."""
         config = DEFAULT_CONFIG.copy()
         config["favorites"] = []
         config["recently_played"] = []
@@ -252,11 +252,11 @@ class TestValidateConfig:
         assert any("speed" in w for w in warnings)
 
     def test_invalid_speed_too_high(self):
-        """Speed above 1.5 should be reset to default."""
+        """Speed above 2.0 should be reset to default."""
         config = DEFAULT_CONFIG.copy()
         config["favorites"] = []
         config["recently_played"] = []
-        config["speed"] = 2.0
+        config["speed"] = 3.0
         validated, warnings = validate_config(config)
         assert validated["speed"] == 1.0
         assert any("speed" in w for w in warnings)
@@ -379,3 +379,74 @@ class TestValidateConfig:
         config["recently_played"] = []
         _, warnings = validate_config(config)
         assert isinstance(warnings, list)
+
+
+class TestNewConfigKeys:
+    """Tests for new config keys added in GUI redesign."""
+
+    def test_default_config_has_new_keys(self):
+        assert "disclaimer_accepted" in DEFAULT_CONFIG
+        assert "start_fullscreen" in DEFAULT_CONFIG
+        assert "check_updates_on_launch" in DEFAULT_CONFIG
+        assert "auto_minimize_on_play" in DEFAULT_CONFIG
+        assert "theme" in DEFAULT_CONFIG
+
+    def test_default_values_for_new_keys(self):
+        assert DEFAULT_CONFIG["disclaimer_accepted"] is False
+        assert DEFAULT_CONFIG["start_fullscreen"] is False
+        assert DEFAULT_CONFIG["check_updates_on_launch"] is True
+        assert DEFAULT_CONFIG["auto_minimize_on_play"] is True
+        assert DEFAULT_CONFIG["theme"] == "dark"
+
+    def test_speed_validation_accepts_new_range(self):
+        config = DEFAULT_CONFIG.copy()
+        config["favorites"] = []
+        config["recently_played"] = []
+        config["speed"] = 0.5
+        validated, warnings = validate_config(config)
+        assert validated["speed"] == 0.5
+        assert not any("speed" in w for w in warnings)
+
+        config = DEFAULT_CONFIG.copy()
+        config["favorites"] = []
+        config["recently_played"] = []
+        config["speed"] = 2.0
+        validated, warnings = validate_config(config)
+        assert validated["speed"] == 2.0
+        assert not any("speed" in w for w in warnings)
+
+    def test_speed_validation_rejects_out_of_range(self):
+        config = DEFAULT_CONFIG.copy()
+        config["favorites"] = []
+        config["recently_played"] = []
+        config["speed"] = 0.1
+        validated, warnings = validate_config(config)
+        assert validated["speed"] == DEFAULT_CONFIG["speed"]
+        assert any("speed" in w for w in warnings)
+
+        config = DEFAULT_CONFIG.copy()
+        config["favorites"] = []
+        config["recently_played"] = []
+        config["speed"] = 3.0
+        validated, warnings = validate_config(config)
+        assert validated["speed"] == DEFAULT_CONFIG["speed"]
+
+    def test_new_boolean_keys_validated(self):
+        config = DEFAULT_CONFIG.copy()
+        config["favorites"] = []
+        config["recently_played"] = []
+        config["disclaimer_accepted"] = "not a bool"
+        config["start_fullscreen"] = 123
+        validated, warnings = validate_config(config)
+        assert validated["disclaimer_accepted"] is False
+        assert validated["start_fullscreen"] is False
+        assert len(warnings) >= 2
+
+    def test_theme_validation(self):
+        config = DEFAULT_CONFIG.copy()
+        config["favorites"] = []
+        config["recently_played"] = []
+        config["theme"] = "invalid"
+        validated, warnings = validate_config(config)
+        assert validated["theme"] == "dark"
+        assert any("theme" in w for w in warnings)

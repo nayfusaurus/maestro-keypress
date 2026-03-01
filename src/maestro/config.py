@@ -23,6 +23,11 @@ DEFAULT_CONFIG = {
     "play_key": "f2",
     "stop_key": "f3",
     "emergency_stop_key": "escape",
+    "theme": "dark",
+    "disclaimer_accepted": False,
+    "start_fullscreen": False,
+    "check_updates_on_launch": True,
+    "auto_minimize_on_play": True,
 }
 
 
@@ -61,9 +66,9 @@ def validate_config(config: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
         warnings.append(f"Invalid game_mode '{config.get('game_mode')}', reset to default")
         config["game_mode"] = DEFAULT_CONFIG["game_mode"]
 
-    # Validate speed (float, 0.25-1.5)
+    # Validate speed (float, 0.5-2.0)
     speed = config.get("speed")
-    if not isinstance(speed, (int, float)) or speed < 0.25 or speed > 1.5:
+    if not isinstance(speed, (int, float)) or speed < 0.5 or speed > 2.0:
         warnings.append(f"Invalid speed '{speed}', reset to default")
         config["speed"] = DEFAULT_CONFIG["speed"]
 
@@ -75,10 +80,22 @@ def validate_config(config: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
         config["preview_lookahead"] = DEFAULT_CONFIG["preview_lookahead"]
 
     # Validate booleans
-    for key in ["transpose", "show_preview"]:
+    for key in [
+        "transpose",
+        "show_preview",
+        "disclaimer_accepted",
+        "start_fullscreen",
+        "check_updates_on_launch",
+        "auto_minimize_on_play",
+    ]:
         if not isinstance(config.get(key), bool):
             warnings.append(f"Invalid {key} '{config.get(key)}', reset to default")
             config[key] = DEFAULT_CONFIG[key]
+
+    # Validate theme
+    if config.get("theme") not in ["dark", "light"]:
+        warnings.append(f"Invalid theme '{config.get('theme')}', reset to default")
+        config["theme"] = DEFAULT_CONFIG["theme"]
 
     # Validate key_layout
     valid_layouts = [
