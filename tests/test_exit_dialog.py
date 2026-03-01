@@ -23,8 +23,8 @@ class TestExitDialog:
     def test_dialog_size(self, qtbot):
         dialog = ExitDialog()
         qtbot.addWidget(dialog)
-        assert dialog.width() == 320
-        assert dialog.height() == 160
+        assert dialog.width() == 400
+        assert dialog.height() == 200
 
     def test_exit_button_is_primary(self, qtbot):
         dialog = ExitDialog()

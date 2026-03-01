@@ -19,7 +19,7 @@ class ExitDialog(QDialog):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Exit Maestro")
-        self.setFixedSize(320, 160)
+        self.setFixedSize(400, 200)
         self.setModal(True)
 
         layout = QVBoxLayout(self)

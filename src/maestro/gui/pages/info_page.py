@@ -44,7 +44,13 @@ class InfoPage(QWidget):
         super().__init__(parent)
         self._first_launch = first_launch
 
-        layout = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
+
+        # Centered container with max width to prevent horizontal stretching
+        container = QWidget()
+        container.setMaximumWidth(560)
+        layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(SPACING["lg"])
 
@@ -138,6 +144,8 @@ class InfoPage(QWidget):
 
         # Stretch at bottom to keep cards at top
         layout.addStretch()
+
+        outer.addWidget(container, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Show/hide first-launch elements
         if not first_launch:

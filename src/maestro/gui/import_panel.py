@@ -39,7 +39,7 @@ class ImportPanel(QWidget):
 
         self._import_btn = QPushButton("Import")
         self._import_btn.setProperty("class", "primary")
-        self._import_btn.setFixedWidth(80)
+        self._import_btn.setMinimumWidth(100)
         self._import_btn.clicked.connect(self._on_import_click)
         input_row.addWidget(self._import_btn)
 

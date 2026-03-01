@@ -29,11 +29,11 @@ _ICON_LABELS = ["Dashboard", "Settings", "About", "Error Log", "Exit"]
 # Sizing constants
 # ---------------------------------------------------------------------------
 
-_RAIL_WIDTH = 56
-_ICON_CELL_HEIGHT = 48
-_ICON_SIZE = 20  # icon drawing area (centered in cell)
-_ACTIVE_BAR_WIDTH = 3
-_BADGE_RADIUS = 3  # 6px dot diameter
+_RAIL_WIDTH = 80
+_ICON_CELL_HEIGHT = 64
+_ICON_SIZE = 36  # icon drawing area (centered in cell)
+_ACTIVE_BAR_WIDTH = 4
+_BADGE_RADIUS = 5  # 10px dot diameter
 
 
 class IconRail(QWidget):
@@ -244,7 +244,7 @@ class IconRail(QWidget):
 
     def _draw_home_icon(self, p: QPainter, cx: float, cy: float, color: QColor) -> None:
         """Draw a simple house icon: a triangle roof + rectangle body."""
-        pen = QPen(color, 1.8)
+        pen = QPen(color, 2.5)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         p.setPen(pen)
@@ -253,27 +253,27 @@ class IconRail(QWidget):
         s = _ICON_SIZE / 2  # half-size
 
         # Roof (triangle)
-        roof_top = QPointF(cx, cy - s + 1)
-        roof_left = QPointF(cx - s + 1, cy - 1)
-        roof_right = QPointF(cx + s - 1, cy - 1)
+        roof_top = QPointF(cx, cy - s + 2)
+        roof_left = QPointF(cx - s + 2, cy - 2)
+        roof_right = QPointF(cx + s - 2, cy - 2)
         p.drawLine(roof_top, roof_left)
         p.drawLine(roof_top, roof_right)
 
         # Body (rectangle below roof)
-        body = QRectF(cx - s * 0.6, cy - 1, s * 1.2, s - 1)
+        body = QRectF(cx - s * 0.6, cy - 2, s * 1.2, s - 1)
         p.drawRect(body)
 
     def _draw_gear_icon(self, p: QPainter, cx: float, cy: float, color: QColor) -> None:
         """Draw a gear icon: outer toothed circle + inner circle."""
-        pen = QPen(color, 1.8)
+        pen = QPen(color, 2.5)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         p.setPen(pen)
         p.setBrush(Qt.BrushStyle.NoBrush)
 
-        r_outer = _ICON_SIZE / 2 - 1
+        r_outer = _ICON_SIZE / 2 - 2
         r_inner = r_outer * 0.45
         teeth = 8
-        tooth_len = 2.5
+        tooth_len = 4.5
 
         # Draw teeth as short radial lines
         for i in range(teeth):
@@ -292,18 +292,18 @@ class IconRail(QWidget):
 
     def _draw_info_icon(self, p: QPainter, cx: float, cy: float, color: QColor) -> None:
         """Draw an info icon: circle with 'i' inside."""
-        pen = QPen(color, 1.8)
+        pen = QPen(color, 2.5)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         p.setPen(pen)
         p.setBrush(Qt.BrushStyle.NoBrush)
 
-        r = _ICON_SIZE / 2 - 1
+        r = _ICON_SIZE / 2 - 2
 
         # Outer circle
         p.drawEllipse(QPointF(cx, cy), r, r)
 
         # Dot above the i
-        dot_pen = QPen(color, 2.5)
+        dot_pen = QPen(color, 3.5)
         dot_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         p.setPen(dot_pen)
         p.drawPoint(QPointF(cx, cy - r * 0.35))
@@ -314,13 +314,13 @@ class IconRail(QWidget):
 
     def _draw_log_icon(self, p: QPainter, cx: float, cy: float, color: QColor) -> None:
         """Draw a document/log icon: rectangle with lines inside."""
-        pen = QPen(color, 1.8)
+        pen = QPen(color, 2.5)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         p.setPen(pen)
         p.setBrush(Qt.BrushStyle.NoBrush)
 
-        s = _ICON_SIZE / 2 - 1
+        s = _ICON_SIZE / 2 - 2
         w = s * 1.3
         h = s * 1.6
 
@@ -329,7 +329,7 @@ class IconRail(QWidget):
         p.drawRect(doc)
 
         # Text lines inside
-        line_pen = QPen(color, 1.2)
+        line_pen = QPen(color, 1.8)
         line_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         p.setPen(line_pen)
         lx1 = cx - w * 0.3
@@ -342,13 +342,13 @@ class IconRail(QWidget):
 
     def _draw_exit_icon(self, p: QPainter, cx: float, cy: float, color: QColor) -> None:
         """Draw an exit/door icon: door frame with arrow pointing out."""
-        pen = QPen(color, 1.8)
+        pen = QPen(color, 2.5)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         p.setPen(pen)
         p.setBrush(Qt.BrushStyle.NoBrush)
 
-        s = _ICON_SIZE / 2 - 1
+        s = _ICON_SIZE / 2 - 2
 
         # Door frame (open on the right side)
         p.drawLine(QPointF(cx - s, cy - s), QPointF(cx - s, cy + s))  # left

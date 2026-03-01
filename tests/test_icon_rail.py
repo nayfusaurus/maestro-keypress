@@ -7,7 +7,7 @@ class TestIconRail:
     def test_rail_has_fixed_width(self, qtbot):
         rail = IconRail()
         qtbot.addWidget(rail)
-        assert rail.fixedWidth() == 56
+        assert rail.fixedWidth() == 80
 
     def test_rail_emits_page_changed(self, qtbot):
         rail = IconRail()

@@ -482,9 +482,12 @@ class MainWindow(QMainWindow):
         self.signals.lookahead_changed.emit(self._lookahead)
 
     def _on_transpose_toggle(self, value: bool) -> None:
-        """Handle transpose toggle change."""
+        """Handle transpose toggle change — re-validate to update playable notes."""
         self._transpose = value
         self.signals.transpose_changed.emit(value)
+        # Re-run validation so playable note counts update in the song list
+        self._validation_cache.clear()
+        self._start_validation()
 
     def _on_show_preview_toggle(self, value: bool) -> None:
         """Handle show preview toggle change."""

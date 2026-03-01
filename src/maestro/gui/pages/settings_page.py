@@ -88,10 +88,11 @@ class SettingsPage(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(scroll.Shape.NoFrame)
 
-        # Inner content widget
+        # Inner content widget with max width to prevent horizontal stretching
         content = QWidget()
+        content.setMaximumWidth(640)
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
         layout.setSpacing(SPACING["lg"])
 
         layout.addWidget(self._build_library_card())
@@ -101,7 +102,14 @@ class SettingsPage(QWidget):
         layout.addWidget(self._build_updates_card())
         layout.addStretch()
 
-        scroll.setWidget(content)
+        # Center the content in the scroll area
+        scroll_content = QWidget()
+        scroll_layout = QHBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.addStretch()
+        scroll_layout.addWidget(content)
+        scroll_layout.addStretch()
+        scroll.setWidget(scroll_content)
         outer.addWidget(scroll)
 
     # ------------------------------------------------------------------
@@ -132,7 +140,6 @@ class SettingsPage(QWidget):
         lay.addWidget(self._song_count_label)
 
         self._browse_btn = QPushButton("Browse")
-        self._browse_btn.setProperty("class", "ghost")
         self._browse_btn.clicked.connect(self.folder_browse_requested.emit)
         lay.addWidget(self._browse_btn, alignment=Qt.AlignmentFlag.AlignLeft)
 
@@ -241,7 +248,6 @@ class SettingsPage(QWidget):
         lay.addWidget(self._demucs_status)
 
         self._demucs_btn = QPushButton("Download")
-        self._demucs_btn.setProperty("class", "primary")
         self._demucs_btn.clicked.connect(self.demucs_action_requested.emit)
         lay.addWidget(self._demucs_btn, alignment=Qt.AlignmentFlag.AlignLeft)
 
@@ -278,7 +284,6 @@ class SettingsPage(QWidget):
         lay.addWidget(self._update_progress)
 
         self._check_now_btn = QPushButton("Check Now")
-        self._check_now_btn.setProperty("class", "ghost")
         self._check_now_btn.clicked.connect(self.check_now_requested.emit)
         lay.addWidget(self._check_now_btn, alignment=Qt.AlignmentFlag.AlignLeft)
 
@@ -310,7 +315,7 @@ class SettingsPage(QWidget):
         row.setSpacing(SPACING["sm"])
 
         action_label = QLabel(action_text)
-        action_label.setFixedWidth(60)
+        action_label.setFixedWidth(90)
         row.addWidget(action_label)
 
         badge_label.setProperty("class", "key-badge")
@@ -319,8 +324,7 @@ class SettingsPage(QWidget):
         row.addWidget(badge_label)
 
         bind_btn = QPushButton("Bind")
-        bind_btn.setProperty("class", "ghost")
-        bind_btn.setFixedWidth(44)
+        bind_btn.setFixedWidth(72)
         bind_btn.clicked.connect(lambda: self._start_listening(config_key))
         row.addWidget(bind_btn)
 

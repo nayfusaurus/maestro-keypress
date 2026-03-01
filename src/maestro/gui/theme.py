@@ -102,7 +102,7 @@ QMainWindow, QDialog {{
 }}
 
 QWidget {{
-    background-color: {c["base"]};
+    background-color: transparent;
     color: {c["text"]};
 }}
 
