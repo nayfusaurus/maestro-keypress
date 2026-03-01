@@ -4,6 +4,42 @@ All notable changes to Maestro will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.2.0/).
 
+## [1.5.0] - 2026-03-02
+
+### Added
+
+- **Multi-page GUI layout**: Icon sidebar navigation with Dashboard, Settings, Info, and Log pages
+- **Dark/Light themes**: Catppuccin Mocha (dark) and Latte (light) with toggle switch in Settings
+- **YouTube-to-MIDI import**: Paste a YouTube URL to download audio and transcribe to MIDI
+  - Tuned basic-pitch parameters for piano accuracy (frequency bounds, lower thresholds)
+  - Leading silence trimmed from transcribed MIDI files
+- **Settings page**: Dedicated page with Library, Appearance, Hotkeys, Demucs, and Updates cards
+- **Info page**: About section with version, credits, Ko-fi link, and scrollable disclaimer
+- **Log page**: Built-in error log viewer with refresh and open-in-editor buttons
+- **Exit confirmation dialog**: Prevents accidental app closure
+- **Toggle switches**: Custom ToggleSwitch widget replacing checkboxes for all boolean settings
+- **First-launch disclaimer flow**: Accept/reject disclaimer before using the app
+- **Splash screen**: Loading screen with progress bar shown during startup
+- **Demucs settings card**: Download/remove piano isolation model with progress bar and status feedback
+
+### Changed
+
+- **GUI framework**: Migrated from menu bar to icon sidebar navigation
+- **Two-column dashboard**: Fixed 400px scrollable sidebar + flexible song list area
+- **Speed slider range**: Changed from 0.5x-2.0x to 0.25x-1.5x (finer control)
+- **Window icon**: Fixed for PyInstaller builds (bundled icon.png, AppUserModelID for Windows taskbar)
+- **Theme switching**: Fixed background not updating outside song list panel
+- **Refresh button**: Made visible (no longer ghost style)
+
+### Security
+
+- **Bandit scan**: All 13 findings addressed with nosec annotations (all Low severity, intentional subprocess usage)
+- **Ruff**: All lint checks passing
+
+### Tests
+
+- Test suite trimmed from 450 to 219 tests (removed low-value tests, kept meaningful coverage)
+
 ## [1.4.0] - 2026-02-13
 
 ### Added

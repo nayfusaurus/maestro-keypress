@@ -26,9 +26,10 @@
 - 🎮 **Multi-game support** - Works with Heartopia and Where Winds Meet
 - 🎹 **5 keyboard layouts** - 22-key, 15-key double/triple row, Conga/Cajon drums, Xylophone
 - ⚡ **Smart MIDI processing** - Auto-validation, transpose, and compatibility checking
-- 🎨 **Modern GUI** - Favorites, search, song info, hotkey remapping, and more
+- 🎨 **Modern GUI** - Dark/light themes, icon sidebar navigation, multi-page layout
+- 🎵 **YouTube-to-MIDI** - Import songs directly from YouTube URLs
 - 🎯 **Event-driven playback** - Precise timing with chord support and MIDI duration tracking
-- 🔒 **Production-ready** - 362 tests, type-safe with mypy, security-scanned, pinned dependencies
+- 🔒 **Production-ready** - 219 tests, type-safe with mypy, security-scanned, pinned dependencies
 - 🪟 **Windows executable** - Standalone `.exe` for easy distribution
 
 ---
@@ -70,6 +71,8 @@ uv run maestro
 - **Stuck key protection** - Ensures all keys are released on exit
 
 ### 🖥️ User Interface
+- **Multi-page layout** - Icon sidebar navigation (Dashboard, Settings, Info, Log)
+- **Dark/Light themes** - Catppuccin Mocha (dark) and Latte (light) with toggle switch
 - **MIDI validation** - Real-time scan with color-coded status (green/red/gray)
 - **Song information** - Duration, BPM, note count, and compatibility percentage
 - **Favorites system** - Star your favorite songs (sorted first)
@@ -79,6 +82,12 @@ uv run maestro
 - **Piano roll preview** - Optional lookahead panel showing upcoming notes
 - **Hotkey remapping** - Press-to-bind configuration with conflict detection
 - **Settings persistence** - All preferences saved between sessions
+
+### 🎵 Import
+
+- **YouTube-to-MIDI** - Paste a YouTube URL to download and transcribe to MIDI
+- **Tuned transcription** - Optimized basic-pitch parameters for in-game piano accuracy
+- **Auto-cleanup** - Trims leading silence from transcribed MIDI files
 
 ### 🎮 Game Support
 - **Heartopia** - 5 keyboard layouts (22-key full, 15-key double/triple, drums, xylophone)
@@ -90,7 +99,7 @@ uv run maestro
 - **Type-safe** - Full mypy type checking
 - **Security scanned** - pip-audit checks for vulnerabilities (CI)
 - **Pinned dependencies** - Locked versions for reproducibility
-- **Comprehensive tests** - 362 tests with 99%+ coverage
+- **Comprehensive tests** - 219 tests with thorough coverage
 
 ---
 
@@ -253,7 +262,7 @@ The exe will be at `dist/Maestro.exe`. You can:
 uv run pytest -v
 ```
 
-**Test Suite:** 362 tests, 2 skipped (Windows-only focus detection)
+**Test Suite:** 219 tests, 1 warning (Windows-only focus detection)
 
 ### Code Quality
 
@@ -270,27 +279,38 @@ Enforced in CI on every commit.
 ```text
 maestro-keypress/
 ├── src/maestro/
-│   ├── __init__.py         # Entry point
-│   ├── main.py             # App coordinator + hotkeys
-│   ├── player.py           # Event-driven playback engine with caching
-│   ├── parser.py           # MIDI parsing with multi-tempo support
-│   ├── keymap.py           # Heartopia 22-key mapping
-│   ├── keymap_15_double.py # Heartopia 15-key double row
-│   ├── keymap_15_triple.py # Heartopia 15-key triple row
-│   ├── keymap_drums.py     # Heartopia 8-key drums
-│   ├── keymap_xylophone.py # Heartopia 8-key xylophone
-│   ├── keymap_wwm.py       # Where Winds Meet mapping
-│   ├── key_layout.py       # KeyLayout enum
-│   ├── game_mode.py        # GameMode enum
-│   ├── gui.py              # Tkinter song picker with validation
-│   ├── config.py           # Settings persistence
-│   └── logger.py           # Error logging
-├── tests/                  # Test suite (362 tests)
-├── assets/                 # Icons and images
-├── songs/                  # MIDI files directory
-├── pyproject.toml          # Project config with pinned dependencies
-├── Maestro.spec            # PyInstaller build configuration
-└── .github/workflows/      # CI with ruff, mypy, pip-audit
+│   ├── main.py               # App coordinator, Qt event loop, signal wiring
+│   ├── player.py             # Event-driven playback engine with caching
+│   ├── parser.py             # MIDI parsing with multi-tempo support
+│   ├── keymap.py             # Heartopia 22-key mapping (C3-C6)
+│   ├── keymap_15_double.py   # Heartopia 15-key double row
+│   ├── keymap_15_triple.py   # Heartopia 15-key triple row
+│   ├── keymap_drums.py       # Heartopia 8-key drums
+│   ├── keymap_xylophone.py   # Heartopia 8-key xylophone
+│   ├── keymap_wwm.py         # Where Winds Meet mapping
+│   ├── key_layout.py         # KeyLayout enum
+│   ├── game_mode.py          # GameMode enum
+│   ├── config.py             # JSON settings persistence with validation
+│   ├── logger.py             # Rotating file logger
+│   ├── gui/                  # PySide6 GUI package
+│   │   ├── main_window.py    # MainWindow — icon rail + paged layout
+│   │   ├── signals.py        # MaestroSignals (centralized Signal defs)
+│   │   ├── pages/            # Dashboard, Settings, Info, Log pages
+│   │   ├── song_list.py      # Rich two-line items with custom delegate
+│   │   ├── piano_roll.py     # Note preview canvas
+│   │   ├── controls_panel.py # Play/Stop/Favorite transport controls
+│   │   ├── import_panel.py   # YouTube URL import bar
+│   │   ├── workers.py        # QThread workers (validation, import, update)
+│   │   ├── theme.py          # Catppuccin dark/light themes, design tokens
+│   │   └── constants.py      # Version, bindable keys, disclaimer text
+│   └── importers/            # URL import modules
+│       ├── youtube.py        # yt-dlp download + basic-pitch transcription
+│       └── synthesia.py      # OpenCV-based Synthesia detection
+├── tests/                    # Test suite (219 tests)
+├── assets/                   # Icons and images
+├── pyproject.toml            # Project config with pinned dependencies
+├── Maestro.spec              # PyInstaller build configuration
+└── .github/workflows/        # CI with ruff, mypy, pip-audit
 ```
 
 ---
@@ -338,9 +358,12 @@ If you find Maestro useful, consider:
 ## 🙏 Acknowledgments
 
 - Built with [Claude](https://claude.ai) (Anthropic)
+- [PySide6](https://doc.qt.io/qtforpython-6/) - Qt6 GUI framework
 - [mido](https://github.com/mido/mido) - MIDI file parsing
 - [pynput](https://github.com/moses-palmer/pynput) - Keyboard simulation
 - [pydirectinput](https://github.com/learncodebygaming/pydirectinput) - DirectInput support
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) - YouTube audio download
+- [basic-pitch](https://github.com/spotify/basic-pitch) - Audio-to-MIDI transcription (Spotify)
 - [uv](https://github.com/astral-sh/uv) - Fast Python package manager
 - Games: **Heartopia** and **Where Winds Meet** for inspiring this project
 
