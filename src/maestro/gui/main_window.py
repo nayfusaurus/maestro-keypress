@@ -1,10 +1,9 @@
 """Main application window — thin shell around IconRail + QStackedWidget pages."""
 
-import sys
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QCloseEvent, QIcon
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -103,21 +102,11 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(self._original_title)
         self.setMinimumSize(900, 600)
 
-        # Window icon (also sets taskbar icon via QApplication)
-        # In PyInstaller builds, assets are extracted to sys._MEIPASS.
-        # In dev, they live at the project root relative to this source file.
-        try:
-            if getattr(sys, "frozen", False):
-                base = Path(getattr(sys, "_MEIPASS", ""))
-            else:
-                base = Path(__file__).resolve().parent.parent.parent.parent
-            icon_path = base / "assets" / "icon.png"
-            if icon_path.exists():
-                icon = QIcon(str(icon_path))
-                self.setWindowIcon(icon)
-                QApplication.setWindowIcon(icon)
-        except Exception:  # nosec B110
-            pass
+        # Window title bar icon — app-wide icon is set earlier in main.py
+        # (before splash screen) so the taskbar icon is correct from the start.
+        app = QApplication.instance()
+        if isinstance(app, QApplication) and not app.windowIcon().isNull():
+            self.setWindowIcon(app.windowIcon())
 
         # Size to 80% of screen or fullscreen
         if config.get("start_fullscreen", False):

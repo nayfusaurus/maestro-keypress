@@ -47,7 +47,10 @@ else:
 # Bundle the app icon so Qt can set window/taskbar icon at runtime.
 # The .spec icon= only embeds into the .exe for Windows Explorer;
 # Qt needs the actual file to call QIcon() / setWindowIcon().
-icon_data = [(str(PROJ_ROOT / 'assets' / 'icon.png'), 'assets')]
+icon_data = [
+    (str(PROJ_ROOT / 'assets' / 'icon.png'), 'assets'),
+    (str(PROJ_ROOT / 'assets' / 'icon.ico'), 'assets'),
+]
 
 a = Analysis(
     [str(PROJ_ROOT / 'src' / 'maestro' / 'main.py')],

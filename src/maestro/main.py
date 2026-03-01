@@ -385,6 +385,21 @@ class Maestro:
 
         app = QApplication(sys.argv)
 
+        # Set app icon immediately — BEFORE any window is shown.
+        # Windows assigns the taskbar icon when the first window appears,
+        # so this must happen before the splash screen.
+        from PySide6.QtGui import QIcon
+        if getattr(sys, "frozen", False):
+            _base = Path(getattr(sys, "_MEIPASS", ""))
+        else:
+            _base = Path(__file__).resolve().parent.parent.parent
+        # Prefer .ico (multi-size, better for Windows taskbar), fall back to .png
+        _icon_path = _base / "assets" / "icon.ico"
+        if not _icon_path.exists():
+            _icon_path = _base / "assets" / "icon.png"
+        if _icon_path.exists():
+            app.setWindowIcon(QIcon(str(_icon_path)))
+
         # Show splash screen immediately (before heavy imports)
         from maestro.gui.splash import SplashScreen
 
