@@ -7,7 +7,7 @@ with demucs, and transcribes to MIDI with basic-pitch.
 import os
 import re
 import shutil
-import subprocess
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 
@@ -61,7 +61,7 @@ def _get_ffmpeg_location() -> str | None:
                             search_dirs.append(sub.parent)
                             break
         # Chocolatey
-        choco = Path(os.environ.get("ChocolateyInstall", r"C:\ProgramData\chocolatey"))
+        choco = Path(os.environ.get("ChocolateyInstall", r"C:\ProgramData\chocolatey"))  # noqa: SIM112
         search_dirs.append(choco / "bin")
         # Scoop
         userprofile = os.environ.get("USERPROFILE", "")
@@ -148,7 +148,7 @@ def download_audio(url: str, dest_folder: Path) -> tuple[Path, str]:
     return audio_path, title
 
 
-def _trim_leading_silence(midi_data: "pretty_midi.PrettyMIDI", lead_in: float = 0.05) -> None:
+def _trim_leading_silence(midi_data: "pretty_midi.PrettyMIDI", lead_in: float = 0.05) -> None:  # noqa: F821
     """Shift all MIDI notes so the first note starts at `lead_in` seconds.
 
     Modifies midi_data in place. If there are no notes, does nothing.
@@ -190,7 +190,21 @@ def transcribe_audio(audio_path: Path, dest_folder: Path, title: str) -> Path:
 
     logger.info("Starting transcription of %s", audio_path)
     # predict() returns (model_output_dict, midi_data, note_events_list)
-    _, midi_data, _ = predict(str(audio_path))
+    #
+    # Tuning for in-game piano playback:
+    #   onset_threshold  0.3  – more precise note starts (default 0.5)
+    #   frame_threshold  0.2  – fewer missed notes (default 0.3)
+    #   minimum_note_length 50 – match 50ms min keypress, don't merge fast runs (default 127.7)
+    #   frequency bounds     – restrict to piano range C3-C6 (~130-1050 Hz)
+    #                          filters out bass, drums, vocals as ghost notes
+    _, midi_data, _ = predict(
+        str(audio_path),
+        onset_threshold=0.3,
+        frame_threshold=0.2,
+        minimum_note_length=50,
+        minimum_frequency=130.0,
+        maximum_frequency=1050.0,
+    )
     logger.info("Transcription complete, %d instruments found", len(midi_data.instruments))
 
     # Trim leading silence: shift all notes so the first note starts at 50ms
@@ -219,7 +233,7 @@ def isolate_piano(audio_path: Path, output_dir: Path) -> Path:
 
     Raises RuntimeError if demucs fails.
     """
-    result = subprocess.run(
+    result = subprocess.run(  # nosec B603 B607
         [
             "python",
             "-m",

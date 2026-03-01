@@ -248,7 +248,7 @@ class DemucsDownloadWorker(QThread):
     def run(self) -> None:
         """Download and set up the demucs model."""
         import logging
-        import subprocess
+        import subprocess  # nosec B404
 
         logger = logging.getLogger("maestro")
         logger.info("Demucs download started, target: %s", self._model_dir)
@@ -259,7 +259,7 @@ class DemucsDownloadWorker(QThread):
 
             cmd = ["pip", "install", "demucs", "--target", str(self._model_dir)]
             logger.info("Running: %s", " ".join(cmd))
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603
                 cmd,
                 capture_output=True,
                 text=True,

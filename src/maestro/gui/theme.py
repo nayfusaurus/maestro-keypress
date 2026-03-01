@@ -398,6 +398,12 @@ QCheckBox:disabled {{
     color: {c["subtext"]};
 }}
 
+/* ── Stacked Widget ────────────────────────────────────────────────── */
+
+QStackedWidget {{
+    background-color: {c["base"]};
+}}
+
 /* ── Scroll Area ───────────────────────────────────────────────────── */
 
 QScrollArea {{

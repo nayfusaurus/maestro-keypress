@@ -4,10 +4,10 @@ Displays the application log file in a read-only monospace text viewer
 with refresh and open-in-editor capabilities.
 """
 
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QShowEvent, QTextCursor
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QTextEdit, QVBoxLayout, QWidget
 
+from maestro.gui.theme import SPACING
 from maestro.logger import get_log_path, open_log_file
 
 
@@ -21,8 +21,8 @@ class LogPage(QWidget):
     def _setup_ui(self) -> None:
         """Build the page layout."""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+        layout.setContentsMargins(SPACING["xl"], SPACING["md"], SPACING["xl"], SPACING["md"])
+        layout.setSpacing(SPACING["md"])
 
         # --- Header row ---
         header = QHBoxLayout()

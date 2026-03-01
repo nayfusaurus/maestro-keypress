@@ -44,11 +44,16 @@ else:
     print('')
     sys.exit(1)
 
+# Bundle the app icon so Qt can set window/taskbar icon at runtime.
+# The .spec icon= only embeds into the .exe for Windows Explorer;
+# Qt needs the actual file to call QIcon() / setWindowIcon().
+icon_data = [(str(PROJ_ROOT / 'assets' / 'icon.png'), 'assets')]
+
 a = Analysis(
     [str(PROJ_ROOT / 'src' / 'maestro' / 'main.py')],
     pathex=[str(PROJ_ROOT / 'src')],
     binaries=ffmpeg_binaries,
-    datas=bp_data,
+    datas=bp_data + icon_data,
     hiddenimports=[
         # --- App core ---
         'pynput.keyboard._win32',

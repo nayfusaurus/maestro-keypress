@@ -4,8 +4,6 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from maestro.config import (
     DEFAULT_CONFIG,
     get_config_dir,
@@ -21,24 +19,30 @@ class TestGetConfigDir:
 
     def test_get_config_dir_windows(self):
         """On Windows, config dir should be %APPDATA%/Maestro."""
-        with patch("maestro.config.sys.platform", "win32"):
-            with patch.dict("os.environ", {"APPDATA": "C:\\Users\\Test\\AppData\\Roaming"}):
-                config_dir = get_config_dir()
-                assert config_dir == Path("C:\\Users\\Test\\AppData\\Roaming") / "Maestro"
+        with (
+            patch("maestro.config.sys.platform", "win32"),
+            patch.dict("os.environ", {"APPDATA": "C:\\Users\\Test\\AppData\\Roaming"}),
+        ):
+            config_dir = get_config_dir()
+            assert config_dir == Path("C:\\Users\\Test\\AppData\\Roaming") / "Maestro"
 
     def test_get_config_dir_linux(self):
         """On Linux, config dir should be ~/.maestro."""
-        with patch("maestro.config.sys.platform", "linux"):
-            with patch("maestro.config.Path.home", return_value=Path("/home/testuser")):
-                config_dir = get_config_dir()
-                assert config_dir == Path("/home/testuser") / ".maestro"
+        with (
+            patch("maestro.config.sys.platform", "linux"),
+            patch("maestro.config.Path.home", return_value=Path("/home/testuser")),
+        ):
+            config_dir = get_config_dir()
+            assert config_dir == Path("/home/testuser") / ".maestro"
 
     def test_get_config_dir_macos(self):
         """On macOS, config dir should be ~/.maestro."""
-        with patch("maestro.config.sys.platform", "darwin"):
-            with patch("maestro.config.Path.home", return_value=Path("/Users/testuser")):
-                config_dir = get_config_dir()
-                assert config_dir == Path("/Users/testuser") / ".maestro"
+        with (
+            patch("maestro.config.sys.platform", "darwin"),
+            patch("maestro.config.Path.home", return_value=Path("/Users/testuser")),
+        ):
+            config_dir = get_config_dir()
+            assert config_dir == Path("/Users/testuser") / ".maestro"
 
 
 class TestGetConfigPath:
@@ -102,25 +106,29 @@ class TestSaveConfig:
         config_dir = tmp_path / "maestro"
         config_path = config_dir / "config.json"
 
-        with patch("maestro.config.get_config_dir", return_value=config_dir):
-            with patch("maestro.config.get_config_path", return_value=config_path):
-                settings = {"last_songs_folder": "/my/songs", "speed": 1.5}
-                save_config(settings)
+        with (
+            patch("maestro.config.get_config_dir", return_value=config_dir),
+            patch("maestro.config.get_config_path", return_value=config_path),
+        ):
+            settings = {"last_songs_folder": "/my/songs", "speed": 1.5}
+            save_config(settings)
 
-                assert config_path.exists()
-                loaded = json.loads(config_path.read_text())
-                assert loaded["last_songs_folder"] == "/my/songs"
-                assert loaded["speed"] == 1.5
+            assert config_path.exists()
+            loaded = json.loads(config_path.read_text())
+            assert loaded["last_songs_folder"] == "/my/songs"
+            assert loaded["speed"] == 1.5
 
     def test_save_config_creates_directory(self, tmp_path):
         """Creates config directory if it doesn't exist."""
         config_dir = tmp_path / "nested" / "maestro"
         config_path = config_dir / "config.json"
 
-        with patch("maestro.config.get_config_dir", return_value=config_dir):
-            with patch("maestro.config.get_config_path", return_value=config_path):
-                save_config({"test": "value"})
-                assert config_dir.exists()
+        with (
+            patch("maestro.config.get_config_dir", return_value=config_dir),
+            patch("maestro.config.get_config_path", return_value=config_path),
+        ):
+            save_config({"test": "value"})
+            assert config_dir.exists()
 
 
 class TestSaveAndLoadRoundtrip:
@@ -131,21 +139,23 @@ class TestSaveAndLoadRoundtrip:
         config_dir = tmp_path / "maestro"
         config_path = config_dir / "config.json"
 
-        with patch("maestro.config.get_config_dir", return_value=config_dir):
-            with patch("maestro.config.get_config_path", return_value=config_path):
-                original = {
-                    "last_songs_folder": "/path/to/songs",
-                    "game_mode": "Where Winds Meet",
-                    "speed": 0.75,
-                    "preview_lookahead": 10,
-                }
-                save_config(original)
-                loaded = load_config()
+        with (
+            patch("maestro.config.get_config_dir", return_value=config_dir),
+            patch("maestro.config.get_config_path", return_value=config_path),
+        ):
+            original = {
+                "last_songs_folder": "/path/to/songs",
+                "game_mode": "Where Winds Meet",
+                "speed": 0.75,
+                "preview_lookahead": 10,
+            }
+            save_config(original)
+            loaded = load_config()
 
-                assert loaded["last_songs_folder"] == original["last_songs_folder"]
-                assert loaded["game_mode"] == original["game_mode"]
-                assert loaded["speed"] == original["speed"]
-                assert loaded["preview_lookahead"] == original["preview_lookahead"]
+            assert loaded["last_songs_folder"] == original["last_songs_folder"]
+            assert loaded["game_mode"] == original["game_mode"]
+            assert loaded["speed"] == original["speed"]
+            assert loaded["preview_lookahead"] == original["preview_lookahead"]
 
 
 class TestDefaultConfig:

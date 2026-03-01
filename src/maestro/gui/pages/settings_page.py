@@ -236,8 +236,9 @@ class SettingsPage(QWidget):
         lay.addWidget(heading)
 
         desc = QLabel(
-            "Download the Demucs model to isolate piano audio from imported "
-            "tracks. This improves MIDI transcription accuracy."
+            "Download the Demucs htdemucs model (~1 GB) to isolate piano "
+            "audio from imported tracks before MIDI transcription. The model "
+            "is saved to ~/.maestro/models/ and can be removed at any time."
         )
         desc.setProperty("class", "caption")
         desc.setWordWrap(True)
@@ -246,6 +247,11 @@ class SettingsPage(QWidget):
         self._demucs_status = QLabel("Checking...")
         self._demucs_status.setProperty("class", "caption")
         lay.addWidget(self._demucs_status)
+
+        self._demucs_progress = QProgressBar()
+        self._demucs_progress.setRange(0, 0)  # indeterminate
+        self._demucs_progress.hide()
+        lay.addWidget(self._demucs_progress)
 
         self._demucs_btn = QPushButton("Download")
         self._demucs_btn.clicked.connect(self.demucs_action_requested.emit)
@@ -342,12 +348,23 @@ class SettingsPage(QWidget):
 
     def set_demucs_status(self, installed: bool) -> None:
         """Update the demucs status and button text."""
+        self._demucs_progress.hide()
+        self._demucs_btn.setEnabled(True)
         if installed:
             self._demucs_status.setText("Model installed")
+            self._demucs_status.setProperty("state", "finished")
             self._demucs_btn.setText("Remove")
         else:
             self._demucs_status.setText("Model not installed")
+            self._demucs_status.setProperty("state", "")
             self._demucs_btn.setText("Download")
+        self._demucs_status.style().unpolish(self._demucs_status)
+        self._demucs_status.style().polish(self._demucs_status)
+
+    def set_demucs_downloading(self, downloading: bool) -> None:
+        """Show or hide the demucs download progress bar."""
+        self._demucs_progress.setVisible(downloading)
+        self._demucs_btn.setEnabled(not downloading)
 
     def set_update_status(self, text: str) -> None:
         """Update the update check status text."""

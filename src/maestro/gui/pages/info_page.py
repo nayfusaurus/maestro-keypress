@@ -44,10 +44,11 @@ class InfoPage(QWidget):
         super().__init__(parent)
         self._first_launch = first_launch
 
-        outer = QVBoxLayout(self)
+        outer = QHBoxLayout(self)
         outer.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
 
-        # Centered container with max width to prevent horizontal stretching
+        # Center the container horizontally using stretches, allow vertical fill
+        outer.addStretch()
         container = QWidget()
         container.setMaximumWidth(560)
         layout = QVBoxLayout(container)
@@ -116,7 +117,7 @@ class InfoPage(QWidget):
         self._disclaimer_text = QTextEdit()
         self._disclaimer_text.setPlainText(DISCLAIMER_TEXT)
         self._disclaimer_text.setReadOnly(True)
-        disclaimer_layout.addWidget(self._disclaimer_text)
+        disclaimer_layout.addWidget(self._disclaimer_text, stretch=1)
 
         # First-launch prompt
         self._prompt_label = QLabel("Please read and accept to continue.")
@@ -140,12 +141,10 @@ class InfoPage(QWidget):
         self._btn_container.setLayout(btn_row)
         disclaimer_layout.addWidget(self._btn_container)
 
-        layout.addWidget(disclaimer_card)
+        layout.addWidget(disclaimer_card, stretch=1)
 
-        # Stretch at bottom to keep cards at top
-        layout.addStretch()
-
-        outer.addWidget(container, alignment=Qt.AlignmentFlag.AlignHCenter)
+        outer.addWidget(container)
+        outer.addStretch()
 
         # Show/hide first-launch elements
         if not first_launch:

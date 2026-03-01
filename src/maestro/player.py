@@ -384,7 +384,7 @@ class Player:
                     self.keyboard.release(key)
                     if modifier:
                         self.keyboard.release(modifier)
-            except Exception:
+            except Exception:  # nosec B110
                 pass
         self._held_keys.clear()
 

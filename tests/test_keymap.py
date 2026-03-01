@@ -1,6 +1,7 @@
 """Tests for Heartopia 22-key keymap (C3-C6)."""
 
 import pytest
+
 from maestro.keymap import midi_note_to_key
 
 

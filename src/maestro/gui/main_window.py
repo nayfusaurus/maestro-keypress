@@ -1,5 +1,6 @@
 """Main application window — thin shell around IconRail + QStackedWidget pages."""
 
+import sys
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer
@@ -102,12 +103,20 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(self._original_title)
         self.setMinimumSize(900, 600)
 
-        # Window icon
+        # Window icon (also sets taskbar icon via QApplication)
+        # In PyInstaller builds, assets are extracted to sys._MEIPASS.
+        # In dev, they live at the project root relative to this source file.
         try:
-            icon_path = Path(__file__).parent.parent.parent / "assets" / "icon.png"
+            if getattr(sys, "frozen", False):
+                base = Path(getattr(sys, "_MEIPASS", ""))
+            else:
+                base = Path(__file__).resolve().parent.parent.parent.parent
+            icon_path = base / "assets" / "icon.png"
             if icon_path.exists():
-                self.setWindowIcon(QIcon(str(icon_path)))
-        except Exception:
+                icon = QIcon(str(icon_path))
+                self.setWindowIcon(icon)
+                QApplication.setWindowIcon(icon)
+        except Exception:  # nosec B110
             pass
 
         # Size to 80% of screen or fullscreen
@@ -508,6 +517,8 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if isinstance(app, QApplication):
             apply_theme(app, dark=dark)
+        # Force repaint of custom-painted widget (reads COLORS dict)
+        self._rail.update()
         self.signals.theme_changed.emit(theme)
 
     def _on_hotkey_change(self, config_key: str, key_name: str) -> None:
@@ -668,7 +679,7 @@ class MainWindow(QMainWindow):
             self._dashboard._isolate_toggle.setEnabled(False)
         else:
             logger.info("Starting demucs model download to %s", model_dir)
-            self._settings._demucs_btn.setEnabled(False)
+            self._settings.set_demucs_downloading(True)
             self._settings._demucs_status.setText("Downloading...")
 
             from maestro.gui.workers import DemucsDownloadWorker
@@ -698,8 +709,11 @@ class MainWindow(QMainWindow):
         logging.getLogger("maestro").error(
             "Demucs model download failed: %s", error
         )
-        self._settings._demucs_btn.setEnabled(True)
+        self._settings.set_demucs_downloading(False)
         self._settings._demucs_status.setText("Download failed")
+        self._settings._demucs_status.setProperty("state", "error")
+        self._settings._demucs_status.style().unpolish(self._settings._demucs_status)
+        self._settings._demucs_status.style().polish(self._settings._demucs_status)
 
     # ── Error Handling ────────────────────────────────────────────────
 

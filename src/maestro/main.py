@@ -377,6 +377,12 @@ class Maestro:
         from PySide6.QtCore import QTimer
         from PySide6.QtWidgets import QApplication
 
+        # Set AppUserModelID so Windows taskbar shows our icon instead of
+        # the default Python/PyInstaller icon.
+        if sys.platform == "win32":
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("maestro.app")  # type: ignore[union-attr]
+
         app = QApplication(sys.argv)
 
         # Show splash screen immediately (before heavy imports)

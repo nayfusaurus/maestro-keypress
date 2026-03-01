@@ -96,9 +96,7 @@ class DashboardPage(QWidget):
         self._search_entry.setPlaceholderText("Filter songs...")
         header_row.addWidget(self._search_entry, stretch=1)
 
-        self._refresh_btn = QPushButton("\u21bb")
-        self._refresh_btn.setProperty("class", "ghost")
-        self._refresh_btn.setFixedSize(32, 32)
+        self._refresh_btn = QPushButton("\u21bb Refresh")
         self._refresh_btn.setToolTip("Refresh song list")
         header_row.addWidget(self._refresh_btn)
 

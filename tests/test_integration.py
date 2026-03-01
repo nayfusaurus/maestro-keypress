@@ -1,10 +1,10 @@
 """Integration tests for the full Maestro workflow."""
 
-import pytest
 import time
-from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import patch
+
 import mido
+import pytest
 
 from maestro.main import Maestro
 from maestro.player import PlaybackState

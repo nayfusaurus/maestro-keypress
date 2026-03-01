@@ -1,6 +1,7 @@
 """Tests for Heartopia 15-key triple row keymap."""
 
 import pytest
+
 from maestro.keymap_15_triple import midi_note_to_key_15_triple
 
 

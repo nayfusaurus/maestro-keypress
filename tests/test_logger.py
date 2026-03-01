@@ -2,12 +2,12 @@
 
 import logging
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
 import maestro.logger
-from maestro.logger import get_log_path, setup_logger, open_log_file
+from maestro.logger import get_log_path, open_log_file, setup_logger
 
 
 @pytest.fixture(autouse=True)
@@ -69,42 +69,50 @@ class TestOpenLogFile:
     def test_open_log_file_does_nothing_if_no_file(self, tmp_path):
         """open_log_file should do nothing if log file doesn't exist."""
         log_path = tmp_path / "nonexistent.log"
-        with patch("maestro.logger.get_log_path", return_value=log_path):
-            with patch("maestro.logger.subprocess.run") as mock_run:
-                with patch("maestro.logger.os.startfile", create=True) as mock_startfile:
-                    open_log_file()
-                    mock_run.assert_not_called()
-                    mock_startfile.assert_not_called()
+        with (
+            patch("maestro.logger.get_log_path", return_value=log_path),
+            patch("maestro.logger.subprocess.run") as mock_run,
+            patch("maestro.logger.os.startfile", create=True) as mock_startfile,
+        ):
+            open_log_file()
+            mock_run.assert_not_called()
+            mock_startfile.assert_not_called()
 
     def test_open_log_file_windows(self, tmp_path):
         """On Windows, should use os.startfile."""
         log_path = tmp_path / "maestro.log"
         log_path.touch()
 
-        with patch("maestro.logger.get_log_path", return_value=log_path):
-            with patch("maestro.logger.sys.platform", "win32"):
-                with patch("maestro.logger.os.startfile", create=True) as mock_startfile:
-                    open_log_file()
-                    mock_startfile.assert_called_once_with(log_path)
+        with (
+            patch("maestro.logger.get_log_path", return_value=log_path),
+            patch("maestro.logger.sys.platform", "win32"),
+            patch("maestro.logger.os.startfile", create=True) as mock_startfile,
+        ):
+            open_log_file()
+            mock_startfile.assert_called_once_with(log_path)
 
     def test_open_log_file_macos(self, tmp_path):
         """On macOS, should use 'open' command."""
         log_path = tmp_path / "maestro.log"
         log_path.touch()
 
-        with patch("maestro.logger.get_log_path", return_value=log_path):
-            with patch("maestro.logger.sys.platform", "darwin"):
-                with patch("maestro.logger.subprocess.run") as mock_run:
-                    open_log_file()
-                    mock_run.assert_called_once_with(["open", str(log_path)])
+        with (
+            patch("maestro.logger.get_log_path", return_value=log_path),
+            patch("maestro.logger.sys.platform", "darwin"),
+            patch("maestro.logger.subprocess.run") as mock_run,
+        ):
+            open_log_file()
+            mock_run.assert_called_once_with(["open", str(log_path)])
 
     def test_open_log_file_linux(self, tmp_path):
         """On Linux, should use 'xdg-open' command."""
         log_path = tmp_path / "maestro.log"
         log_path.touch()
 
-        with patch("maestro.logger.get_log_path", return_value=log_path):
-            with patch("maestro.logger.sys.platform", "linux"):
-                with patch("maestro.logger.subprocess.run") as mock_run:
-                    open_log_file()
-                    mock_run.assert_called_once_with(["xdg-open", str(log_path)])
+        with (
+            patch("maestro.logger.get_log_path", return_value=log_path),
+            patch("maestro.logger.sys.platform", "linux"),
+            patch("maestro.logger.subprocess.run") as mock_run,
+        ):
+            open_log_file()
+            mock_run.assert_called_once_with(["xdg-open", str(log_path)])

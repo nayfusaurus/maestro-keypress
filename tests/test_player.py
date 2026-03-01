@@ -1,12 +1,11 @@
-import pytest
 import time
-from unittest.mock import Mock, patch
-from pathlib import Path
+from unittest.mock import patch
 
-from maestro.game_mode import GameMode
+import pytest
+
 from maestro.key_layout import KeyLayout
 from maestro.parser import Note
-from maestro.player import Player, PlaybackState
+from maestro.player import PlaybackState, Player
 
 
 @pytest.fixture
@@ -24,7 +23,7 @@ def sample_midi(tmp_path):
     mid = mido.MidiFile()
     track = mido.MidiTrack()
     mid.tracks.append(track)
-    for i in range(5):
+    for _ in range(5):
         track.append(mido.Message("note_on", note=60, velocity=64, time=480))
         track.append(mido.Message("note_off", note=60, velocity=64, time=240))
     midi_path = tmp_path / "test.mid"
@@ -339,9 +338,7 @@ class TestWindowFocusDetection:
         def mock_focus():
             nonlocal call_count
             call_count += 1
-            if call_count <= 2:
-                return False  # First 2 calls: window not active
-            return True  # After that: window active
+            return call_count > 2
 
         original_start = player._start_time
         with patch.object(player, "_is_game_window_active", side_effect=mock_focus):

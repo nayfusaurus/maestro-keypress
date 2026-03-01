@@ -2,6 +2,7 @@
 
 import pytest
 from pynput.keyboard import Key
+
 from maestro.keymap_wwm import midi_note_to_key_wwm
 
 

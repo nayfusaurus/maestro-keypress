@@ -1,9 +1,10 @@
 # tests/test_parser.py
-import pytest
 from pathlib import Path
-import mido
 
-from maestro.parser import parse_midi, Note
+import mido
+import pytest
+
+from maestro.parser import Note, parse_midi
 
 
 @pytest.fixture

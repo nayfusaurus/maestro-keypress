@@ -5,7 +5,7 @@ Sets up rotating file handler for error logging.
 
 import logging
 import os
-import subprocess
+import subprocess  # nosec B404
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -64,8 +64,8 @@ def open_log_file() -> None:
         return
 
     if sys.platform == "win32":
-        os.startfile(log_path)
+        os.startfile(log_path)  # nosec B606
     elif sys.platform == "darwin":
-        subprocess.run(["open", str(log_path)])
+        subprocess.run(["open", str(log_path)])  # nosec B603 B607
     else:
-        subprocess.run(["xdg-open", str(log_path)])
+        subprocess.run(["xdg-open", str(log_path)])  # nosec B603 B607

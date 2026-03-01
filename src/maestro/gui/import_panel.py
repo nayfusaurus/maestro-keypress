@@ -28,6 +28,11 @@ class ImportPanel(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
+        # Header
+        header = QLabel("Experimental feature")
+        header.setProperty("class", "caption")
+        layout.addWidget(header)
+
         # Row 1: URL input + Import button
         input_row = QHBoxLayout()
         input_row.setSpacing(8)
