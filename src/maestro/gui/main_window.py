@@ -162,7 +162,7 @@ class MainWindow(QMainWindow):
         self._settings.set_folder(str(self.songs_folder), 0)
         demucs_available = self._check_demucs_available()
         self._settings.set_demucs_status(demucs_available)
-        self._dashboard._import_panel.set_demucs_available(demucs_available)
+        self._dashboard._isolate_toggle.setEnabled(demucs_available)
 
     # ── Signal Connections ────────────────────────────────────────────
 
@@ -662,7 +662,7 @@ class MainWindow(QMainWindow):
                 logger.error("Failed to remove demucs model: %s", e)
                 return
             self._settings.set_demucs_status(False)
-            self._dashboard._import_panel.set_demucs_available(False)
+            self._dashboard._isolate_toggle.setEnabled(False)
         else:
             logger.info("Starting demucs model download to %s", model_dir)
             self._settings._demucs_btn.setEnabled(False)
@@ -686,7 +686,7 @@ class MainWindow(QMainWindow):
 
         logging.getLogger("maestro").info("Demucs model download complete")
         self._settings.set_demucs_status(True)
-        self._dashboard._import_panel.set_demucs_available(True)
+        self._dashboard._isolate_toggle.setEnabled(True)
 
     def _on_demucs_error(self, error: str) -> None:
         """Handle demucs download failure."""

@@ -280,12 +280,6 @@ class TestImportPanel:
         assert panel._import_btn is not None
         assert panel._import_btn.text() == "Import"
 
-    def test_import_panel_has_isolate_checkbox(self, qtbot):
-        panel = ImportPanel()
-        qtbot.addWidget(panel)
-        assert panel._isolate_cb is not None
-        assert not panel._isolate_cb.isEnabled()
-
     def test_import_panel_status_hidden_by_default(self, qtbot):
         panel = ImportPanel()
         qtbot.addWidget(panel)
@@ -329,12 +323,6 @@ class TestImportPanel:
         qtbot.addWidget(panel)
         panel._url_input.setText("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
         assert panel.get_url() == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-
-    def test_set_demucs_available_enables_checkbox(self, qtbot):
-        panel = ImportPanel()
-        qtbot.addWidget(panel)
-        panel.set_demucs_available(True)
-        assert panel._isolate_cb.isEnabled()
 
     def test_set_importing_disables_button(self, qtbot):
         panel = ImportPanel()

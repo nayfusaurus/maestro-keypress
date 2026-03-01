@@ -2,7 +2,6 @@
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QCheckBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -17,8 +16,7 @@ class ImportPanel(QWidget):
 
     Layout:
       Row 1: [URL input (stretch)] [Import button]
-      Row 2: [x] Isolate piano checkbox
-      Row 3: Status label (hidden by default, shown during import)
+      Row 2: Status label (hidden by default, shown during import)
     """
 
     import_clicked = Signal(str, bool)  # url, isolate_piano
@@ -47,15 +45,7 @@ class ImportPanel(QWidget):
 
         layout.addLayout(input_row)
 
-        # Row 2: Isolate piano checkbox
-        self._isolate_cb = QCheckBox(
-            "Isolate piano (requires model \u2014 see Settings)"
-        )
-        self._isolate_cb.setEnabled(False)
-        self._isolate_cb.setToolTip("Download model in Settings to enable")
-        layout.addWidget(self._isolate_cb)
-
-        # Row 3: Status label (hidden by default)
+        # Row 2: Status label (hidden by default)
         self._status_label = QLabel()
         self._status_label.setProperty("class", "caption")
         self._status_label.setWordWrap(True)
@@ -65,7 +55,7 @@ class ImportPanel(QWidget):
     def _on_import_click(self) -> None:
         url = self._url_input.text().strip()
         if url:
-            self.import_clicked.emit(url, self._isolate_cb.isChecked())
+            self.import_clicked.emit(url, False)
 
     def get_url(self) -> str:
         """Return the current URL text, stripped of whitespace."""
@@ -99,14 +89,6 @@ class ImportPanel(QWidget):
         """Hide the status label and clear its text."""
         self._status_label.setVisible(False)
         self._status_label.setText("")
-
-    def set_demucs_available(self, available: bool) -> None:
-        """Enable or disable the isolate piano checkbox."""
-        self._isolate_cb.setEnabled(available)
-        if available:
-            self._isolate_cb.setToolTip("")
-        else:
-            self._isolate_cb.setToolTip("Download model in Settings to enable")
 
     def set_importing(self, importing: bool) -> None:
         """Disable or enable the import button and URL input during import."""

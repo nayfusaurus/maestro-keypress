@@ -5,12 +5,11 @@ from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
 
 class ControlsPanel(QWidget):
-    """Panel with Play, Stop, Favorite, and Refresh buttons."""
+    """Panel with Play, Stop, and Favorite buttons."""
 
     play_clicked = Signal()
     stop_clicked = Signal()
     favorite_clicked = Signal()
-    refresh_clicked = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -38,14 +37,6 @@ class ControlsPanel(QWidget):
         self._fav_btn.setFixedSize(32, 32)
         self._fav_btn.clicked.connect(self.favorite_clicked)
         layout.addWidget(self._fav_btn)
-
-        # Refresh — GHOST icon button
-        self._refresh_btn = QPushButton("\u21bb")
-        self._refresh_btn.setProperty("class", "ghost")
-        self._refresh_btn.setFixedSize(32, 32)
-        self._refresh_btn.setToolTip("Refresh song list")
-        self._refresh_btn.clicked.connect(self.refresh_clicked)
-        layout.addWidget(self._refresh_btn)
 
     def set_favorite(self, is_favorite: bool) -> None:
         """Update the favorite button star."""

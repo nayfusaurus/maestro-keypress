@@ -453,6 +453,13 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{
     background: none;
 }}
 
+/* ── Icon Rail ─────────────────────────────────────────────────────── */
+
+IconRail {{
+    background-color: {c["surface0"]};
+    border-right: 1px solid {c["surface2"]};
+}}
+
 /* ── Semantic Widgets ───────────────────────────────────────────────── */
 
 QWidget[class="surface-card"] {{
