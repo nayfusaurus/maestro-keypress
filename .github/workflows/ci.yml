@@ -65,7 +65,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y xvfb python3-tk
+        run: sudo apt-get update && sudo apt-get install -y xvfb python3-tk libegl1 libgl1
 
       - name: Install dependencies
         run: uv sync
