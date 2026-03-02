@@ -11,6 +11,7 @@ import re
 import shutil
 import subprocess  # nosec B404
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -115,11 +116,18 @@ def _sanitize_filename(name: str) -> str:
     return _UNSAFE_CHARS.sub("_", name).strip()
 
 
-def download_audio(url: str, dest_folder: Path) -> tuple[Path, str]:
+def download_audio(
+    url: str,
+    dest_folder: Path,
+    progress_callback: Callable[[float], None] | None = None,
+) -> tuple[Path, str]:
     """Download audio from a YouTube URL as WAV.
 
     Returns a tuple of (audio_path, title). Uses yt-dlp with FFmpeg
     post-processing to extract audio in WAV format.
+
+    If *progress_callback* is provided it will be called with a float
+    in [0.0, 1.0] representing the download fraction.
 
     Raises on download failure.
     """
@@ -136,6 +144,16 @@ def download_audio(url: str, dest_folder: Path) -> tuple[Path, str]:
         "quiet": True,
         "no_warnings": True,
     }
+
+    if progress_callback is not None:
+
+        def _hook(d: dict) -> None:
+            if d.get("status") == "downloading":
+                total = d.get("total_bytes") or d.get("total_bytes_estimate")
+                if total:
+                    progress_callback(d.get("downloaded_bytes", 0) / total)
+
+        ydl_opts["progress_hooks"] = [_hook]
 
     ffmpeg_loc = _get_ffmpeg_location()
     if ffmpeg_loc:
@@ -201,16 +219,16 @@ def transcribe_audio(audio_path: Path, dest_folder: Path, title: str) -> Path:
     # predict() returns (model_output_dict, midi_data, note_events_list)
     #
     # Tuning for in-game piano playback:
-    #   onset_threshold  0.3  – more precise note starts (default 0.5)
-    #   frame_threshold  0.2  – fewer missed notes (default 0.3)
-    #   minimum_note_length 50 – match 50ms min keypress, don't merge fast runs (default 127.7)
+    #   onset_threshold  0.4  – balance precision vs false onsets from sustain/harmonics
+    #   frame_threshold  0.25 – balance sensitivity vs noise
+    #   minimum_note_length 80 – reduce note fragmentation while keeping fast runs
     #   frequency bounds     – restrict to piano range C3-C6 (~130-1050 Hz)
     #                          filters out bass, drums, vocals as ghost notes
     _, midi_data, _ = predict(
         str(audio_path),
-        onset_threshold=0.3,
-        frame_threshold=0.2,
-        minimum_note_length=50,
+        onset_threshold=0.4,
+        frame_threshold=0.25,
+        minimum_note_length=80,
         minimum_frequency=130.0,
         maximum_frequency=1050.0,
     )
@@ -218,6 +236,11 @@ def transcribe_audio(audio_path: Path, dest_folder: Path, title: str) -> Path:
 
     # Trim leading silence: shift all notes so the first note starts at 50ms
     _trim_leading_silence(midi_data, lead_in=0.05)
+
+    # Post-process: filter noise, merge fragments, simplify chords, quantize
+    from maestro.importers.midi_cleanup import cleanup_transcription
+
+    cleanup_transcription(midi_data)
 
     filename = f"{_sanitize_filename(title)}.mid"
     output_path = dest_folder / filename

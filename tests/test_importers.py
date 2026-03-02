@@ -80,6 +80,7 @@ class TestTranscribeAudio:
         # Mock basic-pitch predict: returns (model_output_dict, midi_data, note_events)
         mock_midi = Mock()
         mock_midi.instruments = []
+        mock_midi.get_tempo_changes.return_value = (np.array([]), np.array([120.0]))
         mock_predict.return_value = ({}, mock_midi, [])
 
         result = transcribe_audio(audio_path, tmp_path, "Test Song")
