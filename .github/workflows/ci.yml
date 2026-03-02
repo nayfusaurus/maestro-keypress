@@ -91,6 +91,9 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Download ffmpeg binaries
+        run: uv run python scripts/download_ffmpeg.py
+
       - name: Build exe
         run: uv run pyinstaller Maestro.spec --noconfirm
 
