@@ -23,7 +23,9 @@ class ExitDialog(QDialog):
         self.setFixedSize(400, 200)
         self.setModal(True)
         # Apply current theme — QDialog may not inherit app stylesheet on all platforms
-        self.setStyleSheet(f"ExitDialog {{ background-color: {COLORS['base']}; color: {COLORS['text']}; }}")
+        self.setStyleSheet(
+            f"ExitDialog {{ background-color: {COLORS['base']}; color: {COLORS['text']}; }}"
+        )
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
