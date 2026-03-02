@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/maestro-logo-clean.png" alt="Maestro" width="500"/>
+  <img src="assets/maestro-logo-no-bg-01.png" alt="Maestro" width="500"/>
 
   <h3>🎹 Automated MIDI Piano Player for Games</h3>
   <p><em>Turn any MIDI file into beautiful in-game piano performances</em></p>
