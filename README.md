@@ -23,7 +23,7 @@
 
 ## ✨ Highlights
 
-- 🎮 **Multi-game support** - Works with Heartopia and Where Winds Meet
+- 🎮 **Multi-game support** - Works with Heartopia, Where Winds Meet, and Once Human
 - 🎹 **5 keyboard layouts** - 22-key, 15-key double/triple row, Conga/Cajon drums, Xylophone
 - ⚡ **Smart MIDI processing** - Auto-validation, transpose, and compatibility checking
 - 🎨 **Modern GUI** - Dark/light themes, icon sidebar navigation, multi-page layout
@@ -63,7 +63,7 @@ uv run maestro
 ### 🎵 Playback
 - **Event-driven engine** with precise MIDI timing
 - **Chord support** - Multiple keys pressed simultaneously
-- **Speed control** - 0.25x to 1.5x playback speed
+- **Speed control** - 0.5x to 2.0x playback speed
 - **Auto-transpose** - Shift out-of-range notes into playable range
 - **Sharp handling** - Skip or snap to nearest natural note (15-key layouts)
 - **Multi-tempo support** - Handles MIDI files with tempo changes
@@ -91,7 +91,8 @@ uv run maestro
 
 ### 🎮 Game Support
 - **Heartopia** - 5 keyboard layouts (22-key full, 15-key double/triple, drums, xylophone)
-- **Where Winds Meet** - DirectInput support with Shift modifier for sharps
+- **Where Winds Meet** - DirectInput support, 36-key (Shift/Ctrl modifiers) and 21-key (naturals only) layouts
+- **Once Human** - DirectInput support, single-octave keys with Shift/Ctrl octave switching
 
 ### 🛡️ Quality & Performance
 - **Event caching** - Reuses built events when only speed changes
@@ -99,7 +100,7 @@ uv run maestro
 - **Type-safe** - Full mypy type checking
 - **Security scanned** - pip-audit checks for vulnerabilities (CI)
 - **Pinned dependencies** - Locked versions for reproducibility
-- **Comprehensive tests** - 219 tests with thorough coverage
+- **Comprehensive tests** - 312 tests with thorough coverage
 
 ---
 
@@ -147,19 +148,43 @@ Transpose and sharp handling disabled.
 </details>
 
 <details>
-<summary><b>Where Winds Meet</b> - Shift Modifier for Sharps</summary>
+<summary><b>Where Winds Meet</b> - 36-key and 21-key Layouts</summary>
 
-Uses **DirectInput** (pydirectinput) for keyboard simulation. Numbered notation (1-7 = Do-Ti) with Shift for sharps.
+Uses **DirectInput** (pydirectinput) for keyboard simulation. Two layout options:
 
-| Octave | 1(C) | 2(D) | 3(E) | 4(F) | 5(G) | 6(A) | 7(B) |
-|--------|------|------|------|------|------|------|------|
-| High   | Q    | W    | E    | R    | T    | Y    | U    |
-| Medium | A    | S    | D    | F    | G    | H    | J    |
-| Low    | Z    | X    | C    | V    | B    | N    | M    |
+**36-key (Full)** — All 12 chromatic notes per octave using two modifiers:
 
-**Sharp notes:** Hold Shift + natural note key (e.g., C# = Shift+C).
+| Octave | C | D | E | F | G | A | B |
+|--------|---|---|---|---|---|---|---|
+| High   | Q | W | E | R | T | Y | U |
+| Medium | A | S | D | F | G | H | J |
+| Low    | Z | X | C | V | B | N | M |
 
-Notes outside MIDI 48-83 are automatically transposed.
+- **Shift** (raise pitch): C# = Shift+C key, F# = Shift+F key, G# = Shift+G key
+- **Ctrl** (lower pitch): Eb = Ctrl+E key, Bb = Ctrl+B key
+
+**21-key (Naturals)** — 7 natural notes per octave, no modifiers. Sharp handling: skip or snap to nearest natural.
+
+Notes outside MIDI 48-83 can be auto-transposed.
+
+</details>
+
+<details>
+<summary><b>Once Human</b> - Modifier-Based Octave Switching</summary>
+
+Uses **DirectInput** (pydirectinput) for keyboard simulation. Single-octave keyboard with Shift/Ctrl for octave switching.
+
+**White keys (naturals):** Q=C, W=D, E=E, R=F, T=G, Y=A, U=B
+
+**Black keys (accidentals):** 2=C#, 3=D#, 5=F#, 6=G#, 7=A#
+
+| Modifier | Octave  | MIDI Range |
+|----------|---------|------------|
+| Ctrl     | Low (3) | 48-59      |
+| None     | Mid (4) | 60-71      |
+| Shift    | High (5)| 72-83      |
+
+All 36 chromatic notes (C3-B5) are directly playable. Notes outside range can be auto-transposed.
 
 </details>
 
@@ -188,7 +213,7 @@ Default hotkeys (can be remapped in Settings):
    - ⚪ **Gray** - Pending validation
 4. **Song Info** - View duration, BPM, note count, compatibility %
 5. **Favorites** - Click the ★ to mark favorites (sorted first)
-6. **Speed Slider** - Adjust playback speed (0.25x - 1.5x)
+6. **Speed Slider** - Adjust playback speed (0.5x - 2.0x)
 7. **Settings** - Configure transpose, sharp handling, hotkeys, and more
 
 ### Workflow
@@ -262,7 +287,7 @@ The exe will be at `dist/Maestro.exe`. You can:
 uv run pytest -v
 ```
 
-**Test Suite:** 219 tests, 1 warning (Windows-only focus detection)
+**Test Suite:** 312 tests, 1 warning (Windows-only focus detection)
 
 ### Code Quality
 
@@ -288,8 +313,9 @@ maestro-keypress/
 │   ├── keymap_drums.py       # Heartopia 8-key drums
 │   ├── keymap_xylophone.py   # Heartopia 8-key xylophone
 │   ├── keymap_wwm.py         # Where Winds Meet mapping
-│   ├── key_layout.py         # KeyLayout enum
-│   ├── game_mode.py          # GameMode enum
+│   ├── keymap_once_human.py  # Once Human mapping
+│   ├── key_layout.py         # KeyLayout, WwmLayout enums
+│   ├── game_mode.py          # GameMode enum (3 games)
 │   ├── config.py             # JSON settings persistence with validation
 │   ├── logger.py             # Rotating file logger
 │   ├── gui/                  # PySide6 GUI package
@@ -306,7 +332,7 @@ maestro-keypress/
 │   └── importers/            # URL import modules
 │       ├── youtube.py        # yt-dlp download + basic-pitch transcription
 │       └── synthesia.py      # OpenCV-based Synthesia detection
-├── tests/                    # Test suite (219 tests)
+├── tests/                    # Test suite (312 tests)
 ├── assets/                   # Icons and images
 ├── pyproject.toml            # Project config with pinned dependencies
 ├── Maestro.spec              # PyInstaller build configuration
@@ -365,7 +391,7 @@ If you find Maestro useful, consider:
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) - YouTube audio download
 - [basic-pitch](https://github.com/spotify/basic-pitch) - Audio-to-MIDI transcription (Spotify)
 - [uv](https://github.com/astral-sh/uv) - Fast Python package manager
-- Games: **Heartopia** and **Where Winds Meet** for inspiring this project
+- Games: **Heartopia**, **Where Winds Meet**, and **Once Human** for inspiring this project
 
 ---
 
