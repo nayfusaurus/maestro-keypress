@@ -26,6 +26,7 @@ Thumbs.db
 
 # Docs
 docs/
+clones/
 
 # Claude Code project instructions (local only)
 CLAUDE.md

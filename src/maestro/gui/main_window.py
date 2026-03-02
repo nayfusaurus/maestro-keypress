@@ -225,6 +225,7 @@ class MainWindow(QMainWindow):
 
         # Import signals
         self.signals.import_progress.connect(d._import_panel.show_progress)
+        self.signals.import_percent.connect(d._import_panel.set_percent)
         self.signals.import_finished.connect(self._on_import_finished)
         self.signals.import_error.connect(d._import_panel.show_error)
 

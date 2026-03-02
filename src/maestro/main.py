@@ -314,6 +314,9 @@ class Maestro:
         self._import_worker.progress.connect(
             lambda text: self.window.signals.import_progress.emit(text)
         )
+        self._import_worker.percent.connect(
+            lambda val: self.window.signals.import_percent.emit(val)
+        )
         self._import_worker.finished.connect(
             lambda filename: self.window.signals.import_finished.emit(filename)
         )

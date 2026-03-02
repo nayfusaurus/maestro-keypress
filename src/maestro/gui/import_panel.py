@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QProgressBar,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -16,7 +17,8 @@ class ImportPanel(QWidget):
 
     Layout:
       Row 1: [URL input (stretch)] [Import button]
-      Row 2: Status label (hidden by default, shown during import)
+      Row 2: Progress bar (hidden by default, shown during import)
+      Row 3: Status label (hidden by default, shown during import)
     """
 
     import_clicked = Signal(str, bool)  # url, isolate_piano
@@ -50,7 +52,15 @@ class ImportPanel(QWidget):
 
         layout.addLayout(input_row)
 
-        # Row 2: Status label (hidden by default)
+        # Row 2: Progress bar (hidden by default)
+        self._progress_bar = QProgressBar()
+        self._progress_bar.setRange(0, 100)
+        self._progress_bar.setValue(0)
+        self._progress_bar.setFixedHeight(6)
+        self._progress_bar.setVisible(False)
+        layout.addWidget(self._progress_bar)
+
+        # Row 3: Status label (hidden by default)
         self._status_label = QLabel()
         self._status_label.setProperty("class", "caption")
         self._status_label.setWordWrap(True)
@@ -66,16 +76,22 @@ class ImportPanel(QWidget):
         """Return the current URL text, stripped of whitespace."""
         return self._url_input.text().strip()
 
+    def set_percent(self, value: int) -> None:
+        """Set the progress bar value (0-100)."""
+        self._progress_bar.setValue(value)
+
     def show_progress(self, text: str) -> None:
-        """Show progress text in subdued style."""
+        """Show progress text in subdued style and ensure bar is visible."""
         self._status_label.setProperty("state", "")
         self._status_label.style().unpolish(self._status_label)
         self._status_label.style().polish(self._status_label)
         self._status_label.setText(text)
         self._status_label.setVisible(True)
+        self._progress_bar.setVisible(True)
 
     def show_success(self, text: str) -> None:
         """Show success text in green (finished state)."""
+        self._progress_bar.setVisible(False)
         self._status_label.setProperty("state", "finished")
         self._status_label.style().unpolish(self._status_label)
         self._status_label.style().polish(self._status_label)
@@ -84,6 +100,7 @@ class ImportPanel(QWidget):
 
     def show_error(self, text: str) -> None:
         """Show error text in red (error state)."""
+        self._progress_bar.setVisible(False)
         self._status_label.setProperty("state", "error")
         self._status_label.style().unpolish(self._status_label)
         self._status_label.style().polish(self._status_label)
@@ -91,9 +108,11 @@ class ImportPanel(QWidget):
         self._status_label.setVisible(True)
 
     def clear_status(self) -> None:
-        """Hide the status label and clear its text."""
+        """Hide the status label, progress bar, and clear text."""
         self._status_label.setVisible(False)
         self._status_label.setText("")
+        self._progress_bar.setVisible(False)
+        self._progress_bar.setValue(0)
 
     def set_importing(self, importing: bool) -> None:
         """Disable or enable the import button and URL input during import."""
@@ -101,6 +120,9 @@ class ImportPanel(QWidget):
         self._url_input.setEnabled(not importing)
         if importing:
             self._import_btn.setToolTip("Import in progress")
+            self._progress_bar.setValue(0)
+            self._progress_bar.setVisible(True)
         else:
             self._import_btn.setToolTip("")
             self._url_input.clear()
+            self._progress_bar.setVisible(False)

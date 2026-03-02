@@ -181,6 +181,7 @@ class ImportWorker(QThread):
     """
 
     progress = Signal(str)  # Progress status text
+    percent = Signal(int)  # Overall progress 0-100
     finished = Signal(str)  # Filename of imported MIDI
     error = Signal(str)  # Error message
 
@@ -216,9 +217,23 @@ class ImportWorker(QThread):
         logger = logging.getLogger("maestro")
         logger.info("YouTube import started: %s", self._url)
 
+        # Step allocation: download gets 0-50% (no isolation) or 0-33% (with)
+        if self._isolate_piano:
+            dl_end, iso_end, tx_start = 33, 67, 67
+        else:
+            dl_end, iso_end, tx_start = 50, 50, 50
+
+        self.percent.emit(0)
         self.progress.emit("Downloading audio...")
         try:
-            audio_path, title = download_audio(self._url, self._dest_folder)
+
+            def _on_dl_progress(fraction: float) -> None:
+                self.percent.emit(int(fraction * dl_end))
+
+            audio_path, title = download_audio(
+                self._url, self._dest_folder, progress_callback=_on_dl_progress
+            )
+            self.percent.emit(dl_end)
             logger.info("Audio downloaded: %s (%s)", title, audio_path)
         except Exception as e:
             msg = str(e)
@@ -232,16 +247,20 @@ class ImportWorker(QThread):
             raise
 
         if self._isolate_piano:
+            self.percent.emit(dl_end)
             self.progress.emit("Isolating piano...")
             try:
                 audio_path = isolate_piano(audio_path, self._dest_folder)
+                self.percent.emit(iso_end)
                 logger.info("Piano isolation complete: %s", audio_path)
             except Exception as e:
                 logger.warning("Piano isolation failed: %s", e)
                 self.progress.emit("Piano isolation failed, using full audio...")
 
+        self.percent.emit(tx_start)
         self.progress.emit("Transcribing to MIDI...")
         result = transcribe_audio(audio_path, self._dest_folder, title)
+        self.percent.emit(100)
         logger.info("YouTube import finished: %s", result.name)
 
         self.finished.emit(result.name)

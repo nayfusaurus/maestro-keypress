@@ -74,14 +74,14 @@ def test_playback_state_has_no_paused():
 
 
 def test_speed_clamped_to_valid_range():
-    """Speed should be clamped between 0.25 and 1.5."""
+    """Speed should be clamped between 0.5 and 2.0."""
     player = Player()
 
     player.speed = 0.1  # Below min
-    assert player.speed == 0.25
+    assert player.speed == 0.5
 
-    player.speed = 2.0  # Above max
-    assert player.speed == 1.5
+    player.speed = 3.0  # Above max
+    assert player.speed == 2.0
 
     player.speed = 1.0  # Valid
     assert player.speed == 1.0

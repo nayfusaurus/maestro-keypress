@@ -44,5 +44,6 @@ class MaestroSignals(QObject):
 
     # Import signals (Maestro -> GUI)
     import_progress = Signal(str)  # Progress text from ImportWorker
+    import_percent = Signal(int)  # Overall progress 0-100
     import_finished = Signal(str)  # Filename of imported MIDI
     import_error = Signal(str)  # Error message from import pipeline

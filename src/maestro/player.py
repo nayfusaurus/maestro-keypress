@@ -153,7 +153,7 @@ class Player:
 
     @speed.setter
     def speed(self, value: float) -> None:
-        self._speed = max(0.25, min(1.5, value))  # Clamp between 0.25 and 1.5
+        self._speed = max(0.5, min(2.0, value))  # Clamp to match GUI slider range
 
     @property
     def duration(self) -> float:
