@@ -65,12 +65,14 @@ jobs:
           python-version: "3.11"
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y xvfb python3-tk libegl1 libgl1
+        run: sudo apt-get update && sudo apt-get install -y xvfb libegl1 libgl1
 
       - name: Install dependencies
         run: uv sync
 
       - name: Run tests
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: xvfb-run uv run pytest -v
 
   build:
