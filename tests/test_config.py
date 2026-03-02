@@ -183,6 +183,7 @@ class TestDefaultConfig:
             "start_fullscreen": False,
             "check_updates_on_launch": True,
             "auto_minimize_on_play": True,
+            "countdown_delay": 3,
         }
 
 
@@ -370,6 +371,47 @@ class TestValidateConfig:
         validated, warnings = validate_config(config)
         assert validated["wwm_key_layout"] == "36-key (Full)"
         assert any("wwm_key_layout" in w for w in warnings)
+
+    def test_valid_countdown_delay(self):
+        """Valid countdown_delay values (0-10) should pass."""
+        for value in [0, 3, 10]:
+            config = DEFAULT_CONFIG.copy()
+            config["favorites"] = []
+            config["recently_played"] = []
+            config["countdown_delay"] = value
+            validated, warnings = validate_config(config)
+            assert validated["countdown_delay"] == value
+            assert len(warnings) == 0
+
+    def test_invalid_countdown_delay_too_high(self):
+        """Countdown delay above 10 should be reset to default."""
+        config = DEFAULT_CONFIG.copy()
+        config["favorites"] = []
+        config["recently_played"] = []
+        config["countdown_delay"] = 15
+        validated, warnings = validate_config(config)
+        assert validated["countdown_delay"] == 3
+        assert any("countdown_delay" in w for w in warnings)
+
+    def test_invalid_countdown_delay_negative(self):
+        """Negative countdown delay should be reset to default."""
+        config = DEFAULT_CONFIG.copy()
+        config["favorites"] = []
+        config["recently_played"] = []
+        config["countdown_delay"] = -1
+        validated, warnings = validate_config(config)
+        assert validated["countdown_delay"] == 3
+        assert any("countdown_delay" in w for w in warnings)
+
+    def test_invalid_countdown_delay_wrong_type(self):
+        """Non-integer countdown delay should be reset to default."""
+        config = DEFAULT_CONFIG.copy()
+        config["favorites"] = []
+        config["recently_played"] = []
+        config["countdown_delay"] = "fast"
+        validated, warnings = validate_config(config)
+        assert validated["countdown_delay"] == 3
+        assert any("countdown_delay" in w for w in warnings)
 
     def test_valid_wwm_21_key_layout(self):
         """21-key (Naturals) should be recognized as valid wwm_key_layout."""

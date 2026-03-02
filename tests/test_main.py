@@ -38,6 +38,7 @@ def mock_dependencies():
             "start_fullscreen": False,
             "check_updates_on_launch": True,
             "auto_minimize_on_play": True,
+            "countdown_delay": 3,
         }
         yield {
             "player": player_mock.return_value,
@@ -166,6 +167,14 @@ def test_maestro_on_hotkey_change(mock_dependencies, tmp_path):
     app = Maestro(songs_folder=tmp_path)
     app._on_hotkey_change("play_key", "f5")
     assert app._config["play_key"] == "f5"
+    mock_dependencies["save_config"].assert_called()
+
+
+def test_maestro_on_countdown_delay_change(mock_dependencies, tmp_path):
+    """Countdown delay change should update config and save."""
+    app = Maestro(songs_folder=tmp_path)
+    app._on_countdown_delay_change(5)
+    assert app._config["countdown_delay"] == 5
     mock_dependencies["save_config"].assert_called()
 
 

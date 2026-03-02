@@ -26,6 +26,7 @@ class MaestroSignals(QObject):
     wwm_layout_changed = Signal(str)  # WwmLayout.value string
     hotkey_changed = Signal(str, str)  # config_key, key_name
     theme_changed = Signal(str)  # "dark" or "light"
+    countdown_delay_changed = Signal(int)  # 0-10 seconds
     note_compatibility_requested = Signal(object)  # Path
     import_requested = Signal(str, bool)  # URL string, isolate_piano
 

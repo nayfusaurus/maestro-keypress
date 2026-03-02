@@ -204,6 +204,7 @@ class MainWindow(QMainWindow):
         s.auto_minimize_changed.connect(self._on_auto_minimize_change)
         s.check_updates_changed.connect(self._on_check_updates_change)
         s.demucs_action_requested.connect(self._on_demucs_btn_click)
+        s.countdown_delay_changed.connect(self.signals.countdown_delay_changed)
         s.check_now_requested.connect(self._manual_update_check)
 
         # --- Info page signals ---

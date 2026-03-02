@@ -29,6 +29,7 @@ DEFAULT_CONFIG = {
     "start_fullscreen": False,
     "check_updates_on_launch": True,
     "auto_minimize_on_play": True,
+    "countdown_delay": 3,
 }
 
 
@@ -92,6 +93,12 @@ def validate_config(config: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
         if not isinstance(config.get(key), bool):
             warnings.append(f"Invalid {key} '{config.get(key)}', reset to default")
             config[key] = DEFAULT_CONFIG[key]
+
+    # Validate countdown_delay (int, 0-10)
+    countdown = config.get("countdown_delay")
+    if not isinstance(countdown, int) or countdown < 0 or countdown > 10:
+        warnings.append(f"Invalid countdown_delay '{countdown}', reset to default")
+        config["countdown_delay"] = DEFAULT_CONFIG["countdown_delay"]
 
     # Validate theme
     if config.get("theme") not in ["dark", "light"]:

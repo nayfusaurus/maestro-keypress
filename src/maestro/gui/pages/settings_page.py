@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QScrollArea,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -55,6 +56,7 @@ class SettingsPage(QWidget):
     auto_minimize_changed = Signal(bool)
     check_updates_changed = Signal(bool)
     demucs_action_requested = Signal()
+    countdown_delay_changed = Signal(int)
     check_now_requested = Signal()
 
     # ------------------------------------------------------------------
@@ -90,7 +92,7 @@ class SettingsPage(QWidget):
 
         # Inner content widget with max width to prevent horizontal stretching
         content = QWidget()
-        content.setMaximumWidth(640)
+        content.setMaximumWidth(680)
         layout = QVBoxLayout(content)
         layout.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
         layout.setSpacing(SPACING["lg"])
@@ -173,6 +175,15 @@ class SettingsPage(QWidget):
         )
         self._minimize_toggle.toggled.connect(self.auto_minimize_changed.emit)
         lay.addLayout(self._toggle_row("Auto-minimize on play", self._minimize_toggle))
+
+        # Countdown delay spinner
+        self._countdown_spin = QSpinBox()
+        self._countdown_spin.setRange(0, 10)
+        self._countdown_spin.setSuffix(" sec")
+        self._countdown_spin.setValue(self._config.get("countdown_delay", 3))
+        self._countdown_spin.setFixedWidth(110)
+        self._countdown_spin.valueChanged.connect(self.countdown_delay_changed.emit)
+        lay.addLayout(self._spin_row("Countdown delay", self._countdown_spin))
 
         return card
 
@@ -294,6 +305,17 @@ class SettingsPage(QWidget):
         row.addWidget(lbl)
         row.addStretch()
         row.addWidget(toggle)
+        return row
+
+    @staticmethod
+    def _spin_row(label_text: str, spin: QSpinBox) -> QHBoxLayout:
+        """Create a horizontal row: label on left, spin box on right."""
+        row = QHBoxLayout()
+        row.setSpacing(SPACING["sm"])
+        lbl = QLabel(label_text)
+        row.addWidget(lbl)
+        row.addStretch()
+        row.addWidget(spin)
         return row
 
     def _hotkey_row(

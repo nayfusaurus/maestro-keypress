@@ -52,7 +52,7 @@ class Maestro:
     """Main application coordinator."""
 
     SONGS_FOLDER = Path("songs")
-    STARTUP_DELAY = 3  # Seconds before playback starts
+    STARTUP_DELAY_DEFAULT = 3  # Seconds before playback starts (config overrides)
 
     def __init__(self, songs_folder: Path | None = None):
         """Initialize Maestro."""
@@ -138,6 +138,7 @@ class Maestro:
         s.sharp_handling_changed.connect(self._on_sharp_handling_change)
         s.hotkey_changed.connect(self._on_hotkey_change)
         s.theme_changed.connect(self._on_theme_change)
+        s.countdown_delay_changed.connect(self._on_countdown_delay_change)
         s.note_compatibility_requested.connect(self._on_note_compatibility_requested)
         s.import_requested.connect(self._on_import_requested)
 
@@ -260,6 +261,11 @@ class Maestro:
         self._config["theme"] = theme
         self._save_config()
 
+    def _on_countdown_delay_change(self, delay: int) -> None:
+        """Handle countdown delay change from GUI."""
+        self._config["countdown_delay"] = delay
+        self._save_config()
+
     def _on_disclaimer_accepted(self) -> None:
         """Handle disclaimer acceptance from info page."""
         self._config["disclaimer_accepted"] = True
@@ -340,7 +346,7 @@ class Maestro:
             return
 
         # Start countdown using QTimer instead of sleep-based thread
-        self._countdown = self.STARTUP_DELAY
+        self._countdown = self._config.get("countdown_delay", self.STARTUP_DELAY_DEFAULT)
         if self.window:
             self.window.signals.countdown_tick.emit(self._countdown)
 
@@ -440,7 +446,7 @@ class Maestro:
         app.processEvents()
         from maestro.gui.theme import apply_theme
 
-        apply_theme(app)
+        apply_theme(app, dark=self._config.get("theme", "dark") == "dark")
 
         # Stage 2: Load GUI modules
         splash.set_progress(50, "Loading interface...")
