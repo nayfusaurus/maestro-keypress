@@ -33,6 +33,7 @@ class ImportPanel(QWidget):
         # Header
         header = QLabel("Experimental feature")
         header.setProperty("class", "caption")
+        header.setWordWrap(True)
         layout.addWidget(header)
 
         # Row 1: URL input + Import button
