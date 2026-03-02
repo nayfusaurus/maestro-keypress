@@ -24,12 +24,12 @@
 ## ✨ Highlights
 
 - 🎮 **Multi-game support** - Works with Heartopia, Where Winds Meet, and Once Human
-- 🎹 **5 keyboard layouts** - 22-key, 15-key double/triple row, Conga/Cajon drums, Xylophone
+- 🎹 **8 keyboard layouts** - Heartopia (5), Where Winds Meet (2), Once Human (1)
 - ⚡ **Smart MIDI processing** - Auto-validation, transpose, and compatibility checking
 - 🎨 **Modern GUI** - Dark/light themes, icon sidebar navigation, multi-page layout
 - 🎵 **YouTube-to-MIDI** - Import songs directly from YouTube URLs
 - 🎯 **Event-driven playback** - Precise timing with chord support and MIDI duration tracking
-- 🔒 **Production-ready** - 219 tests, type-safe with mypy, security-scanned, pinned dependencies
+- 🔒 **Production-ready** - 347 tests, type-safe with mypy, security-scanned, pinned dependencies
 - 🪟 **Windows executable** - Standalone `.exe` for easy distribution
 
 ---
@@ -87,6 +87,7 @@ uv run maestro
 
 - **YouTube-to-MIDI** - Paste a YouTube URL to download and transcribe to MIDI
 - **Tuned transcription** - Optimized basic-pitch parameters for in-game piano accuracy
+- **MIDI post-processing** - 5-stage cleanup: velocity filter, grace note removal, tied note merge, chord simplification, beat quantization
 - **Auto-cleanup** - Trims leading silence from transcribed MIDI files
 
 ### 🎮 Game Support
@@ -100,7 +101,7 @@ uv run maestro
 - **Type-safe** - Full mypy type checking
 - **Security scanned** - pip-audit checks for vulnerabilities (CI)
 - **Pinned dependencies** - Locked versions for reproducibility
-- **Comprehensive tests** - 312 tests with thorough coverage
+- **Comprehensive tests** - 347 tests with thorough coverage
 
 ---
 
@@ -287,7 +288,7 @@ The exe will be at `dist/Maestro.exe`. You can:
 uv run pytest -v
 ```
 
-**Test Suite:** 312 tests, 1 warning (Windows-only focus detection)
+**Test Suite:** 347 tests, 1 warning (Windows-only focus detection)
 
 ### Code Quality
 
@@ -312,8 +313,8 @@ maestro-keypress/
 │   ├── keymap_15_triple.py   # Heartopia 15-key triple row
 │   ├── keymap_drums.py       # Heartopia 8-key drums
 │   ├── keymap_xylophone.py   # Heartopia 8-key xylophone
-│   ├── keymap_wwm.py         # Where Winds Meet mapping
-│   ├── keymap_once_human.py  # Once Human mapping
+│   ├── keymap_wwm.py         # Where Winds Meet mapping (36-key Shift/Ctrl, 21-key naturals)
+│   ├── keymap_once_human.py  # Once Human mapping (Shift/Ctrl octave switching)
 │   ├── key_layout.py         # KeyLayout, WwmLayout enums
 │   ├── game_mode.py          # GameMode enum (3 games)
 │   ├── config.py             # JSON settings persistence with validation
@@ -331,8 +332,9 @@ maestro-keypress/
 │   │   └── constants.py      # Version, bindable keys, disclaimer text
 │   └── importers/            # URL import modules
 │       ├── youtube.py        # yt-dlp download + basic-pitch transcription
+│       ├── midi_cleanup.py   # 5-stage MIDI post-processing pipeline
 │       └── synthesia.py      # OpenCV-based Synthesia detection
-├── tests/                    # Test suite (312 tests)
+├── tests/                    # Test suite (347 tests)
 ├── assets/                   # Icons and images
 ├── pyproject.toml            # Project config with pinned dependencies
 ├── Maestro.spec              # PyInstaller build configuration

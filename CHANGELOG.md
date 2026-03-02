@@ -4,6 +4,41 @@ All notable changes to Maestro will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.2.0/).
 
+## [2.0.0] - 2026-03-02
+
+### Added
+
+- **Once Human game mode**: Single-octave keys (Q-U naturals, 2/3/5/6/7 accidentals) with Shift/Ctrl octave switching for 36 chromatic notes (C3-B5)
+- **WWM layout revamp**: 36-key layout uses Shift (C#/F#/G#) + Ctrl (Eb/Bb) modifiers; 21-key layout is naturals only with skip/snap sharp handling
+- **MIDI post-processing pipeline**: 5-stage cleanup for YouTube transcriptions — velocity filtering, grace note removal, tied note merging, chord simplification, and beat quantization
+- **YouTube import progress**: Real-time progress bar and status updates during download and transcription
+- **Configurable countdown delay**: Customize the pre-playback countdown (1-10 seconds)
+- **Import panel info tooltip**: Circled-i icon with guidance on best video types for transcription
+
+### Changed
+
+- **Speed slider range**: Changed from 0.25x-1.5x to 0.5x-2.0x
+- **Import panel header**: Renamed to "YouTube to MIDI converter (Experimental)" with info tooltip
+- **Dashboard layout dropdown**: Repopulates dynamically on game mode change (Heartopia/WWM/Once Human)
+- **Once Human layout**: Hidden layout dropdown (single fixed layout, no sharp handling needed)
+- **Removed demucs/isolate UI**: Removed piano isolation toggle from dashboard and demucs section from settings
+
+### Fixed
+
+- **Exit dialog theme**: Light theme now applies correctly to exit confirmation dialog
+- **Word wrap**: Song name label and import header wrap properly instead of stretching the sidebar
+- **Theme persistence**: Theme selection persists correctly across app restarts
+- **App icon**: Set before splash screen for correct taskbar icon from launch
+
+### Infrastructure
+
+- **CI pipeline fixes**: Python 3.11 pinning, TF exclusion, mypy/ruff/pip-audit fixes, ffmpeg binary downloads
+- **Dependencies updated**: bandit, ruff, pyinstaller, and transitive deps bumped to latest safe versions
+
+### Tests
+
+- Test suite expanded to 347 tests
+
 ## [1.5.0] - 2026-03-02
 
 ### Added
@@ -13,20 +48,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.2.0/).
 - **YouTube-to-MIDI import**: Paste a YouTube URL to download audio and transcribe to MIDI
   - Tuned basic-pitch parameters for piano accuracy (frequency bounds, lower thresholds)
   - Leading silence trimmed from transcribed MIDI files
-- **Settings page**: Dedicated page with Library, Appearance, Hotkeys, Demucs, and Updates cards
+- **Settings page**: Dedicated page with Library, Appearance, Hotkeys, and Updates cards
 - **Info page**: About section with version, credits, Ko-fi link, and scrollable disclaimer
 - **Log page**: Built-in error log viewer with refresh and open-in-editor buttons
 - **Exit confirmation dialog**: Prevents accidental app closure
 - **Toggle switches**: Custom ToggleSwitch widget replacing checkboxes for all boolean settings
 - **First-launch disclaimer flow**: Accept/reject disclaimer before using the app
 - **Splash screen**: Loading screen with progress bar shown during startup
-- **Demucs settings card**: Download/remove piano isolation model with progress bar and status feedback
 
 ### Changed
 
 - **GUI framework**: Migrated from menu bar to icon sidebar navigation
 - **Two-column dashboard**: Fixed 400px scrollable sidebar + flexible song list area
-- **Speed slider range**: Changed from 0.5x-2.0x to 0.25x-1.5x (finer control)
 - **Window icon**: Fixed for PyInstaller builds (bundled icon.png, AppUserModelID for Windows taskbar)
 - **Theme switching**: Fixed background not updating outside song list panel
 - **Refresh button**: Made visible (no longer ghost style)
