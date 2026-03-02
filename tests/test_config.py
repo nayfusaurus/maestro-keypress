@@ -171,6 +171,7 @@ class TestDefaultConfig:
             "transpose": False,
             "show_preview": False,
             "key_layout": "22-key (Full)",
+            "wwm_key_layout": "36-key (Full)",
             "sharp_handling": "skip",
             "favorites": [],
             "recently_played": [],
@@ -208,6 +209,16 @@ class TestValidateConfig:
         assert validated["game_mode"] == "Heartopia"
         assert len(warnings) == 1
         assert "game_mode" in warnings[0]
+
+    def test_valid_once_human_game_mode(self):
+        """Once Human should be accepted as a valid game_mode."""
+        config = DEFAULT_CONFIG.copy()
+        config["favorites"] = []
+        config["recently_played"] = []
+        config["game_mode"] = "Once Human"
+        validated, warnings = validate_config(config)
+        assert validated["game_mode"] == "Once Human"
+        assert len(warnings) == 0
 
     def test_invalid_speed_too_low(self):
         """Speed below 0.5 should be reset to default."""
@@ -349,3 +360,23 @@ class TestValidateConfig:
         validated, warnings = validate_config(config)
         assert validated["theme"] == "dark"
         assert any("theme" in w for w in warnings)
+
+    def test_invalid_wwm_key_layout_gets_reset(self):
+        """Invalid wwm_key_layout should be reset to default."""
+        config = DEFAULT_CONFIG.copy()
+        config["favorites"] = []
+        config["recently_played"] = []
+        config["wwm_key_layout"] = "99-key (Mega)"
+        validated, warnings = validate_config(config)
+        assert validated["wwm_key_layout"] == "36-key (Full)"
+        assert any("wwm_key_layout" in w for w in warnings)
+
+    def test_valid_wwm_21_key_layout(self):
+        """21-key (Naturals) should be recognized as valid wwm_key_layout."""
+        config = DEFAULT_CONFIG.copy()
+        config["favorites"] = []
+        config["recently_played"] = []
+        config["wwm_key_layout"] = "21-key (Naturals)"
+        validated, warnings = validate_config(config)
+        assert validated["wwm_key_layout"] == "21-key (Naturals)"
+        assert len(warnings) == 0

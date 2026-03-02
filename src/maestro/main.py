@@ -20,7 +20,7 @@ from pynput import keyboard
 
 from maestro.config import load_config, save_config
 from maestro.game_mode import GameMode
-from maestro.key_layout import KeyLayout
+from maestro.key_layout import KeyLayout, WwmLayout
 from maestro.logger import setup_logger
 from maestro.parser import parse_midi
 from maestro.player import PlaybackState, Player
@@ -86,11 +86,18 @@ class Maestro:
         self.player.speed = self._config.get("speed", 1.0)
         self.player.transpose = self._config.get("transpose", False)
 
-        # Restore key layout
+        # Restore key layout (Heartopia)
         layout_str = self._config.get("key_layout", "22-key (Full)")
         for layout in KeyLayout:
             if layout.value == layout_str:
                 self.player.key_layout = layout
+                break
+
+        # Restore WWM key layout
+        wwm_str = self._config.get("wwm_key_layout", "36-key (Full)")
+        for wl in WwmLayout:
+            if wl.value == wwm_str:
+                self.player.wwm_layout = wl
                 break
 
         # Restore sharp handling
@@ -122,6 +129,7 @@ class Maestro:
         s.game_mode_changed.connect(self._on_game_change)
         s.folder_changed.connect(self._on_folder_change)
         s.layout_changed.connect(self._on_layout_change)
+        s.wwm_layout_changed.connect(self._on_wwm_layout_change)
         s.speed_changed.connect(self._on_speed_change)
         s.lookahead_changed.connect(self._on_lookahead_change)
         s.transpose_changed.connect(self._on_transpose_change)
@@ -208,6 +216,15 @@ class Maestro:
             if layout.value == layout_str:
                 self.player.key_layout = layout
                 self._config["key_layout"] = layout.value
+                break
+        self._save_config()
+
+    def _on_wwm_layout_change(self, layout_str: str) -> None:
+        """Handle WWM key layout change from GUI."""
+        for wl in WwmLayout:
+            if wl.value == layout_str:
+                self.player.wwm_layout = wl
+                self._config["wwm_key_layout"] = wl.value
                 break
         self._save_config()
 

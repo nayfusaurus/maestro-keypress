@@ -27,13 +27,16 @@ from maestro.gui.progress_panel import NowPlayingPanel
 from maestro.gui.song_list import SongListWidget
 from maestro.gui.theme import SPACING
 from maestro.gui.toggle_switch import ToggleSwitch
-from maestro.key_layout import KeyLayout
+from maestro.key_layout import KeyLayout, WwmLayout
 
 # Layouts that disable transpose and sharp handling
 _FIXED_LAYOUTS = {KeyLayout.DRUMS, KeyLayout.XYLOPHONE}
 
-# Layouts that show the sharp handling row
+# Heartopia layouts that show the sharp handling row
 _SHARP_LAYOUTS = {KeyLayout.KEYS_15_DOUBLE, KeyLayout.KEYS_15_TRIPLE}
+
+# WWM layouts that show the sharp handling row
+_WWM_SHARP_LAYOUTS = {WwmLayout.KEYS_21}
 
 
 class DashboardPage(QWidget):
@@ -301,26 +304,63 @@ class DashboardPage(QWidget):
 
     # ── Visibility helpers ─────────────────────────────────────────────
 
+    def _is_wwm(self) -> bool:
+        """Return True if WWM game mode is currently selected."""
+        return self._game_combo.currentText() == GameMode.WHERE_WINDS_MEET.value
+
+    def _is_once_human(self) -> bool:
+        """Return True if Once Human game mode is currently selected."""
+        return self._game_combo.currentText() == GameMode.ONCE_HUMAN.value
+
     def _update_layout_visibility(self) -> None:
-        """Hide the key layout row when WWM is selected."""
-        is_wwm = self._game_combo.currentText() == GameMode.WHERE_WINDS_MEET.value
-        self._layout_row.setVisible(not is_wwm)
+        """Repopulate the key layout dropdown based on game mode."""
+        if self._is_once_human():
+            # Once Human has a single fixed layout — hide the dropdown
+            self._layout_row.setVisible(False)
+            return
+
+        self._layout_row.setVisible(True)
+        self._layout_combo.blockSignals(True)
+        self._layout_combo.clear()
+        if self._is_wwm():
+            self._layout_combo.addItems([wl.value for wl in WwmLayout])
+            wwm_str = self._config.get("wwm_key_layout", WwmLayout.KEYS_36.value)
+            self._layout_combo.setCurrentText(wwm_str)
+        else:
+            self._layout_combo.addItems([kl.value for kl in KeyLayout])
+            layout_str = self._config.get("key_layout", KeyLayout.KEYS_22.value)
+            self._layout_combo.setCurrentText(layout_str)
+        self._layout_combo.blockSignals(False)
 
     def _update_options_state(self) -> None:
-        """Update sharp/transpose/preview visibility based on selected layout."""
-        # Determine the current layout enum
-        current_layout = KeyLayout.KEYS_22
-        for kl in KeyLayout:
-            if kl.value == self._layout_combo.currentText():
-                current_layout = kl
-                break
+        """Update sharp/transpose visibility based on selected layout."""
+        if self._is_once_human():
+            # Once Human: all notes playable, no sharp handling needed
+            self._sharp_row.setVisible(False)
+            self._transpose_toggle.setEnabled(True)
+            return
 
-        # Sharp row: visible only for 15-key layouts
-        self._sharp_row.setVisible(current_layout in _SHARP_LAYOUTS)
+        combo_text = self._layout_combo.currentText()
 
-        # Transpose: disabled for drums/xylophone
-        is_fixed = current_layout in _FIXED_LAYOUTS
-        self._transpose_toggle.setEnabled(not is_fixed)
+        if self._is_wwm():
+            # WWM mode
+            current_wwm = WwmLayout.KEYS_36
+            for wl in WwmLayout:
+                if wl.value == combo_text:
+                    current_wwm = wl
+                    break
+            self._sharp_row.setVisible(current_wwm in _WWM_SHARP_LAYOUTS)
+            self._transpose_toggle.setEnabled(True)
+        else:
+            # Heartopia mode
+            current_layout = KeyLayout.KEYS_22
+            for kl in KeyLayout:
+                if kl.value == combo_text:
+                    current_layout = kl
+                    break
+            self._sharp_row.setVisible(current_layout in _SHARP_LAYOUTS)
+            is_fixed = current_layout in _FIXED_LAYOUTS
+            self._transpose_toggle.setEnabled(not is_fixed)
 
     # ── Public helpers ─────────────────────────────────────────────────
 

@@ -17,6 +17,7 @@ DEFAULT_CONFIG = {
     "transpose": False,
     "show_preview": False,
     "key_layout": "22-key (Full)",
+    "wwm_key_layout": "36-key (Full)",
     "sharp_handling": "skip",
     "favorites": [],
     "recently_played": [],
@@ -61,7 +62,7 @@ def validate_config(config: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     warnings = []
 
     # Validate game_mode
-    valid_game_modes = ["Heartopia", "Where Winds Meet"]
+    valid_game_modes = ["Heartopia", "Where Winds Meet", "Once Human"]
     if config.get("game_mode") not in valid_game_modes:
         warnings.append(f"Invalid game_mode '{config.get('game_mode')}', reset to default")
         config["game_mode"] = DEFAULT_CONFIG["game_mode"]
@@ -108,6 +109,14 @@ def validate_config(config: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     if config.get("key_layout") not in valid_layouts:
         warnings.append(f"Invalid key_layout '{config.get('key_layout')}', reset to default")
         config["key_layout"] = DEFAULT_CONFIG["key_layout"]
+
+    # Validate wwm_key_layout
+    valid_wwm_layouts = ["36-key (Full)", "21-key (Naturals)"]
+    if config.get("wwm_key_layout") not in valid_wwm_layouts:
+        warnings.append(
+            f"Invalid wwm_key_layout '{config.get('wwm_key_layout')}', reset to default"
+        )
+        config["wwm_key_layout"] = DEFAULT_CONFIG["wwm_key_layout"]
 
     # Validate sharp_handling
     if config.get("sharp_handling") not in ["skip", "snap"]:

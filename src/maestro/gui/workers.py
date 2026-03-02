@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QThread, Signal
 
-from maestro.key_layout import KeyLayout
+from maestro.key_layout import KeyLayout, WwmLayout
 from maestro.parser import get_midi_info, parse_midi
 from maestro.update_checker import check_for_updates
 
@@ -31,10 +31,12 @@ class ValidationWorker(QThread):
         validation_cache: dict[str, tuple[float, bool]],
         song_info: dict[str, dict],
         song_notes: dict[str, list],
+        wwm_layout: WwmLayout = WwmLayout.KEYS_36,
     ) -> None:
         super().__init__()
         self._songs = list(songs)
         self._key_layout = key_layout
+        self._wwm_layout = wwm_layout
         self._game_mode = game_mode
         self._transpose = transpose
         self._sharp_handling = sharp_handling
@@ -49,7 +51,8 @@ class ValidationWorker(QThread):
         from maestro.keymap_15_double import midi_note_to_key_15_double
         from maestro.keymap_15_triple import midi_note_to_key_15_triple
         from maestro.keymap_drums import midi_note_to_key as midi_note_to_key_drums
-        from maestro.keymap_wwm import midi_note_to_key_wwm
+        from maestro.keymap_once_human import midi_note_to_key_once_human
+        from maestro.keymap_wwm import midi_note_to_key_wwm, midi_note_to_key_wwm_21
         from maestro.keymap_xylophone import midi_note_to_key as midi_note_to_key_xylophone
 
         total = len(notes)
@@ -61,7 +64,16 @@ class ValidationWorker(QThread):
             midi = note.midi_note
             result: object = None
             if self._game_mode == GameMode.WHERE_WINDS_MEET.value:
-                result = midi_note_to_key_wwm(midi, transpose=self._transpose)
+                if self._wwm_layout == WwmLayout.KEYS_21:
+                    result = midi_note_to_key_wwm_21(
+                        midi,
+                        transpose=self._transpose,
+                        sharp_handling=self._sharp_handling,
+                    )
+                else:
+                    result = midi_note_to_key_wwm(midi, transpose=self._transpose)
+            elif self._game_mode == GameMode.ONCE_HUMAN.value:
+                result = midi_note_to_key_once_human(midi, transpose=self._transpose)
             elif self._key_layout == KeyLayout.KEYS_15_DOUBLE:
                 result = midi_note_to_key_15_double(
                     midi, transpose=self._transpose, sharp_handling=self._sharp_handling

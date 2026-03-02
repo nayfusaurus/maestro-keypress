@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from maestro.game_mode import GameMode
 from maestro.gui.constants import APP_VERSION, GITHUB_REPO
 from maestro.gui.exit_dialog import ExitDialog
 from maestro.gui.icon_rail import (
@@ -29,7 +30,7 @@ from maestro.gui.pages.settings_page import SettingsPage
 from maestro.gui.signals import MaestroSignals
 from maestro.gui.theme import apply_theme
 from maestro.gui.workers import UpdateCheckWorker, ValidationWorker
-from maestro.key_layout import KeyLayout
+from maestro.key_layout import KeyLayout, WwmLayout
 from maestro.update_checker import check_for_updates
 
 _PAGE_TITLES = ["Dashboard", "Settings", "About", "Error Log"]
@@ -50,12 +51,19 @@ class MainWindow(QMainWindow):
         self.songs_folder = songs_folder
         self._config = config
 
-        # Resolve key layout enum
+        # Resolve key layout enums
         self._key_layout = KeyLayout.KEYS_22
         layout_str = config.get("key_layout", "22-key (Full)")
         for layout in KeyLayout:
             if layout.value == layout_str:
                 self._key_layout = layout
+                break
+
+        self._wwm_layout = WwmLayout.KEYS_36
+        wwm_str = config.get("wwm_key_layout", "36-key (Full)")
+        for wl in WwmLayout:
+            if wl.value == wwm_str:
+                self._wwm_layout = wl
                 break
 
         self._sharp_handling = config.get("sharp_handling", "skip")
@@ -446,12 +454,23 @@ class MainWindow(QMainWindow):
         self._on_song_select(self._dashboard._song_list.get_selected_song())
 
     def _on_layout_change(self, selected: str) -> None:
-        """Handle key layout dropdown change."""
-        for layout in KeyLayout:
-            if layout.value == selected:
-                self._key_layout = layout
-                break
-        self.signals.layout_changed.emit(selected)
+        """Handle key layout dropdown change — routes to Heartopia or WWM signal."""
+        is_once_human = self._dashboard._game_combo.currentText() == GameMode.ONCE_HUMAN.value
+        if is_once_human:
+            return  # No layout variants for Once Human
+        is_wwm = self._dashboard._game_combo.currentText() == GameMode.WHERE_WINDS_MEET.value
+        if is_wwm:
+            for wl in WwmLayout:
+                if wl.value == selected:
+                    self._wwm_layout = wl
+                    break
+            self.signals.wwm_layout_changed.emit(selected)
+        else:
+            for layout in KeyLayout:
+                if layout.value == selected:
+                    self._key_layout = layout
+                    break
+            self.signals.layout_changed.emit(selected)
         self._on_song_select(self._dashboard._song_list.get_selected_song())
 
     def _on_speed_change(self, value: int) -> None:
@@ -556,6 +575,7 @@ class MainWindow(QMainWindow):
             validation_cache=self._validation_cache,
             song_info=self._song_info,
             song_notes=self._song_notes,
+            wwm_layout=self._wwm_layout,
         )
         self._validation_worker.song_validated.connect(self._on_song_validated)
         self._validation_worker.validation_finished.connect(self._on_validation_finished)

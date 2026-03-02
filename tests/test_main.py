@@ -26,12 +26,18 @@ def mock_dependencies():
             "transpose": False,
             "show_preview": False,
             "key_layout": "22-key (Full)",
+            "wwm_key_layout": "36-key (Full)",
             "sharp_handling": "skip",
             "favorites": [],
             "recently_played": [],
             "play_key": "f2",
             "stop_key": "f3",
             "emergency_stop_key": "escape",
+            "theme": "dark",
+            "disclaimer_accepted": False,
+            "start_fullscreen": False,
+            "check_updates_on_launch": True,
+            "auto_minimize_on_play": True,
         }
         yield {
             "player": player_mock.return_value,
@@ -143,6 +149,16 @@ def test_maestro_on_favorite_toggle(mock_dependencies, tmp_path):
 
     app._on_favorite_toggle("my_song", False)
     assert "my_song" not in app._config["favorites"]
+
+
+def test_maestro_on_wwm_layout_change(mock_dependencies, tmp_path):
+    """WWM layout change should update player and save config."""
+    from maestro.key_layout import WwmLayout
+
+    app = Maestro(songs_folder=tmp_path)
+    app._on_wwm_layout_change(WwmLayout.KEYS_21.value)
+    assert app._config["wwm_key_layout"] == "21-key (Naturals)"
+    mock_dependencies["save_config"].assert_called()
 
 
 def test_maestro_on_hotkey_change(mock_dependencies, tmp_path):

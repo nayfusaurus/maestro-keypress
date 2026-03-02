@@ -23,15 +23,19 @@ if sys.platform == "win32":
     pydirectinput.PAUSE = 0  # Disable default 0.1s delay
 else:
     pydirectinput = None  # type: ignore
-from maestro.key_layout import KeyLayout
+from maestro.key_layout import KeyLayout, WwmLayout
 from maestro.keymap import midi_note_to_key
 from maestro.keymap_15_double import midi_note_to_key_15_double
 from maestro.keymap_15_triple import midi_note_to_key_15_triple
 from maestro.keymap_drums import midi_note_to_key as midi_note_to_key_drums
-from maestro.keymap_wwm import midi_note_to_key_wwm
+from maestro.keymap_once_human import midi_note_to_key_once_human
+from maestro.keymap_wwm import midi_note_to_key_wwm, midi_note_to_key_wwm_21
 from maestro.keymap_xylophone import midi_note_to_key as midi_note_to_key_xylophone
 from maestro.logger import setup_logger
 from maestro.parser import Note, parse_midi
+
+# Game modes that require DirectInput (pydirectinput) instead of pynput
+_DIRECTINPUT_MODES = frozenset({GameMode.WHERE_WINDS_MEET, GameMode.ONCE_HUMAN})
 
 
 class PlaybackState(Enum):
@@ -70,6 +74,7 @@ class Player:
         self._last_error: str = ""
         self._transpose: bool = False
         self._key_layout = KeyLayout.KEYS_22
+        self._wwm_layout = WwmLayout.KEYS_36
         self._sharp_handling: str = "skip"
         self._held_keys: set[tuple[str, Key | None]] = set()
         self._events: list[KeyEvent] = []
@@ -117,6 +122,17 @@ class Player:
         if self._key_layout != value:
             self._invalidate_cache()
         self._key_layout = value
+
+    @property
+    def wwm_layout(self) -> WwmLayout:
+        """Current key layout for Where Winds Meet."""
+        return self._wwm_layout
+
+    @wwm_layout.setter
+    def wwm_layout(self, value: WwmLayout) -> None:
+        if self._wwm_layout != value:
+            self._invalidate_cache()
+        self._wwm_layout = value
 
     @property
     def sharp_handling(self) -> str:
@@ -231,7 +247,7 @@ class Player:
             String uniquely identifying the current song + settings combination.
         """
         song_path = str(self.current_song) if self.current_song else "none"
-        return f"{song_path}|{self._game_mode.name}|{self._key_layout.name}|{self._transpose}|{self._sharp_handling}"
+        return f"{song_path}|{self._game_mode.name}|{self._key_layout.name}|{self._wwm_layout.name}|{self._transpose}|{self._sharp_handling}"
 
     def _resolve_key(self, midi_note: int) -> tuple[str, Key | None] | None:
         """Resolve a MIDI note to a key press based on current game mode and layout.
@@ -240,10 +256,14 @@ class Player:
             Tuple of (key, modifier) or None if note can't be played
         """
         if self._game_mode == GameMode.WHERE_WINDS_MEET:
-            result = midi_note_to_key_wwm(midi_note, transpose=self._transpose)
-            if result is not None:
-                return result  # Already returns (key, modifier)
-            return None
+            if self._wwm_layout == WwmLayout.KEYS_21:
+                return midi_note_to_key_wwm_21(
+                    midi_note, transpose=self._transpose, sharp_handling=self._sharp_handling
+                )
+            return midi_note_to_key_wwm(midi_note, transpose=self._transpose)
+
+        if self._game_mode == GameMode.ONCE_HUMAN:
+            return midi_note_to_key_once_human(midi_note, transpose=self._transpose)
 
         # Heartopia mode - dispatch based on key layout
         if self._key_layout == KeyLayout.KEYS_15_DOUBLE:
@@ -316,6 +336,13 @@ class Player:
 
         return events
 
+    @staticmethod
+    def _modifier_name(modifier: Key) -> str:
+        """Return display/pydirectinput name for a modifier key."""
+        if modifier == Key.shift:
+            return "shift"
+        return "ctrl"
+
     def _key_down(self, key: str, modifier: Key | None = None) -> None:
         """Press a key down and track it."""
         key_id = (key, modifier)
@@ -324,14 +351,14 @@ class Player:
 
         # Update last key for visual feedback
         if modifier:
-            self._last_key = f"Shift+{key.upper()}"
+            self._last_key = f"{self._modifier_name(modifier).title()}+{key.upper()}"
         else:
             self._last_key = key.upper()
 
         try:
-            if self._game_mode == GameMode.WHERE_WINDS_MEET and pydirectinput is not None:
+            if self._game_mode in _DIRECTINPUT_MODES and pydirectinput is not None:
                 if modifier:
-                    pydirectinput.keyDown("shift")
+                    pydirectinput.keyDown(self._modifier_name(modifier))
                     time.sleep(0.01)
                 pydirectinput.keyDown(key)
             else:
@@ -351,22 +378,22 @@ class Player:
             return  # Not held
 
         try:
-            if self._game_mode == GameMode.WHERE_WINDS_MEET and pydirectinput is not None:
+            if self._game_mode in _DIRECTINPUT_MODES and pydirectinput is not None:
                 pydirectinput.keyUp(key)
                 if modifier:
-                    # Only release shift if no other shift keys are held
-                    shift_keys = [
-                        (k, m) for k, m in self._held_keys if m is not None and (k, m) != key_id
+                    # Only release this modifier if no other keys use the same modifier
+                    same_mod = [
+                        (k, m) for k, m in self._held_keys if m == modifier and (k, m) != key_id
                     ]
-                    if not shift_keys:
-                        pydirectinput.keyUp("shift")
+                    if not same_mod:
+                        pydirectinput.keyUp(self._modifier_name(modifier))
             else:
                 self.keyboard.release(key)
                 if modifier:
-                    shift_keys = [
-                        (k, m) for k, m in self._held_keys if m is not None and (k, m) != key_id
+                    same_mod = [
+                        (k, m) for k, m in self._held_keys if m == modifier and (k, m) != key_id
                     ]
-                    if not shift_keys:
+                    if not same_mod:
                         self.keyboard.release(modifier)
             self._held_keys.discard(key_id)
         except Exception as e:
@@ -376,10 +403,10 @@ class Player:
         """Release all currently held keys (safety cleanup)."""
         for key, modifier in list(self._held_keys):
             try:
-                if self._game_mode == GameMode.WHERE_WINDS_MEET and pydirectinput is not None:
+                if self._game_mode in _DIRECTINPUT_MODES and pydirectinput is not None:
                     pydirectinput.keyUp(key)
                     if modifier:
-                        pydirectinput.keyUp("shift")
+                        pydirectinput.keyUp(self._modifier_name(modifier))
                 else:
                     self.keyboard.release(key)
                     if modifier:
@@ -407,6 +434,8 @@ class Player:
                 return "heartopia" in title
             elif self._game_mode == GameMode.WHERE_WINDS_MEET:
                 return "where winds meet" in title
+            elif self._game_mode == GameMode.ONCE_HUMAN:
+                return "once human" in title
             return True
         except Exception:
             return True  # If detection fails, don't block playback

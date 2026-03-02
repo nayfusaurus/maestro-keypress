@@ -1,4 +1,4 @@
-"""Key layout selection for Heartopia instruments."""
+"""Key layout selection for Heartopia and Where Winds Meet instruments."""
 
 from enum import Enum
 
@@ -9,3 +9,8 @@ class KeyLayout(Enum):
     KEYS_15_TRIPLE = "15-key (Triple Row)"
     DRUMS = "Conga/Cajon (8-key)"
     XYLOPHONE = "Xylophone (8-key)"
+
+
+class WwmLayout(Enum):
+    KEYS_36 = "36-key (Full)"
+    KEYS_21 = "21-key (Naturals)"

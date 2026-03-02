@@ -23,6 +23,7 @@ class MaestroSignals(QObject):
     show_preview_changed = Signal(bool)
     favorite_toggled = Signal(str, bool)  # song_name, is_favorite
     sharp_handling_changed = Signal(str)  # "skip" or "snap"
+    wwm_layout_changed = Signal(str)  # WwmLayout.value string
     hotkey_changed = Signal(str, str)  # config_key, key_name
     theme_changed = Signal(str)  # "dark" or "light"
     note_compatibility_requested = Signal(object)  # Path

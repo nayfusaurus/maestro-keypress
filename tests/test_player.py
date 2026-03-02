@@ -3,7 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
-from maestro.key_layout import KeyLayout
+from maestro.game_mode import GameMode
+from maestro.key_layout import KeyLayout, WwmLayout
 from maestro.parser import Note
 from maestro.player import PlaybackState, Player
 
@@ -136,6 +137,104 @@ class TestKeyLayout:
     def test_sharp_handling_rejects_invalid(self, player):
         player.sharp_handling = "invalid"
         assert player.sharp_handling == "skip"  # stays at default
+
+
+class TestWwmLayout:
+    """Tests for WWM layout property."""
+
+    def test_wwm_layout_default(self, player):
+        assert player.wwm_layout == WwmLayout.KEYS_36
+
+    def test_wwm_layout_can_be_set(self, player):
+        player.wwm_layout = WwmLayout.KEYS_21
+        assert player.wwm_layout == WwmLayout.KEYS_21
+
+    def test_resolve_key_wwm_36(self, player):
+        """36-key WWM layout resolves C4 to 'a' (no modifier)."""
+        player.game_mode = GameMode.WHERE_WINDS_MEET
+        player.wwm_layout = WwmLayout.KEYS_36
+        assert player._resolve_key(60) == ("a", None)
+
+    def test_resolve_key_wwm_36_shift(self, player):
+        """36-key WWM layout resolves C#4 to Shift+A."""
+        from pynput.keyboard import Key
+
+        player.game_mode = GameMode.WHERE_WINDS_MEET
+        player.wwm_layout = WwmLayout.KEYS_36
+        assert player._resolve_key(61) == ("a", Key.shift)
+
+    def test_resolve_key_wwm_36_ctrl(self, player):
+        """36-key WWM layout resolves Eb4 to Ctrl+D."""
+        from pynput.keyboard import Key
+
+        player.game_mode = GameMode.WHERE_WINDS_MEET
+        player.wwm_layout = WwmLayout.KEYS_36
+        assert player._resolve_key(63) == ("d", Key.ctrl_l)
+
+    def test_resolve_key_wwm_21_natural(self, player):
+        """21-key WWM layout resolves C4 to 'a' (no modifier)."""
+        player.game_mode = GameMode.WHERE_WINDS_MEET
+        player.wwm_layout = WwmLayout.KEYS_21
+        assert player._resolve_key(60) == ("a", None)
+
+    def test_resolve_key_wwm_21_skip_sharp(self, player):
+        """21-key WWM layout skips sharp notes by default."""
+        player.game_mode = GameMode.WHERE_WINDS_MEET
+        player.wwm_layout = WwmLayout.KEYS_21
+        player.sharp_handling = "skip"
+        assert player._resolve_key(61) is None  # C#4
+
+    def test_resolve_key_wwm_21_snap_sharp(self, player):
+        """21-key WWM layout snaps sharp notes to nearest natural."""
+        player.game_mode = GameMode.WHERE_WINDS_MEET
+        player.wwm_layout = WwmLayout.KEYS_21
+        player.sharp_handling = "snap"
+        assert player._resolve_key(61) == ("a", None)  # C#4 → C4
+
+    def test_cache_invalidated_on_wwm_layout_change(self, player):
+        """Changing WWM layout should invalidate cache."""
+        player._notes = [Note(midi_note=60, time=0.0, duration=0.5)]
+        player.game_mode = GameMode.WHERE_WINDS_MEET
+        player.wwm_layout = WwmLayout.KEYS_36
+        player._build_events()
+        assert player._cached_events is not None
+
+        player.wwm_layout = WwmLayout.KEYS_21
+        assert player._cached_events is None
+
+
+class TestOnceHuman:
+    """Tests for Once Human game mode."""
+
+    def test_resolve_key_once_human_base_octave(self, player):
+        """Base octave C4 should map to 'q' with no modifier."""
+        player.game_mode = GameMode.ONCE_HUMAN
+        assert player._resolve_key(60) == ("q", None)
+
+    def test_resolve_key_once_human_high_octave(self, player):
+        """High octave C5 should map to 'q' with Shift."""
+        from pynput.keyboard import Key
+
+        player.game_mode = GameMode.ONCE_HUMAN
+        assert player._resolve_key(72) == ("q", Key.shift)
+
+    def test_resolve_key_once_human_low_octave(self, player):
+        """Low octave C3 should map to 'q' with Ctrl."""
+        from pynput.keyboard import Key
+
+        player.game_mode = GameMode.ONCE_HUMAN
+        assert player._resolve_key(48) == ("q", Key.ctrl_l)
+
+    def test_resolve_key_once_human_accidental(self, player):
+        """Accidental C#4 should map to '2' with no modifier."""
+        player.game_mode = GameMode.ONCE_HUMAN
+        assert player._resolve_key(61) == ("2", None)
+
+    def test_resolve_key_once_human_out_of_range(self, player):
+        """Out-of-range notes return None when transpose is off."""
+        player.game_mode = GameMode.ONCE_HUMAN
+        player.transpose = False
+        assert player._resolve_key(84) is None
 
 
 class TestResolveKey:
@@ -469,4 +568,3 @@ class TestEventCaching:
         player._invalidate_cache()
         assert player._cached_events is None
         assert player._cached_cache_key is None
-
