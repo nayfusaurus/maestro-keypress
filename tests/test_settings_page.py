@@ -10,10 +10,8 @@ class TestSettingsPage:
         with qtbot.waitSignal(page.theme_changed, timeout=1000):
             page._theme_toggle.setChecked(False)
 
-    def test_set_demucs_status(self, qtbot):
+    def test_set_update_status(self, qtbot):
         page = SettingsPage(config={"theme": "dark"})
         qtbot.addWidget(page)
-        page.set_demucs_status(True)
-        assert page._demucs_btn.text() == "Remove"
-        page.set_demucs_status(False)
-        assert page._demucs_btn.text() == "Download"
+        page.set_update_status("Up to date")
+        assert page._update_status.text() == "Up to date"

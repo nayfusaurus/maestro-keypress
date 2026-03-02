@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from maestro.gui.theme import COLORS
 from maestro.gui.utils import center_dialog
 
 
@@ -21,6 +22,8 @@ class ExitDialog(QDialog):
         self.setWindowTitle("Exit Maestro")
         self.setFixedSize(400, 200)
         self.setModal(True)
+        # Apply current theme — QDialog may not inherit app stylesheet on all platforms
+        self.setStyleSheet(f"ExitDialog {{ background-color: {COLORS['base']}; color: {COLORS['text']}; }}")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)

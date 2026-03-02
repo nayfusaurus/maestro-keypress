@@ -55,7 +55,6 @@ class SettingsPage(QWidget):
     fullscreen_changed = Signal(bool)
     auto_minimize_changed = Signal(bool)
     check_updates_changed = Signal(bool)
-    demucs_action_requested = Signal()
     countdown_delay_changed = Signal(int)
     check_now_requested = Signal()
 
@@ -100,7 +99,6 @@ class SettingsPage(QWidget):
         layout.addWidget(self._build_library_card())
         layout.addWidget(self._build_appearance_card())
         layout.addWidget(self._build_hotkeys_card())
-        layout.addWidget(self._build_demucs_card())
         layout.addWidget(self._build_updates_card())
         layout.addStretch()
 
@@ -222,42 +220,6 @@ class SettingsPage(QWidget):
 
         return card
 
-    def _build_demucs_card(self) -> QWidget:
-        """Build the Piano Isolation (Demucs) card."""
-        card = QWidget()
-        card.setProperty("class", "surface-card")
-        lay = QVBoxLayout(card)
-        lay.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
-        lay.setSpacing(SPACING["sm"])
-
-        heading = QLabel("Piano Isolation")
-        heading.setProperty("class", "section-heading")
-        lay.addWidget(heading)
-
-        desc = QLabel(
-            "Download the Demucs htdemucs model (~1 GB) to isolate piano "
-            "audio from imported tracks before MIDI transcription. The model "
-            "is saved to ~/.maestro/models/ and can be removed at any time."
-        )
-        desc.setProperty("class", "caption")
-        desc.setWordWrap(True)
-        lay.addWidget(desc)
-
-        self._demucs_status = QLabel("Checking...")
-        self._demucs_status.setProperty("class", "caption")
-        lay.addWidget(self._demucs_status)
-
-        self._demucs_progress = QProgressBar()
-        self._demucs_progress.setRange(0, 0)  # indeterminate
-        self._demucs_progress.hide()
-        lay.addWidget(self._demucs_progress)
-
-        self._demucs_btn = QPushButton("Download")
-        self._demucs_btn.clicked.connect(self.demucs_action_requested.emit)
-        lay.addWidget(self._demucs_btn, alignment=Qt.AlignmentFlag.AlignLeft)
-
-        return card
-
     def _build_updates_card(self) -> QWidget:
         """Build the Updates card with toggle, status, and check button."""
         card = QWidget()
@@ -353,26 +315,6 @@ class SettingsPage(QWidget):
         """Update the library folder display."""
         self._folder_label.setText(path or "No folder selected")
         self._song_count_label.setText(f"{count} songs" if count else "")
-
-    def set_demucs_status(self, installed: bool) -> None:
-        """Update the demucs status and button text."""
-        self._demucs_progress.hide()
-        self._demucs_btn.setEnabled(True)
-        if installed:
-            self._demucs_status.setText("Model installed")
-            self._demucs_status.setProperty("state", "finished")
-            self._demucs_btn.setText("Remove")
-        else:
-            self._demucs_status.setText("Model not installed")
-            self._demucs_status.setProperty("state", "")
-            self._demucs_btn.setText("Download")
-        self._demucs_status.style().unpolish(self._demucs_status)
-        self._demucs_status.style().polish(self._demucs_status)
-
-    def set_demucs_downloading(self, downloading: bool) -> None:
-        """Show or hide the demucs download progress bar."""
-        self._demucs_progress.setVisible(downloading)
-        self._demucs_btn.setEnabled(not downloading)
 
     def set_update_status(self, text: str) -> None:
         """Update the update check status text."""

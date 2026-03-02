@@ -1,6 +1,6 @@
 """Compact import panel for downloading songs from URLs."""
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -30,11 +30,26 @@ class ImportPanel(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        # Header
-        header = QLabel("Experimental feature")
+        # Header row
+        header_row = QHBoxLayout()
+        header_row.setSpacing(4)
+        header = QLabel("YouTube to MIDI converter (Experimental)")
         header.setProperty("class", "caption")
         header.setWordWrap(True)
-        layout.addWidget(header)
+        header_row.addWidget(header)
+        info_icon = QLabel("\u24d8")  # circled i
+        info_icon.setProperty("class", "caption")
+        info_icon.setCursor(Qt.CursorShape.WhatsThisCursor)
+        info_icon.setToolTip(
+            "Converts YouTube audio to MIDI using ML transcription.\n\n"
+            "Best results with:\n"
+            "  \u2022 Solo piano recordings\n"
+            "  \u2022 Synthesia-style tutorial videos\n"
+            "  \u2022 Clean audio without heavy vocals or drums\n\n"
+            "Mixed-instrument tracks may produce extra ghost notes."
+        )
+        header_row.addStretch()
+        layout.addLayout(header_row)
 
         # Row 1: URL input + Import button
         input_row = QHBoxLayout()

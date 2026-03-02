@@ -116,7 +116,7 @@ class DashboardPage(QWidget):
     # ── Card builders ──────────────────────────────────────────────────
 
     def _build_import_card(self, parent_layout: QVBoxLayout) -> None:
-        """Build the Import card with ImportPanel and isolate toggle."""
+        """Build the Import card with ImportPanel."""
         card = QWidget()
         card.setProperty("class", "surface-card")
         layout = QVBoxLayout(card)
@@ -125,17 +125,6 @@ class DashboardPage(QWidget):
 
         self._import_panel = ImportPanel()
         layout.addWidget(self._import_panel)
-
-        # Isolate piano toggle row
-        isolate_row = QHBoxLayout()
-        isolate_row.setSpacing(SPACING["sm"])
-        isolate_lbl = QLabel("Isolate piano")
-        isolate_lbl.setProperty("class", "caption")
-        isolate_row.addWidget(isolate_lbl)
-        isolate_row.addStretch()
-        self._isolate_toggle = ToggleSwitch()
-        isolate_row.addWidget(self._isolate_toggle)
-        layout.addLayout(isolate_row)
 
         parent_layout.addWidget(card)
 
@@ -363,10 +352,6 @@ class DashboardPage(QWidget):
             self._transpose_toggle.setEnabled(not is_fixed)
 
     # ── Public helpers ─────────────────────────────────────────────────
-
-    def is_isolate_checked(self) -> bool:
-        """Return whether the isolate piano toggle is checked."""
-        return self._isolate_toggle.isChecked()
 
     # ── Slot helpers (internal wiring) ─────────────────────────────────
 

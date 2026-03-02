@@ -84,7 +84,6 @@ class MainWindow(QMainWindow):
         self._auto_minimized: bool = False
         self._validation_worker: ValidationWorker | None = None
         self._update_worker: UpdateCheckWorker | None = None
-        self._demucs_worker = None
 
         self._setup_window(config)
         self._create_ui(config)
@@ -164,9 +163,6 @@ class MainWindow(QMainWindow):
 
         # Set up settings page with initial state
         self._settings.set_folder(str(self.songs_folder), 0)
-        demucs_available = self._check_demucs_available()
-        self._settings.set_demucs_status(demucs_available)
-        self._dashboard._isolate_toggle.setEnabled(demucs_available)
 
     # ── Signal Connections ────────────────────────────────────────────
 
@@ -203,7 +199,6 @@ class MainWindow(QMainWindow):
         s.fullscreen_changed.connect(self._on_fullscreen_change)
         s.auto_minimize_changed.connect(self._on_auto_minimize_change)
         s.check_updates_changed.connect(self._on_check_updates_change)
-        s.demucs_action_requested.connect(self._on_demucs_btn_click)
         s.countdown_delay_changed.connect(self.signals.countdown_delay_changed)
         s.check_now_requested.connect(self._manual_update_check)
 
@@ -413,12 +408,10 @@ class MainWindow(QMainWindow):
         self._update_favorite_button()
         self._apply_search_filter()
 
-    def _on_import_request(self, url: str, isolate: bool) -> None:
+    def _on_import_request(self, url: str, _isolate: bool) -> None:
         """Handle import button click from ImportPanel."""
-        # Override isolate with dashboard toggle state
-        use_isolate = self._dashboard.is_isolate_checked()
         self._dashboard._import_panel.set_importing(True)
-        self.signals.import_requested.emit(url, use_isolate)
+        self.signals.import_requested.emit(url, False)
 
     def _on_import_finished(self, filename: str) -> None:
         """Handle successful import completion."""
@@ -637,72 +630,6 @@ class MainWindow(QMainWindow):
             self._rail.set_badge(PAGE_SETTINGS, True)
         else:
             self._settings.set_update_status(f"Up to date (v{APP_VERSION})")
-
-    # ── Demucs Management ─────────────────────────────────────────────
-
-    def _check_demucs_available(self) -> bool:
-        """Check if the demucs model is installed."""
-        try:
-            from maestro.importers.youtube import is_demucs_available
-
-            model_dir = Path.home() / ".maestro" / "models" / "htdemucs"
-            return is_demucs_available(model_dir)
-        except Exception:
-            return False
-
-    def _on_demucs_btn_click(self) -> None:
-        """Handle Download/Remove Model button from settings page."""
-        import logging
-        import shutil
-
-        logger = logging.getLogger("maestro")
-        model_dir = Path.home() / ".maestro" / "models" / "htdemucs"
-
-        if self._check_demucs_available():
-            logger.info("Removing demucs model from %s", model_dir)
-            try:
-                shutil.rmtree(model_dir)
-                logger.info("Demucs model removed")
-            except Exception as e:
-                logger.error("Failed to remove demucs model: %s", e)
-                return
-            self._settings.set_demucs_status(False)
-            self._dashboard._isolate_toggle.setEnabled(False)
-        else:
-            logger.info("Starting demucs model download to %s", model_dir)
-            self._settings.set_demucs_downloading(True)
-            self._settings._demucs_status.setText("Downloading...")
-
-            from maestro.gui.workers import DemucsDownloadWorker
-
-            self._demucs_worker = DemucsDownloadWorker(model_dir)
-            self._demucs_worker.progress.connect(self._on_demucs_progress)
-            self._demucs_worker.finished.connect(self._on_demucs_finished)
-            self._demucs_worker.error.connect(self._on_demucs_error)
-            self._demucs_worker.start()
-
-    def _on_demucs_progress(self, text: str) -> None:
-        """Handle demucs download progress updates."""
-        self._settings._demucs_status.setText(text)
-
-    def _on_demucs_finished(self) -> None:
-        """Handle successful demucs model download."""
-        import logging
-
-        logging.getLogger("maestro").info("Demucs model download complete")
-        self._settings.set_demucs_status(True)
-        self._dashboard._isolate_toggle.setEnabled(True)
-
-    def _on_demucs_error(self, error: str) -> None:
-        """Handle demucs download failure."""
-        import logging
-
-        logging.getLogger("maestro").error("Demucs model download failed: %s", error)
-        self._settings.set_demucs_downloading(False)
-        self._settings._demucs_status.setText("Download failed")
-        self._settings._demucs_status.setProperty("state", "error")
-        self._settings._demucs_status.style().unpolish(self._settings._demucs_status)
-        self._settings._demucs_status.style().polish(self._settings._demucs_status)
 
     # ── Error Handling ────────────────────────────────────────────────
 
