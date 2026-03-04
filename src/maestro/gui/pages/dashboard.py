@@ -219,6 +219,7 @@ class DashboardPage(QWidget):
         self._error_label = QLabel()
         self._error_label.setProperty("state", "error")
         self._error_label.setWordWrap(True)
+        self._error_label.setMinimumWidth(1)
         self._error_label.setVisible(False)
         layout.addWidget(self._error_label)
 

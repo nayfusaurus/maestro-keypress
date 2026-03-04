@@ -20,6 +20,7 @@ class NowPlayingPanel(QWidget):
         self._song_label = QLabel("No song loaded")
         self._song_label.setProperty("class", "caption")
         self._song_label.setWordWrap(True)
+        self._song_label.setMinimumWidth(1)
         layout.addWidget(self._song_label)
 
         # Progress row: current time | progress bar | total time

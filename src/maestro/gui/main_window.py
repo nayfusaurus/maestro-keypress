@@ -609,6 +609,7 @@ class MainWindow(QMainWindow):
         """Handle background update check result."""
         if update_info.has_update:
             self._settings.set_update_status(f"Update available: v{update_info.latest_version}")
+            self._settings.set_release_url(update_info.release_url)
             # Show badge on settings icon
             self._rail.set_badge(PAGE_SETTINGS, True)
 
@@ -625,11 +626,14 @@ class MainWindow(QMainWindow):
 
         if update_info.error:
             self._settings.set_update_status(f"Error: {update_info.error}")
+            self._settings.set_release_url(None)
         elif update_info.has_update:
             self._settings.set_update_status(f"Update available: v{update_info.latest_version}")
+            self._settings.set_release_url(update_info.release_url)
             self._rail.set_badge(PAGE_SETTINGS, True)
         else:
             self._settings.set_update_status(f"Up to date (v{APP_VERSION})")
+            self._settings.set_release_url(None)
 
     # ── Error Handling ────────────────────────────────────────────────
 

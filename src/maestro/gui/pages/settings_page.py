@@ -5,8 +5,8 @@ settings.  Each card groups related options with toggle switches, hotkey
 binding, and action buttons.
 """
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QKeyEvent
+from PySide6.QtCore import Qt, QUrl, Signal
+from PySide6.QtGui import QDesktopServices, QKeyEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -248,9 +248,23 @@ class SettingsPage(QWidget):
         self._update_progress.hide()
         lay.addWidget(self._update_progress)
 
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(SPACING["sm"])
+
         self._check_now_btn = QPushButton("Check Now")
         self._check_now_btn.clicked.connect(self.check_now_requested.emit)
-        lay.addWidget(self._check_now_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+        btn_row.addWidget(self._check_now_btn)
+
+        self._view_release_btn = QPushButton("View Release")
+        self._view_release_btn.setProperty("class", "primary")
+        self._view_release_btn.clicked.connect(self._open_release_page)
+        self._view_release_btn.hide()
+        btn_row.addWidget(self._view_release_btn)
+
+        btn_row.addStretch()
+        lay.addLayout(btn_row)
+
+        self._release_url: str | None = None
 
         return card
 
@@ -319,6 +333,11 @@ class SettingsPage(QWidget):
     def set_update_status(self, text: str) -> None:
         """Update the update check status text."""
         self._update_status.setText(text)
+
+    def set_release_url(self, url: str | None) -> None:
+        """Set the release URL and show/hide the View Release button."""
+        self._release_url = url
+        self._view_release_btn.setVisible(url is not None)
 
     def set_update_progress_visible(self, visible: bool) -> None:
         """Show or hide the indeterminate progress bar."""
@@ -419,6 +438,11 @@ class SettingsPage(QWidget):
     # ------------------------------------------------------------------
     # Theme callback
     # ------------------------------------------------------------------
+
+    def _open_release_page(self) -> None:
+        """Open the GitHub releases page in the default browser."""
+        if self._release_url:
+            QDesktopServices.openUrl(QUrl(self._release_url))
 
     def _on_theme_toggled(self, checked: bool) -> None:
         """Emit theme_changed with 'dark' or 'light'."""
