@@ -93,8 +93,13 @@ class ImportPanel(QWidget):
         return self._url_input.text().strip()
 
     def set_percent(self, value: int) -> None:
-        """Set the progress bar value (0-100)."""
-        self._progress_bar.setValue(value)
+        """Set the progress bar value (0-100), or -1 for indeterminate."""
+        if value < 0:
+            self._progress_bar.setRange(0, 0)  # Indeterminate (animated)
+        else:
+            if self._progress_bar.maximum() == 0:
+                self._progress_bar.setRange(0, 100)  # Restore determinate mode
+            self._progress_bar.setValue(value)
 
     def show_progress(self, text: str) -> None:
         """Show progress text in subdued style and ensure bar is visible."""

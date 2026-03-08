@@ -7,8 +7,10 @@ import pytest
 
 from maestro.importers.synthesia import detect_synthesia_pattern
 from maestro.importers.youtube import (
+    cleanup_temp_files,
     download_audio,
     extract_video_id,
+    find_existing_import,
     is_demucs_available,
     isolate_piano,
     transcribe_audio,
@@ -45,30 +47,97 @@ class TestExtractVideoId:
 class TestDownloadAudio:
     @patch("maestro.importers.youtube.yt_dlp.YoutubeDL")
     def test_downloads_audio_and_returns_path_and_title(self, mock_ydl_class, tmp_path):
-        mock_ydl = Mock()
-        mock_ydl_class.return_value.__enter__ = Mock(return_value=mock_ydl)
-        mock_ydl_class.return_value.__exit__ = Mock(return_value=False)
-        mock_ydl.extract_info.return_value = {
+        # Two context managers: metadata phase + download phase
+        mock_meta_ydl = Mock()
+        mock_meta_ydl.extract_info.return_value = {
             "title": "Piano Cover - Moonlight Sonata",
             "id": "abc123",
+            "duration": 300,
         }
+        mock_dl_ydl = Mock()
+
+        meta_cm = Mock()
+        meta_cm.__enter__ = Mock(return_value=mock_meta_ydl)
+        meta_cm.__exit__ = Mock(return_value=False)
+
+        dl_cm = Mock()
+        dl_cm.__enter__ = Mock(return_value=mock_dl_ydl)
+        dl_cm.__exit__ = Mock(return_value=False)
+
+        mock_ydl_class.side_effect = [meta_cm, dl_cm]
+
         # Simulate the downloaded file existing
         audio_file = tmp_path / "abc123.wav"
         audio_file.write_bytes(b"RIFF" + b"\x00" * 100)
 
-        path, title = download_audio("https://youtube.com/watch?v=abc123", tmp_path)
+        path, title, video_id = download_audio("https://youtube.com/watch?v=abc123", tmp_path)
         assert title == "Piano Cover - Moonlight Sonata"
-        mock_ydl.extract_info.assert_called_once()
+        assert video_id == "abc123"
+        mock_meta_ydl.extract_info.assert_called_once_with(
+            "https://youtube.com/watch?v=abc123", download=False
+        )
+        mock_dl_ydl.download.assert_called_once_with(["https://youtube.com/watch?v=abc123"])
 
     @patch("maestro.importers.youtube.yt_dlp.YoutubeDL")
     def test_raises_on_download_failure(self, mock_ydl_class, tmp_path):
-        mock_ydl = Mock()
-        mock_ydl_class.return_value.__enter__ = Mock(return_value=mock_ydl)
-        mock_ydl_class.return_value.__exit__ = Mock(return_value=False)
-        mock_ydl.extract_info.side_effect = Exception("Download failed")
+        mock_meta_ydl = Mock()
+        mock_meta_ydl.extract_info.side_effect = Exception("Download failed")
+
+        meta_cm = Mock()
+        meta_cm.__enter__ = Mock(return_value=mock_meta_ydl)
+        meta_cm.__exit__ = Mock(return_value=False)
+
+        mock_ydl_class.return_value = meta_cm
 
         with pytest.raises(Exception, match="Download failed"):
             download_audio("https://youtube.com/watch?v=abc123", tmp_path)
+
+    @patch("maestro.importers.youtube.yt_dlp.YoutubeDL")
+    def test_rejects_video_over_max_duration(self, mock_ydl_class, tmp_path):
+        mock_meta_ydl = Mock()
+        mock_meta_ydl.extract_info.return_value = {
+            "title": "Very Long Video",
+            "id": "long123",
+            "duration": 1200,
+        }
+
+        meta_cm = Mock()
+        meta_cm.__enter__ = Mock(return_value=mock_meta_ydl)
+        meta_cm.__exit__ = Mock(return_value=False)
+
+        mock_ydl_class.return_value = meta_cm
+
+        with pytest.raises(ValueError, match="exceeds maximum"):
+            download_audio("https://youtube.com/watch?v=long123", tmp_path)
+
+    @patch("maestro.importers.youtube.yt_dlp.YoutubeDL")
+    def test_allows_video_under_max_duration(self, mock_ydl_class, tmp_path):
+        mock_meta_ydl = Mock()
+        mock_meta_ydl.extract_info.return_value = {
+            "title": "Short Video",
+            "id": "short123",
+            "duration": 300,
+        }
+        mock_dl_ydl = Mock()
+
+        meta_cm = Mock()
+        meta_cm.__enter__ = Mock(return_value=mock_meta_ydl)
+        meta_cm.__exit__ = Mock(return_value=False)
+
+        dl_cm = Mock()
+        dl_cm.__enter__ = Mock(return_value=mock_dl_ydl)
+        dl_cm.__exit__ = Mock(return_value=False)
+
+        mock_ydl_class.side_effect = [meta_cm, dl_cm]
+
+        # Simulate the downloaded file existing
+        audio_file = tmp_path / "short123.wav"
+        audio_file.write_bytes(b"RIFF" + b"\x00" * 100)
+
+        path, title, video_id = download_audio("https://youtube.com/watch?v=short123", tmp_path)
+        assert path == audio_file
+        assert title == "Short Video"
+        assert video_id == "short123"
 
 
 class TestTranscribeAudio:
@@ -114,6 +183,77 @@ class TestIsolatePiano:
 
         isolate_piano(audio_path, tmp_path)
         mock_run.assert_called_once()
+
+
+class TestFindExistingImport:
+    def test_existing_midi_with_video_id_detected(self, tmp_path):
+        (tmp_path / "Some Song [abc123xyz00].mid").touch()
+        result = find_existing_import(tmp_path, "abc123xyz00")
+        assert result is not None
+        assert result.name == "Some Song [abc123xyz00].mid"
+
+    def test_no_match_returns_none(self, tmp_path):
+        (tmp_path / "Other Song [xyz000000aa].mid").touch()
+        result = find_existing_import(tmp_path, "abc123xyz00")
+        assert result is None
+
+    def test_matches_midi_extension(self, tmp_path):
+        (tmp_path / "Song [abc123xyz00].midi").touch()
+        result = find_existing_import(tmp_path, "abc123xyz00")
+        assert result is not None
+
+    def test_empty_folder_returns_none(self, tmp_path):
+        result = find_existing_import(tmp_path, "abc123xyz00")
+        assert result is None
+
+
+class TestCleanupTempFiles:
+    def test_cleanup_removes_audio_file(self, tmp_path):
+        audio = tmp_path / "abc123.wav"
+        audio.write_text("fake audio")
+        cleanup_temp_files(audio, tmp_path)
+        assert not audio.exists()
+
+    def test_cleanup_removes_separated_directory(self, tmp_path):
+        sep_dir = tmp_path / "separated" / "htdemucs" / "abc123"
+        sep_dir.mkdir(parents=True)
+        (sep_dir / "piano.wav").write_text("fake")
+        (sep_dir / "no_piano.wav").write_text("fake")
+        audio = tmp_path / "abc123.wav"
+        audio.touch()
+        cleanup_temp_files(audio, tmp_path)
+        assert not (tmp_path / "separated").exists()
+        assert not audio.exists()
+
+    def test_cleanup_ignores_missing_files(self, tmp_path):
+        audio = tmp_path / "nonexistent.wav"
+        cleanup_temp_files(audio, tmp_path)  # Should not raise
+
+
+class TestTranscribeAudioVideoId:
+    @patch("basic_pitch.inference.predict")
+    def test_output_filename_includes_video_id(self, mock_predict, tmp_path):
+        mock_midi = Mock()
+        mock_midi.instruments = []
+        mock_midi.get_tempo_changes.return_value = (np.array([]), np.array([120.0]))
+        mock_predict.return_value = ({}, mock_midi, [])
+        audio = tmp_path / "test.wav"
+        audio.touch()
+
+        result = transcribe_audio(audio, tmp_path, "My Song", video_id="abc123xyz00")
+        assert result.name == "My Song [abc123xyz00].mid"
+
+    @patch("basic_pitch.inference.predict")
+    def test_output_filename_without_video_id(self, mock_predict, tmp_path):
+        mock_midi = Mock()
+        mock_midi.instruments = []
+        mock_midi.get_tempo_changes.return_value = (np.array([]), np.array([120.0]))
+        mock_predict.return_value = ({}, mock_midi, [])
+        audio = tmp_path / "test.wav"
+        audio.touch()
+
+        result = transcribe_audio(audio, tmp_path, "My Song")
+        assert result.name == "My Song.mid"
 
 
 # ── Synthesia detection tests ────────────────────────────────────────────

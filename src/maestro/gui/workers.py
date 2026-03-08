@@ -211,7 +211,10 @@ class ImportWorker(QThread):
         import logging
 
         from maestro.importers.youtube import (
+            cleanup_temp_files,
             download_audio,
+            extract_video_id,
+            find_existing_import,
             isolate_piano,
             transcribe_audio,
         )
@@ -219,11 +222,19 @@ class ImportWorker(QThread):
         logger = logging.getLogger("maestro")
         logger.info("YouTube import started: %s", self._url)
 
+        # Check for duplicate import
+        video_id = extract_video_id(self._url)
+        if video_id:
+            existing = find_existing_import(self._dest_folder, video_id)
+            if existing:
+                self.error.emit(f"Already imported: {existing.name}")
+                return
+
         # Step allocation: download gets 0-50% (no isolation) or 0-33% (with)
         if self._isolate_piano:
-            dl_end, iso_end, tx_start = 33, 67, 67
+            dl_end, iso_end = 33, 67
         else:
-            dl_end, iso_end, tx_start = 50, 50, 50
+            dl_end, iso_end = 50, 50
 
         self.percent.emit(0)
         self.progress.emit("Downloading audio...")
@@ -232,7 +243,7 @@ class ImportWorker(QThread):
             def _on_dl_progress(fraction: float) -> None:
                 self.percent.emit(int(fraction * dl_end))
 
-            audio_path, title = download_audio(
+            audio_path, title, video_id_dl = download_audio(
                 self._url, self._dest_folder, progress_callback=_on_dl_progress
             )
             self.percent.emit(dl_end)
@@ -259,9 +270,13 @@ class ImportWorker(QThread):
                 logger.warning("Piano isolation failed: %s", e)
                 self.progress.emit("Piano isolation failed, using full audio...")
 
-        self.percent.emit(tx_start)
+        self.percent.emit(-1)
         self.progress.emit("Transcribing to MIDI...")
-        result = transcribe_audio(audio_path, self._dest_folder, title)
+        result = transcribe_audio(audio_path, self._dest_folder, title, video_id=video_id_dl)
+
+        # Clean up intermediate files
+        cleanup_temp_files(audio_path, self._dest_folder)
+
         self.percent.emit(100)
         logger.info("YouTube import finished: %s", result.name)
 

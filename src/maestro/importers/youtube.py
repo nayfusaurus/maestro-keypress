@@ -97,6 +97,8 @@ _YT_PATTERNS = [
 
 _UNSAFE_CHARS = re.compile(r'[<>:"/\\|?*]')
 
+MAX_DURATION_SECONDS = 900
+
 
 def extract_video_id(url: str) -> str | None:
     """Extract a YouTube video ID from various URL formats.
@@ -116,14 +118,53 @@ def _sanitize_filename(name: str) -> str:
     return _UNSAFE_CHARS.sub("_", name).strip()
 
 
+def find_existing_import(dest_folder: Path, video_id: str) -> Path | None:
+    """Check if a MIDI file with this video ID already exists in dest_folder.
+
+    Searches for files matching *[{video_id}].mid or *[{video_id}].midi.
+    Returns the path if found, None otherwise.
+    """
+    for ext in ("*.mid", "*.midi"):
+        for path in dest_folder.glob(ext):
+            if f"[{video_id}]" in path.stem:
+                return path
+    return None
+
+
+def cleanup_temp_files(audio_path: Path, dest_folder: Path) -> None:
+    """Remove intermediate files created during import.
+
+    Deletes the downloaded audio file and the demucs separated/ directory
+    if they exist. Logs warnings on failure instead of raising.
+    """
+    import logging
+
+    logger = logging.getLogger("maestro")
+
+    try:
+        if audio_path.exists():
+            audio_path.unlink()
+            logger.info("Removed temp audio: %s", audio_path)
+    except OSError as e:
+        logger.warning("Failed to remove temp audio %s: %s", audio_path, e)
+
+    separated = dest_folder / "separated"
+    try:
+        if separated.exists():
+            shutil.rmtree(separated)
+            logger.info("Removed separated/ directory")
+    except OSError as e:
+        logger.warning("Failed to remove separated/ directory: %s", e)
+
+
 def download_audio(
     url: str,
     dest_folder: Path,
     progress_callback: Callable[[float], None] | None = None,
-) -> tuple[Path, str]:
+) -> tuple[Path, str, str]:
     """Download audio from a YouTube URL as WAV.
 
-    Returns a tuple of (audio_path, title). Uses yt-dlp with FFmpeg
+    Returns a tuple of (audio_path, title, video_id). Uses yt-dlp with FFmpeg
     post-processing to extract audio in WAV format.
 
     If *progress_callback* is provided it will be called with a float
@@ -131,6 +172,26 @@ def download_audio(
 
     Raises on download failure.
     """
+    # Phase 1: Extract metadata without downloading to check duration
+    meta_opts: dict = {
+        "quiet": True,
+        "no_warnings": True,
+    }
+    ffmpeg_loc = _get_ffmpeg_location()
+    if ffmpeg_loc:
+        meta_opts["ffmpeg_location"] = ffmpeg_loc
+
+    with yt_dlp.YoutubeDL(meta_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+        title = info.get("title", info.get("id", "unknown"))
+        video_id = info.get("id", "unknown")
+        duration = info.get("duration") or 0
+        if duration > MAX_DURATION_SECONDS:
+            raise ValueError(
+                f"Video duration ({duration}s) exceeds maximum allowed ({MAX_DURATION_SECONDS}s)"
+            )
+
+    # Phase 2: Download audio
     ydl_opts: dict = {
         "format": "bestaudio/best",
         "postprocessors": [
@@ -155,14 +216,11 @@ def download_audio(
 
         ydl_opts["progress_hooks"] = [_hook]
 
-    ffmpeg_loc = _get_ffmpeg_location()
     if ffmpeg_loc:
         ydl_opts["ffmpeg_location"] = ffmpeg_loc
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        title = info.get("title", info.get("id", "unknown"))
-        video_id = info.get("id", "unknown")
+        ydl.download([url])
 
     audio_path = dest_folder / f"{video_id}.wav"
     if not audio_path.exists():
@@ -175,7 +233,7 @@ def download_audio(
     if not audio_path.exists():
         raise RuntimeError(f"Download produced no audio file for '{title}'")
 
-    return audio_path, title
+    return audio_path, title, video_id
 
 
 def _trim_leading_silence(midi_data: pretty_midi.PrettyMIDI, lead_in: float = 0.05) -> None:
@@ -206,10 +264,13 @@ def _trim_leading_silence(midi_data: pretty_midi.PrettyMIDI, lead_in: float = 0.
             note.end = max(note.start + 0.01, note.end - shift)
 
 
-def transcribe_audio(audio_path: Path, dest_folder: Path, title: str) -> Path:
+def transcribe_audio(
+    audio_path: Path, dest_folder: Path, title: str, video_id: str | None = None
+) -> Path:
     """Transcribe an audio file to MIDI using basic-pitch.
 
     Uses a lazy import to avoid loading tensorflow at module import time.
+    If video_id is provided, it's included in the filename for uniqueness.
     Returns the path to the generated MIDI file.
     """
     import logging
@@ -245,7 +306,8 @@ def transcribe_audio(audio_path: Path, dest_folder: Path, title: str) -> Path:
 
     cleanup_transcription(midi_data)
 
-    filename = f"{_sanitize_filename(title)}.mid"
+    safe_title = _sanitize_filename(title)
+    filename = f"{safe_title} [{video_id}].mid" if video_id else f"{safe_title}.mid"
     output_path = dest_folder / filename
     midi_data.write(str(output_path))
     logger.info("MIDI saved to %s", output_path)
