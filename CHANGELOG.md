@@ -4,6 +4,30 @@ All notable changes to Maestro will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.2.0/).
 
+## [2.0.1] - 2026-03-08
+
+### Added
+
+- **Duplicate import detection**: YouTube imports now check for existing MIDI files with the same video ID and skip with a clear message
+- **Audio length guard**: Reject YouTube videos longer than 15 minutes before downloading to prevent OOM during transcription
+- **Temp file cleanup**: Intermediate WAV files and demucs `separated/` directories are automatically deleted after successful transcription
+- **Filename collision handling**: MIDI output files now include the YouTube video ID (`Title [video_id].mid`) to prevent overwrites
+- **Indeterminate progress**: Progress bar animates during MIDI transcription step instead of showing a stale percentage
+- **ty type checker**: Added to CI workflow alongside ruff and mypy
+
+### Fixed
+
+- **Thread safety**: Added `threading.Lock` around `_held_keys` set access in Player to prevent race conditions between playback, main, and atexit threads
+- **Modifier key release**: `_release_all_keys()` now releases each modifier exactly once instead of once per key sharing that modifier
+- **Overlapping MIDI notes**: Parser now closes already-active notes before opening duplicates, preventing orphaned zero-duration notes
+- **Validation worker race**: New validation workers now interrupt and wait for any running worker before starting
+- **Memory leak on folder change**: `_song_info`, `_song_notes`, and `_song_compatibility` dicts are now cleared when switching songs folders
+- **Hotkey rebind**: Restarting pynput listener on hotkey change so new bindings take effect immediately
+- **Play hotkey**: Now uses the GUI-selected song instead of `player.current_song`, matching Play button behavior
+- **Config deepcopy**: `load_config()` uses `copy.deepcopy` to avoid mutating nested default values
+- **Download validation**: `download_audio()` raises early with a clear error if no audio file is produced
+- **Manual stop state**: Setting `_prev_push_state` before `player.stop()` prevents false song-finished emission on manual stop
+
 ## [2.0.0] - 2026-03-02
 
 ### Added
