@@ -71,6 +71,14 @@ def parse_midi(midi_path: Path) -> list[Note]:
             continue
 
         if msg.type == "note_on" and msg.velocity > 0:
+            # Close any already-active instance of this note (overlapping notes)
+            if msg.note in active_notes:
+                prev_start, prev_idx = active_notes.pop(msg.note)
+                notes[prev_idx] = Note(
+                    midi_note=notes[prev_idx].midi_note,
+                    time=notes[prev_idx].time,
+                    duration=current_time - prev_start,
+                )
             # Note started
             active_notes[msg.note] = (current_time, len(notes))
             notes.append(
@@ -102,11 +110,12 @@ def get_tempo(mid: mido.MidiFile) -> int:
     return 500000  # Default: 120 BPM
 
 
-def get_midi_info(midi_path: Path) -> dict:
+def get_midi_info(midi_path: Path, notes: list[Note] | None = None) -> dict:
     """Get basic information about a MIDI file.
 
     Args:
         midi_path: Path to the MIDI file
+        notes: Pre-parsed notes to avoid re-parsing. If None, parses the file.
 
     Returns:
         Dict with keys: duration (float, seconds), bpm (int), note_count (int)
@@ -115,7 +124,8 @@ def get_midi_info(midi_path: Path) -> dict:
         ValueError: If file is not a valid MIDI file
         FileNotFoundError: If file doesn't exist
     """
-    notes = parse_midi(midi_path)
+    if notes is None:
+        notes = parse_midi(midi_path)
 
     # Get tempo for BPM
     try:

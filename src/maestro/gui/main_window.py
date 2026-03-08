@@ -31,7 +31,6 @@ from maestro.gui.signals import MaestroSignals
 from maestro.gui.theme import apply_theme
 from maestro.gui.workers import UpdateCheckWorker, ValidationWorker
 from maestro.key_layout import KeyLayout, WwmLayout
-from maestro.update_checker import check_for_updates
 
 _PAGE_TITLES = ["Dashboard", "Settings", "About", "Error Log"]
 
@@ -222,7 +221,7 @@ class MainWindow(QMainWindow):
         self.signals.import_progress.connect(d._import_panel.show_progress)
         self.signals.import_percent.connect(d._import_panel.set_percent)
         self.signals.import_finished.connect(self._on_import_finished)
-        self.signals.import_error.connect(d._import_panel.show_error)
+        self.signals.import_error.connect(self._on_import_error)
 
     # ── Page Navigation ───────────────────────────────────────────────
 
@@ -273,9 +272,6 @@ class MainWindow(QMainWindow):
         d._status_label.style().unpolish(d._status_label)
         d._status_label.style().polish(d._status_label)
 
-        # Detect song finish
-        if self._prev_state == "Playing" and state == "Stopped":
-            self._on_song_finished()
         self._prev_state = state
 
     def _on_position_updated(self, position: float, duration: float) -> None:
@@ -408,6 +404,9 @@ class MainWindow(QMainWindow):
         self._update_favorite_button()
         self._apply_search_filter()
 
+        # Re-select the song after the list rebuild
+        self._select_song(song)
+
     def _on_import_request(self, url: str, _isolate: bool) -> None:
         """Handle import button click from ImportPanel."""
         self._dashboard._import_panel.set_importing(True)
@@ -418,6 +417,19 @@ class MainWindow(QMainWindow):
         self._dashboard._import_panel.set_importing(False)
         self._dashboard._import_panel.show_success(f"Downloaded: {filename}")
         self._refresh_songs()
+
+    def _on_import_error(self, message: str) -> None:
+        """Handle import error — show error and re-enable panel."""
+        self._dashboard._import_panel.set_importing(False)
+        self._dashboard._import_panel.show_error(message)
+
+    def _select_song(self, song: Path) -> None:
+        """Re-select a song in the list by path after a rebuild."""
+        song_list = self._dashboard._song_list
+        for i, s in enumerate(song_list.get_filtered_songs()):
+            if s == song:
+                song_list.setCurrentRow(i)
+                return
 
     def _update_favorite_button(self) -> None:
         """Update favorite button star based on selected song."""
@@ -436,6 +448,8 @@ class MainWindow(QMainWindow):
         if folder:
             self.songs_folder = Path(folder)
             self._validation_cache.clear()
+            self._song_info.clear()
+            self._song_notes.clear()
             self._refresh_songs()
             self.signals.folder_changed.emit(self.songs_folder)
             # Update settings page
@@ -557,6 +571,10 @@ class MainWindow(QMainWindow):
 
     def _start_validation(self) -> None:
         """Start background MIDI validation."""
+        if self._validation_worker is not None and self._validation_worker.isRunning():
+            self._validation_worker.requestInterruption()
+            self._validation_worker.wait(1000)
+
         songs = self._dashboard._song_list.get_songs()
         if not songs:
             return
@@ -614,13 +632,16 @@ class MainWindow(QMainWindow):
             self._rail.set_badge(PAGE_SETTINGS, True)
 
     def _manual_update_check(self) -> None:
-        """Manually check for updates (from settings page)."""
+        """Manually check for updates (from settings page) in a background thread."""
         self._settings.set_update_progress_visible(True)
         self._settings._check_now_btn.setEnabled(False)
-        self.setCursor(Qt.CursorShape.WaitCursor)
 
-        update_info = check_for_updates(APP_VERSION, GITHUB_REPO, timeout=10)
-        self.unsetCursor()
+        self._update_worker = UpdateCheckWorker(APP_VERSION, GITHUB_REPO, timeout=10)
+        self._update_worker.update_result.connect(self._on_manual_update_result)
+        self._update_worker.start()
+
+    def _on_manual_update_result(self, update_info) -> None:
+        """Handle manual update check result."""
         self._settings.set_update_progress_visible(False)
         self._settings._check_now_btn.setEnabled(True)
 

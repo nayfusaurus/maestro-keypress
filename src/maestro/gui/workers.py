@@ -98,6 +98,8 @@ class ValidationWorker(QThread):
         empty_info: dict = {"duration": 0, "bpm": 0, "note_count": 0}
 
         for song in self._songs:
+            if self.isInterruptionRequested():
+                return
             song_str = str(song)
 
             # Check if file still exists
@@ -132,8 +134,8 @@ class ValidationWorker(QThread):
 
             # File changed or not in cache — validate it
             try:
-                info = get_midi_info(song)
                 notes = parse_midi(song)
+                info = get_midi_info(song, notes=notes)
 
                 # For drums layout, check if song has notes in drum range (60-67)
                 if self._key_layout == KeyLayout.DRUMS:

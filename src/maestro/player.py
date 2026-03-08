@@ -77,6 +77,7 @@ class Player:
         self._wwm_layout = WwmLayout.KEYS_36
         self._sharp_handling: str = "skip"
         self._held_keys: set[tuple[str, Key | None]] = set()
+        self._held_keys_lock = threading.Lock()
         self._events: list[KeyEvent] = []
         # Event caching to avoid rebuilding on replays
         self._cached_events: list[KeyEvent] | None = None
@@ -153,7 +154,13 @@ class Player:
 
     @speed.setter
     def speed(self, value: float) -> None:
-        self._speed = max(0.5, min(2.0, value))  # Clamp to match GUI slider range
+        new_speed = max(0.5, min(2.0, value))  # Clamp to match GUI slider range
+        if self.state == PlaybackState.PLAYING and self._start_time:
+            # Re-anchor start_time so the current song position stays continuous
+            now = time.time()
+            elapsed_song_time = (now - self._start_time) * self._speed
+            self._start_time = now - elapsed_song_time / new_speed
+        self._speed = new_speed
 
     @property
     def duration(self) -> float:
@@ -192,7 +199,8 @@ class Player:
 
         self._stop_event.clear()
         self._note_index = 0
-        self._held_keys.clear()
+        with self._held_keys_lock:
+            self._held_keys.clear()
         self._start_time = time.time()
         self.state = PlaybackState.PLAYING
 
@@ -346,8 +354,10 @@ class Player:
     def _key_down(self, key: str, modifier: Key | None = None) -> None:
         """Press a key down and track it."""
         key_id = (key, modifier)
-        if key_id in self._held_keys:
-            return  # Already held
+        with self._held_keys_lock:
+            if key_id in self._held_keys:
+                return  # Already held
+            self._held_keys.add(key_id)
 
         # Update last key for visual feedback
         if modifier:
@@ -366,54 +376,63 @@ class Player:
                     self.keyboard.press(modifier)
                     time.sleep(0.01)
                 self.keyboard.press(key)
-            self._held_keys.add(key_id)
         except Exception as e:
+            with self._held_keys_lock:
+                self._held_keys.discard(key_id)
             self._logger.error(f"Key down failed for '{key}': {e}")
             self._last_error = f"Key simulation failed: {e}"
 
     def _key_up(self, key: str, modifier: Key | None = None) -> None:
         """Release a key."""
         key_id = (key, modifier)
-        if key_id not in self._held_keys:
-            return  # Not held
+        with self._held_keys_lock:
+            if key_id not in self._held_keys:
+                return  # Not held
+            self._held_keys.discard(key_id)
+            # Check if any other keys still use this modifier
+            release_modifier = modifier is not None and not any(
+                m == modifier for _, m in self._held_keys
+            )
 
         try:
             if self._game_mode in _DIRECTINPUT_MODES and pydirectinput is not None:
                 pydirectinput.keyUp(key)
-                if modifier:
-                    # Only release this modifier if no other keys use the same modifier
-                    same_mod = [
-                        (k, m) for k, m in self._held_keys if m == modifier and (k, m) != key_id
-                    ]
-                    if not same_mod:
-                        pydirectinput.keyUp(self._modifier_name(modifier))
+                if release_modifier:
+                    pydirectinput.keyUp(self._modifier_name(modifier))
             else:
                 self.keyboard.release(key)
-                if modifier:
-                    same_mod = [
-                        (k, m) for k, m in self._held_keys if m == modifier and (k, m) != key_id
-                    ]
-                    if not same_mod:
-                        self.keyboard.release(modifier)
-            self._held_keys.discard(key_id)
+                if release_modifier:
+                    self.keyboard.release(modifier)
         except Exception as e:
             self._logger.error(f"Key up failed for '{key}': {e}")
 
     def _release_all_keys(self) -> None:
         """Release all currently held keys (safety cleanup)."""
-        for key, modifier in list(self._held_keys):
+        with self._held_keys_lock:
+            held = list(self._held_keys)
+            self._held_keys.clear()
+
+        # Collect unique modifiers to release once each
+        modifiers_to_release: set[Key] = set()
+        for key, modifier in held:
             try:
                 if self._game_mode in _DIRECTINPUT_MODES and pydirectinput is not None:
                     pydirectinput.keyUp(key)
-                    if modifier:
-                        pydirectinput.keyUp(self._modifier_name(modifier))
                 else:
                     self.keyboard.release(key)
-                    if modifier:
-                        self.keyboard.release(modifier)
             except Exception:  # nosec B110
                 pass
-        self._held_keys.clear()
+            if modifier:
+                modifiers_to_release.add(modifier)
+
+        for modifier in modifiers_to_release:
+            try:
+                if self._game_mode in _DIRECTINPUT_MODES and pydirectinput is not None:
+                    pydirectinput.keyUp(self._modifier_name(modifier))
+                else:
+                    self.keyboard.release(modifier)
+            except Exception:  # nosec B110
+                pass
 
     def _is_game_window_active(self) -> bool:
         """Check if the game window is currently in focus.

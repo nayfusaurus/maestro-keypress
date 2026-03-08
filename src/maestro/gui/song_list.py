@@ -295,8 +295,11 @@ class SongListWidget(QListWidget):
         return self._validation_results.get(str(song), "pending")
 
     def clear_validation_cache(self) -> None:
-        """Clear the validation cache (e.g., when folder changes)."""
+        """Clear the validation cache and associated data (e.g., when folder changes)."""
         self._validation_cache.clear()
+        self._song_info.clear()
+        self._song_notes.clear()
+        self._song_compatibility.clear()
 
     def _rebuild_list(self) -> None:
         """Rebuild the list widget from filtered songs with metadata."""
