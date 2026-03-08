@@ -66,7 +66,7 @@ class SongItemDelegate(QStyledItemDelegate):
                 "bpm": 0,
                 "note_count": 0,
             }
-        status = meta.get("status", "pending")
+        status: str = str(meta.get("status", "pending"))
 
         # ── Background ────────────────────────────────────────────────
         is_selected = bool(option.state & QStyle.StateFlag.State_Selected)
@@ -77,10 +77,11 @@ class SongItemDelegate(QStyledItemDelegate):
             painter.fillRect(r, QColor(COLORS["surface2"]))
 
         # ── Left accent bar ───────────────────────────────────────────
-        bar_color = {
+        color_map: dict[str, str] = {
             "valid": COLORS["green_dark"],
             "invalid": COLORS["red_dark"],
-        }.get(status, COLORS["pending"])
+        }
+        bar_color = color_map.get(status, COLORS["pending"])
         painter.fillRect(r.x(), r.y(), self._BAR_W, r.height(), QColor(bar_color))
 
         # ── Favorite star (vertically centered in full item) ──────────
@@ -107,7 +108,7 @@ class SongItemDelegate(QStyledItemDelegate):
         # Measure duration to reserve right-side space
         dur_text = ""
         dur_w = 0
-        duration = meta.get("duration", 0)
+        duration: float = float(meta.get("duration", 0))
         if duration > 0 and status == "valid":
             m = int(duration // 60)
             s = int(duration % 60)
@@ -117,7 +118,7 @@ class SongItemDelegate(QStyledItemDelegate):
         # Song name (left, elided to fit)
         name_w = cw - dur_w
         elided = painter.fontMetrics().elidedText(
-            meta["stem"],
+            str(meta["stem"]),
             Qt.TextElideMode.ElideRight,
             name_w,
         )
@@ -155,14 +156,14 @@ class SongItemDelegate(QStyledItemDelegate):
             )
         else:
             parts: list[str] = []
-            bpm = meta.get("bpm", 0)
-            note_count = meta.get("note_count", 0)
+            bpm: int = int(meta.get("bpm", 0))
+            note_count: int = int(meta.get("note_count", 0))
             if bpm > 0:
                 parts.append(f"{bpm} BPM")
             if note_count > 0:
                 parts.append(f"{note_count} notes")
-            playable = meta.get("playable", 0)
-            total = meta.get("total", 0)
+            playable: int = int(meta.get("playable", 0))
+            total: int = int(meta.get("total", 0))
             if total > 0:
                 pct = round(playable / total * 100)
                 parts.append(f"{playable}/{total} playable ({pct}%)")

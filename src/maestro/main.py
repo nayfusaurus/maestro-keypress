@@ -313,16 +313,18 @@ class Maestro:
             dest_folder=self.songs_folder,
             isolate_piano=isolate_piano,
         )
+        window = self.window
+        assert window is not None
         self._import_worker.progress.connect(
-            lambda text: self.window.signals.import_progress.emit(text)
+            lambda text: window.signals.import_progress.emit(text)
         )
         self._import_worker.percent.connect(
-            lambda val: self.window.signals.import_percent.emit(val)
+            lambda val: window.signals.import_percent.emit(val)
         )
         self._import_worker.finished.connect(
-            lambda filename: self.window.signals.import_finished.emit(filename)
+            lambda filename: window.signals.import_finished.emit(filename)
         )
-        self._import_worker.error.connect(lambda msg: self.window.signals.import_error.emit(msg))
+        self._import_worker.error.connect(lambda msg: window.signals.import_error.emit(msg))
         self._import_worker.start()
 
     def _on_play(self, song_path) -> None:
@@ -429,7 +431,7 @@ class Maestro:
         if sys.platform == "win32":
             import ctypes
 
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("maestro.app")  # type: ignore[union-attr]
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("maestro.app")
 
         app = QApplication(sys.argv)
 

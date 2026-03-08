@@ -57,6 +57,7 @@ dev = [
     "pytest==9.0.2",
     "pytest-qt>=4.4.0",
     "ruff==0.15.4",
+    "ty>=0.0.21",
     "types-requests>=2.32.4.20260107",
 ]
 

@@ -22,7 +22,7 @@ if sys.platform == "win32":
 
     pydirectinput.PAUSE = 0  # Disable default 0.1s delay
 else:
-    pydirectinput = None  # type: ignore
+    pydirectinput = None
 from maestro.key_layout import KeyLayout, WwmLayout
 from maestro.keymap import midi_note_to_key
 from maestro.keymap_15_double import midi_note_to_key_15_double
