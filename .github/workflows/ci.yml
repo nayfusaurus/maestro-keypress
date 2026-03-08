@@ -30,7 +30,7 @@ jobs:
         run: uv run pip-audit
 
   lint:
-    name: Lint (Ruff + mypy)
+    name: Lint (Ruff + mypy + ty)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -51,6 +51,9 @@ jobs:
 
       - name: Run mypy
         run: uv run mypy src/maestro/
+
+      - name: Run ty
+        run: uv run ty check src/
 
   test:
     name: Tests
