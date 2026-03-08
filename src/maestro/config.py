@@ -3,6 +3,7 @@
 Handles loading and saving user settings to a JSON file.
 """
 
+import copy
 import json
 import os
 import sys
@@ -150,7 +151,7 @@ def validate_config(config: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
 def load_config() -> dict[str, Any]:
     """Load config from JSON file. Returns defaults for missing keys."""
     config_path = get_config_path()
-    config = DEFAULT_CONFIG.copy()
+    config = copy.deepcopy(DEFAULT_CONFIG)
 
     if config_path.exists():
         try:

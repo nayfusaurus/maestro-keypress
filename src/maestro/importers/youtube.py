@@ -172,6 +172,9 @@ def download_audio(
                 audio_path = alt
                 break
 
+    if not audio_path.exists():
+        raise RuntimeError(f"Download produced no audio file for '{title}'")
+
     return audio_path, title
 
 

@@ -254,6 +254,8 @@ class Maestro:
         """Handle hotkey change from GUI."""
         self._config[config_key] = key_name
         self._save_config()
+        # Restart the pynput listener so new hotkeys take effect
+        self._restart_listener()
         print(f"Hotkey '{config_key}' changed to '{key_name}'")
 
     def _on_theme_change(self, theme: str) -> None:
@@ -384,9 +386,15 @@ class Maestro:
         return None
 
     def play(self) -> None:
-        """Start playback if song is loaded."""
-        if self.player.current_song and self.player.state == PlaybackState.STOPPED:
-            self.player.play()
+        """Start playback of the currently selected song in the GUI."""
+        if self.window is None:
+            return
+        song = self.window._dashboard._song_list.get_selected_song()
+        if song and self.player.state == PlaybackState.STOPPED:
+            self._on_play(song)
+            if self.window._should_auto_minimize():
+                self.window.showMinimized()
+                self.window._auto_minimized = True
 
     def stop(self) -> None:
         """Stop playback."""
@@ -394,6 +402,10 @@ class Maestro:
         if self._countdown_timer:
             self._countdown_timer.stop()
             self._countdown_timer = None
+        # Mark as stopped before player.stop() so _push_state_updates
+        # won't detect a Playing→Stopped transition (which would falsely
+        # emit song_finished on a manual stop).
+        self._prev_push_state = "Stopped"
         self.player.stop()
 
     def _exit(self) -> None:
@@ -510,6 +522,13 @@ class Maestro:
         print()
 
         sys.exit(app.exec())
+
+    def _restart_listener(self) -> None:
+        """Stop the current listener and start a new one with updated hotkeys."""
+        if self._listener:
+            self._listener.stop()
+            self._listener = None
+        self._setup_listener()
 
     def _setup_listener(self) -> None:
         """Set up and start the pynput keyboard listener."""

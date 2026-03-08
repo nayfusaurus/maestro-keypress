@@ -65,14 +65,22 @@ def test_maestro_stop(mock_dependencies, tmp_path):
 
 
 def test_maestro_play(mock_dependencies, tmp_path):
-    """Play should delegate to player."""
+    """Play should delegate to _on_play when a song is selected in the GUI."""
+    from unittest.mock import MagicMock
+
     from maestro.player import PlaybackState
 
     app = Maestro(songs_folder=tmp_path)
-    mock_dependencies["player"].current_song = Path("test.mid")
     mock_dependencies["player"].state = PlaybackState.STOPPED
+
+    # Simulate a window with a selected song
+    song_path = Path("test.mid")
+    mock_window = MagicMock()
+    mock_window._dashboard._song_list.get_selected_song.return_value = song_path
+    app.window = mock_window
+
     app.play()
-    mock_dependencies["player"].play.assert_called_once()
+    mock_dependencies["player"].load.assert_called_once_with(song_path)
 
 
 def test_maestro_get_state_with_countdown(mock_dependencies, tmp_path):
