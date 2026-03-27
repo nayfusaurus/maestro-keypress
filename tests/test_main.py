@@ -186,16 +186,3 @@ def test_maestro_on_countdown_delay_change(mock_dependencies, tmp_path):
     mock_dependencies["save_config"].assert_called()
 
 
-def test_maestro_on_import_requested(mock_dependencies, tmp_path):
-    """Import request should create and start an ImportWorker."""
-    with patch("maestro.gui.workers.ImportWorker") as mock_worker_class:
-        mock_worker = Mock()
-        mock_worker_class.return_value = mock_worker
-
-        app = Maestro(songs_folder=tmp_path)
-        app.window = Mock()
-        app.window.signals = Mock()
-
-        app._on_import_requested("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-
-        mock_worker.start.assert_called_once()

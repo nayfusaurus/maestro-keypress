@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     from PySide6.QtCore import QTimer
 
     from maestro.gui import MainWindow
-    from maestro.gui.workers import ImportWorker
 
 from pynput import keyboard
 
@@ -75,7 +74,6 @@ class Maestro:
         self._countdown_timer: QTimer | None = None
         self._update_timer: QTimer | None = None
         self._prev_push_state: str = "Stopped"
-        self._import_worker: ImportWorker | None = None
 
         # Apply saved settings
         game_mode_str = self._config.get("game_mode", "Heartopia")
@@ -140,7 +138,6 @@ class Maestro:
         s.theme_changed.connect(self._on_theme_change)
         s.countdown_delay_changed.connect(self._on_countdown_delay_change)
         s.note_compatibility_requested.connect(self._on_note_compatibility_requested)
-        s.import_requested.connect(self._on_import_requested)
 
         # Disclaimer acceptance from info page
         self.window._info.disclaimer_accepted.connect(self._on_disclaimer_accepted)
@@ -302,26 +299,6 @@ class Maestro:
                 playable += 1
 
         return (playable, total)
-
-    def _on_import_requested(self, url: str, isolate_piano: bool = False) -> None:
-        """Handle import request from GUI."""
-        assert self.window is not None  # nosec B101
-        from maestro.gui.workers import ImportWorker
-
-        self._import_worker = ImportWorker(
-            url=url,
-            dest_folder=self.songs_folder,
-            isolate_piano=isolate_piano,
-        )
-        window = self.window
-        assert window is not None
-        self._import_worker.progress.connect(lambda text: window.signals.import_progress.emit(text))
-        self._import_worker.percent.connect(lambda val: window.signals.import_percent.emit(val))
-        self._import_worker.finished.connect(
-            lambda filename: window.signals.import_finished.emit(filename)
-        )
-        self._import_worker.error.connect(lambda msg: window.signals.import_error.emit(msg))
-        self._import_worker.start()
 
     def _on_play(self, song_path) -> None:
         """Handle play request from GUI."""
