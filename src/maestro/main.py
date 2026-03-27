@@ -530,23 +530,36 @@ class Maestro:
 
     def _setup_listener(self) -> None:
         """Set up and start the pynput keyboard listener."""
+        from PySide6.QtCore import QTimer
+
         play_key = self._get_hotkey("play_key", "f2")
         stop_key = self._get_hotkey("stop_key", "f3")
         emergency_key = self._get_hotkey("emergency_stop_key", "escape")
 
         def on_press(key):
+            # pynput runs on a background thread — all Qt operations (QTimer
+            # creation, widget access) must be dispatched to the main thread.
+            # QTimer.singleShot(0, receiver, slot) is thread-safe and queues
+            # the call on the receiver's (main) thread event loop.
+            window = self.window
+            if window is None:
+                return
             if key == play_key:
-                self.play()
+                QTimer.singleShot(0, window, self.play)
             elif key == stop_key:
-                self.stop()
+                QTimer.singleShot(0, window, self.stop)
             # Escape is ALWAYS an emergency stop, regardless of config
             if (
                 key == keyboard.Key.esc
                 or key == emergency_key
                 and emergency_key != keyboard.Key.esc
             ):
-                self.player._release_all_keys()
-                self.stop()
+
+                def _emergency():
+                    self.player._release_all_keys()
+                    self.stop()
+
+                QTimer.singleShot(0, window, _emergency)
 
         self._listener = keyboard.Listener(on_press=on_press)
         self._listener.start()
