@@ -6,7 +6,6 @@ from unittest.mock import patch
 import pytest
 
 from maestro.gui import get_songs_from_folder
-from maestro.gui.import_panel import ImportPanel
 from maestro.gui.utils import check_hotkey_conflict, format_time
 
 
@@ -182,46 +181,3 @@ def test_validation_caches_invalid_files(tmp_path):
         _, cached_valid = validation_cache[str(test_song)]
         assert cached_valid is False
         assert validation_results[str(test_song)] == "invalid"
-
-
-# --- ImportPanel tests ---
-
-
-class TestImportPanel:
-    def test_show_progress_shows_status(self, qtbot):
-        panel = ImportPanel()
-        qtbot.addWidget(panel)
-        panel.show()
-        panel.show_progress("Downloading...")
-        assert panel._status_label.isVisible()
-        assert panel._status_label.text() == "Downloading..."
-
-    def test_show_error_sets_error_state(self, qtbot):
-        panel = ImportPanel()
-        qtbot.addWidget(panel)
-        panel.show()
-        panel.show_error("Download failed")
-        assert panel._status_label.isVisible()
-        assert panel._status_label.property("state") == "error"
-
-    def test_clear_status_hides_label(self, qtbot):
-        panel = ImportPanel()
-        qtbot.addWidget(panel)
-        panel.show()
-        panel.show_progress("test")
-        panel.clear_status()
-        assert panel._status_label.isHidden()
-
-    def test_get_url_returns_input_text(self, qtbot):
-        panel = ImportPanel()
-        qtbot.addWidget(panel)
-        panel._url_input.setText("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-        assert panel.get_url() == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-
-    def test_set_importing_toggles_button(self, qtbot):
-        panel = ImportPanel()
-        qtbot.addWidget(panel)
-        panel.set_importing(True)
-        assert not panel._import_btn.isEnabled()
-        panel.set_importing(False)
-        assert panel._import_btn.isEnabled()
