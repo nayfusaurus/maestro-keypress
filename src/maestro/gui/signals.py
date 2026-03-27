@@ -28,7 +28,6 @@ class MaestroSignals(QObject):
     theme_changed = Signal(str)  # "dark" or "light"
     countdown_delay_changed = Signal(int)  # 0-10 seconds
     note_compatibility_requested = Signal(object)  # Path
-    import_requested = Signal(str, bool)  # URL string, isolate_piano
 
     # --- Maestro -> GUI (state pushes) ---
     state_updated = Signal(str)  # Playback state string
@@ -41,9 +40,3 @@ class MaestroSignals(QObject):
     song_finished = Signal()  # Playback naturally completed
     countdown_tick = Signal(int)  # Countdown number (3, 2, 1, 0)
     favorites_loaded = Signal(list)  # List[str] of favorite names
-
-    # Import signals (Maestro -> GUI)
-    import_progress = Signal(str)  # Progress text from ImportWorker
-    import_percent = Signal(int)  # Overall progress 0-100
-    import_finished = Signal(str)  # Filename of imported MIDI
-    import_error = Signal(str)  # Error message from import pipeline
