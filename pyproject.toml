@@ -13,11 +13,6 @@ dependencies = [
     "pynput==1.8.1",
     "PySide6>=6.6.0,<7.0.0",
     "requests>=2.33.0",
-    "yt-dlp>=2024.12.0",
-    "basic-pitch>=0.4.0",
-    "numpy<2",
-    "opencv-python-headless>=4.9.0",
-    "onnxruntime>=1.17.0",
 ]
 
 [project.scripts]
@@ -26,29 +21,6 @@ maestro = "maestro:main"
 [build-system]
 requires = ["uv_build>=0.9.26,<0.10.0"]
 build-backend = "uv_build"
-
-[tool.uv]
-# basic-pitch lists tensorflow as a hard dependency, but it auto-detects
-# ONNX Runtime at runtime via try/except ImportError. We exclude the entire
-# TF ecosystem to:
-#   1. Fix Python 3.12+ compatibility (TF 2.14 has no cp312 wheels)
-#   2. Eliminate ~1.5GB of unused dependencies
-#   3. Remove transitive CVEs in keras/protobuf that pip-audit flags
-override-dependencies = [
-    # Exclude TF and its heavy transitive deps (we use ONNX Runtime)
-    "tensorflow>=2.0.0; sys_platform == 'never'",
-    "tensorflow-macos>=2.0.0; sys_platform == 'never'",
-    "tensorflow-io-gcs-filesystem>=0.23.1; sys_platform == 'never'",
-    # basic-pitch pins resampy<0.4.3, but 0.4.3 drops the pkg_resources
-    # dependency (uses importlib.resources instead). Without this override,
-    # setuptools must be installed just for pkg_resources.
-    "resampy>=0.4.3",
-    # onnxruntime requires protobuf with no upper bound.
-    # Override to >=5.29.6 to fix CVE-2026-0994.
-    "protobuf>=5.29.6",
-    # pyasn1 <=0.6.2 has CVE-2026-30922 (DoS via unbounded recursion).
-    "pyasn1>=0.6.3",
-]
 
 [dependency-groups]
 dev = [
