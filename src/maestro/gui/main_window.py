@@ -189,7 +189,6 @@ class MainWindow(QMainWindow):
         d._transpose_toggle.toggled.connect(self._on_transpose_toggle)
         d._preview_toggle.toggled.connect(self._on_show_preview_toggle)
         d._sharp_combo.currentTextChanged.connect(self._on_sharp_handling_change)
-        d._import_panel.import_clicked.connect(self._on_import_request)
 
         # --- Settings page signals ---
         s.theme_changed.connect(self._on_theme_change)
@@ -216,12 +215,6 @@ class MainWindow(QMainWindow):
         self.signals.song_finished.connect(self._on_song_finished)
         self.signals.countdown_tick.connect(self._on_countdown_tick)
         self.signals.favorites_loaded.connect(self._on_favorites_loaded)
-
-        # Import signals
-        self.signals.import_progress.connect(d._import_panel.show_progress)
-        self.signals.import_percent.connect(d._import_panel.set_percent)
-        self.signals.import_finished.connect(self._on_import_finished)
-        self.signals.import_error.connect(self._on_import_error)
 
     # ── Page Navigation ───────────────────────────────────────────────
 
@@ -406,22 +399,6 @@ class MainWindow(QMainWindow):
 
         # Re-select the song after the list rebuild
         self._select_song(song)
-
-    def _on_import_request(self, url: str, _isolate: bool) -> None:
-        """Handle import button click from ImportPanel."""
-        self._dashboard._import_panel.set_importing(True)
-        self.signals.import_requested.emit(url, False)
-
-    def _on_import_finished(self, filename: str) -> None:
-        """Handle successful import completion."""
-        self._dashboard._import_panel.set_importing(False)
-        self._dashboard._import_panel.show_success(f"Downloaded: {filename}")
-        self._refresh_songs()
-
-    def _on_import_error(self, message: str) -> None:
-        """Handle import error — show error and re-enable panel."""
-        self._dashboard._import_panel.set_importing(False)
-        self._dashboard._import_panel.show_error(message)
 
     def _select_song(self, song: Path) -> None:
         """Re-select a song in the list by path after a rebuild."""
