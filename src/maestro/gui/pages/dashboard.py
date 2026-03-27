@@ -21,7 +21,6 @@ from PySide6.QtWidgets import (
 
 from maestro.game_mode import GameMode
 from maestro.gui.controls_panel import ControlsPanel
-from maestro.gui.import_panel import ImportPanel
 from maestro.gui.piano_roll import PianoRollWidget
 from maestro.gui.progress_panel import NowPlayingPanel
 from maestro.gui.song_list import SongListWidget
@@ -43,7 +42,6 @@ class DashboardPage(QWidget):
     """Main dashboard with two-column layout.
 
     Left column (400px, scrollable):
-      - Import card (ImportPanel + isolate toggle)
       - Game Settings card (game mode, key layout, sharp, transpose, preview)
       - Transport card (error, now playing, controls, status, speed, piano roll)
 
@@ -74,7 +72,6 @@ class DashboardPage(QWidget):
         )
         sidebar_layout.setSpacing(SPACING["md"])
 
-        self._build_import_card(sidebar_layout)
         self._build_game_settings_card(sidebar_layout)
         self._build_transport_card(sidebar_layout)
 
@@ -114,19 +111,6 @@ class DashboardPage(QWidget):
         self._update_options_state()
 
     # ── Card builders ──────────────────────────────────────────────────
-
-    def _build_import_card(self, parent_layout: QVBoxLayout) -> None:
-        """Build the Import card with ImportPanel."""
-        card = QWidget()
-        card.setProperty("class", "surface-card")
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(SPACING["lg"], SPACING["lg"], SPACING["lg"], SPACING["lg"])
-        layout.setSpacing(SPACING["sm"])
-
-        self._import_panel = ImportPanel()
-        layout.addWidget(self._import_panel)
-
-        parent_layout.addWidget(card)
 
     def _build_game_settings_card(self, parent_layout: QVBoxLayout) -> None:
         """Build the Game Settings card."""
