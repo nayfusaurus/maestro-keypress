@@ -1,8 +1,7 @@
 """Dashboard page — main view after launch.
 
-Two-column layout: fixed 400px scrollable left column with import, game
-settings, and transport cards; flexible right column with search bar and
-song list.
+Two-column layout: fixed 400px scrollable left column with game settings
+and transport cards; flexible right column with search bar and song list.
 """
 
 from PySide6.QtCore import Qt
