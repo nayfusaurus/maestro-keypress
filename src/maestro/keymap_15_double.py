@@ -64,7 +64,7 @@ SHARP_TO_NATURAL = {
 
 def midi_note_to_key_15_double(
     midi_note: int, transpose: bool = False, sharp_handling: str = "skip"
-) -> str | None:
+) -> tuple[str, int] | None:
     """Convert a MIDI note number to a Heartopia 15-key double row keyboard key.
 
     Args:
@@ -76,7 +76,8 @@ def midi_note_to_key_15_double(
                         "snap" - snap to nearest natural note
 
     Returns:
-        Keyboard key character to press, or None if out of range/sharp and skipped
+        Tuple of (keyboard key character, effective MIDI note), or None if out of
+        range/sharp and skipped
     """
     # Check if note is out of range
     if midi_note < MIDI_MID_START or midi_note > MIDI_EXTENDED_HIGH:
@@ -90,7 +91,7 @@ def midi_note_to_key_15_double(
 
     # Handle extended high note
     if midi_note == MIDI_EXTENDED_HIGH:
-        return EXTENDED_HIGH
+        return (EXTENDED_HIGH, midi_note)
 
     # Determine note offset within octave (0-11)
     note_in_octave = midi_note % 12
@@ -98,13 +99,15 @@ def midi_note_to_key_15_double(
     # Handle sharp notes
     if note_in_octave in SHARP_OFFSETS:
         if sharp_handling == "snap":
-            note_in_octave = SHARP_TO_NATURAL[note_in_octave]
+            natural = SHARP_TO_NATURAL[note_in_octave]
+            midi_note = midi_note - note_in_octave + natural
+            note_in_octave = natural
         else:
             # Default "skip" mode - return None for sharps
             return None
 
     # Determine which row and get the key
     if midi_note >= MIDI_HIGH_START:
-        return ROW_HIGH[note_in_octave]
+        return (ROW_HIGH[note_in_octave], midi_note)
     else:
-        return ROW_MID[note_in_octave]
+        return (ROW_MID[note_in_octave], midi_note)
