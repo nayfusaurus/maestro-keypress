@@ -72,7 +72,7 @@ MIDI_HIGH_END = 83  # B5
 MIDI_EXTENDED_HIGH = 84  # C6 (highest playable note)
 
 
-def midi_note_to_key(midi_note: int, transpose: bool = False) -> str | None:
+def midi_note_to_key(midi_note: int, transpose: bool = False) -> tuple[str, int] | None:
     """Convert a MIDI note number to a Heartopia keyboard key.
 
     Args:
@@ -81,7 +81,8 @@ def midi_note_to_key(midi_note: int, transpose: bool = False) -> str | None:
                    If False (default), return None for out-of-range notes.
 
     Returns:
-        Keyboard key character to press, or None if out of range and transpose=False
+        Tuple of (keyboard key character, effective MIDI note), or None if out of range
+        and transpose=False
     """
     # Check if note is out of range
     if midi_note < MIDI_LOW_START or midi_note > MIDI_EXTENDED_HIGH:
@@ -95,14 +96,14 @@ def midi_note_to_key(midi_note: int, transpose: bool = False) -> str | None:
 
     # Handle extended notes
     if midi_note == MIDI_EXTENDED_HIGH:
-        return EXTENDED_HIGH
+        return (EXTENDED_HIGH, midi_note)
 
     # Determine which octave and note offset
     note_in_octave = midi_note % 12
 
     if midi_note >= MIDI_HIGH_START:
-        return OCTAVE_HIGH[note_in_octave]
+        return (OCTAVE_HIGH[note_in_octave], midi_note)
     elif midi_note >= MIDI_MID_START:
-        return OCTAVE_MID[note_in_octave]
+        return (OCTAVE_MID[note_in_octave], midi_note)
     else:
-        return OCTAVE_LOW[note_in_octave]
+        return (OCTAVE_LOW[note_in_octave], midi_note)
