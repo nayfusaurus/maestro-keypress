@@ -49,7 +49,7 @@ SHARP_TO_NATURAL = {
 
 def midi_note_to_key_15_triple(
     midi_note: int, transpose: bool = False, sharp_handling: str = "skip"
-) -> str | None:
+) -> tuple[str, int] | None:
     """Convert a MIDI note number to a Heartopia 15-key triple row keyboard key.
 
     Args:
@@ -86,4 +86,7 @@ def midi_note_to_key_15_triple(
             midi_note = midi_note - note_in_octave + natural_offset
 
     # Look up in NOTE_MAP
-    return NOTE_MAP.get(midi_note)
+    key = NOTE_MAP.get(midi_note)
+    if key is None:
+        return None
+    return (key, midi_note)

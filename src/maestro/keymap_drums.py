@@ -26,7 +26,7 @@ KEYMAP_DRUMS = {
 def midi_note_to_key(
     note: int,
     transpose: bool = False,  # Not used for drums, included for API consistency
-) -> str | None:
+) -> tuple[str, int] | None:
     """Convert MIDI note to keyboard key for drums.
 
     Args:
@@ -34,7 +34,10 @@ def midi_note_to_key(
         transpose: Not used for drums (drums don't transpose)
 
     Returns:
-        String key character for the drum key, or None if note is outside range
+        Tuple of (key_character, effective_midi_note), or None if note is outside range
     """
     # Drums are chromatic 60-67, no transposition
-    return KEYMAP_DRUMS.get(note)
+    key = KEYMAP_DRUMS.get(note)
+    if key is None:
+        return None
+    return (key, note)

@@ -26,7 +26,7 @@ KEYMAP_XYLOPHONE = {
 def midi_note_to_key(
     note: int,
     transpose: bool = False,  # Not used for xylophone, included for API consistency
-) -> str | None:
+) -> tuple[str, int] | None:
     """Convert MIDI note to keyboard key for xylophone.
 
     Args:
@@ -34,8 +34,11 @@ def midi_note_to_key(
         transpose: Not used for xylophone (xylophone doesn't transpose)
 
     Returns:
-        String key character for the xylophone key, or None if note is outside range
+        Tuple of (key_character, effective_midi_note), or None if note is outside range
         or is a sharp/flat note (only natural notes are mapped)
     """
     # Xylophone uses natural notes only (C major scale), no transposition
-    return KEYMAP_XYLOPHONE.get(note)
+    key = KEYMAP_XYLOPHONE.get(note)
+    if key is None:
+        return None
+    return (key, note)

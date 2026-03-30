@@ -54,7 +54,7 @@ def _transpose_to_range(midi_note: int) -> int:
 
 def midi_note_to_key_once_human(
     midi_note: int, *, transpose: bool = False
-) -> tuple[str, Key | None] | None:
+) -> tuple[str, int, Key | None] | None:
     """Convert MIDI note to Once Human key mapping.
 
     Args:
@@ -63,8 +63,8 @@ def midi_note_to_key_once_human(
                    If False (default), return None for out-of-range notes.
 
     Returns:
-        Tuple of (key_character, modifier) where modifier is Key.shift (octave 5),
-        Key.ctrl_l (octave 3), or None (octave 4).
+        Tuple of (key_character, effective_midi_note, modifier) where modifier is
+        Key.shift (octave 5), Key.ctrl_l (octave 3), or None (octave 4).
         Returns None if out of range and transpose=False.
     """
     if midi_note < MIN_NOTE or midi_note > MAX_NOTE:
@@ -78,4 +78,4 @@ def midi_note_to_key_once_human(
     key = NOTE_TO_KEY[semitone]
     modifier = OCTAVE_MODIFIER[octave]
 
-    return (key, modifier)
+    return (key, midi_note, modifier)

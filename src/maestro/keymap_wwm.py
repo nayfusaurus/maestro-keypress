@@ -108,7 +108,7 @@ def _transpose_to_range(midi_note: int) -> int:
     return midi_note
 
 
-def midi_note_to_key_wwm(midi_note: int, transpose: bool = False) -> tuple[str, Key | None] | None:
+def midi_note_to_key_wwm(midi_note: int, transpose: bool = False) -> tuple[str, int, Key | None] | None:
     """Convert MIDI note to WWM 36-key layout: key + Shift/Ctrl modifier.
 
     Args:
@@ -117,8 +117,8 @@ def midi_note_to_key_wwm(midi_note: int, transpose: bool = False) -> tuple[str, 
                    If False (default), return None for out-of-range notes.
 
     Returns:
-        Tuple of (key_character, modifier) where modifier is Key.shift,
-        Key.ctrl_l, or None. Returns None if out of range and transpose=False.
+        Tuple of (key_character, effective_midi_note, modifier) where modifier is
+        Key.shift, Key.ctrl_l, or None. Returns None if out of range and transpose=False.
     """
     if midi_note < MIDI_LOW_START or midi_note > MIDI_HIGH_END:
         if not transpose:
@@ -131,22 +131,22 @@ def midi_note_to_key_wwm(midi_note: int, transpose: bool = False) -> tuple[str, 
     if note_in_octave in SHIFT_ACCIDENTALS:
         natural_offset = SHIFT_ACCIDENTALS[note_in_octave]
         key = _get_octave_key(midi_note, natural_offset)
-        return (key, Key.shift)
+        return (key, midi_note, Key.shift)
 
     # Ctrl accidentals: Eb, Bb
     if note_in_octave in CTRL_ACCIDENTALS:
         natural_offset = CTRL_ACCIDENTALS[note_in_octave]
         key = _get_octave_key(midi_note, natural_offset)
-        return (key, Key.ctrl_l)
+        return (key, midi_note, Key.ctrl_l)
 
     # Natural note
     key = _get_octave_key(midi_note, note_in_octave)
-    return (key, None)
+    return (key, midi_note, None)
 
 
 def midi_note_to_key_wwm_21(
     midi_note: int, transpose: bool = False, sharp_handling: str = "skip"
-) -> tuple[str, None] | None:
+) -> tuple[str, int, None] | None:
     """Convert MIDI note to WWM 21-key layout: naturals only, no modifiers.
 
     Args:
@@ -157,7 +157,7 @@ def midi_note_to_key_wwm_21(
                         "snap" to map to nearest lower natural.
 
     Returns:
-        Tuple of (key_character, None) or None if note cannot be played.
+        Tuple of (key_character, effective_midi_note, None) or None if note cannot be played.
     """
     if midi_note < MIDI_LOW_START or midi_note > MIDI_HIGH_END:
         if not transpose:
@@ -170,10 +170,11 @@ def midi_note_to_key_wwm_21(
     if note_in_octave in SHARP_TO_NATURAL:
         if sharp_handling == "snap":
             natural_offset = SHARP_TO_NATURAL[note_in_octave]
+            midi_note = midi_note - note_in_octave + natural_offset
             key = _get_octave_key(midi_note, natural_offset)
-            return (key, None)
+            return (key, midi_note, None)
         return None  # skip
 
     # Natural note
     key = _get_octave_key(midi_note, note_in_octave)
-    return (key, None)
+    return (key, midi_note, None)

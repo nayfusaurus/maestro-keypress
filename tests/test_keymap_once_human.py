@@ -23,7 +23,7 @@ class TestNoteMapping:
     )
     def test_base_octave_naturals(self, note, expected_key):
         """Base octave (MIDI 60-71) should use no modifier."""
-        assert midi_note_to_key_once_human(note) == (expected_key, None)
+        assert midi_note_to_key_once_human(note) == (expected_key, note, None)
 
     @pytest.mark.parametrize(
         "note,expected_key",
@@ -37,7 +37,7 @@ class TestNoteMapping:
     )
     def test_base_octave_accidentals(self, note, expected_key):
         """Accidentals in base octave should use number keys, no modifier."""
-        assert midi_note_to_key_once_human(note) == (expected_key, None)
+        assert midi_note_to_key_once_human(note) == (expected_key, note, None)
 
     @pytest.mark.parametrize(
         "note,expected_key",
@@ -53,7 +53,7 @@ class TestNoteMapping:
     )
     def test_high_octave_naturals(self, note, expected_key):
         """High octave (MIDI 72-83) should use Shift modifier."""
-        assert midi_note_to_key_once_human(note) == (expected_key, Key.shift)
+        assert midi_note_to_key_once_human(note) == (expected_key, note, Key.shift)
 
     @pytest.mark.parametrize(
         "note,expected_key",
@@ -67,7 +67,7 @@ class TestNoteMapping:
     )
     def test_high_octave_accidentals(self, note, expected_key):
         """Accidentals in high octave should use Shift + number key."""
-        assert midi_note_to_key_once_human(note) == (expected_key, Key.shift)
+        assert midi_note_to_key_once_human(note) == (expected_key, note, Key.shift)
 
     @pytest.mark.parametrize(
         "note,expected_key",
@@ -83,7 +83,7 @@ class TestNoteMapping:
     )
     def test_low_octave_naturals(self, note, expected_key):
         """Low octave (MIDI 48-59) should use Ctrl modifier."""
-        assert midi_note_to_key_once_human(note) == (expected_key, Key.ctrl_l)
+        assert midi_note_to_key_once_human(note) == (expected_key, note, Key.ctrl_l)
 
     @pytest.mark.parametrize(
         "note,expected_key",
@@ -97,7 +97,7 @@ class TestNoteMapping:
     )
     def test_low_octave_accidentals(self, note, expected_key):
         """Accidentals in low octave should use Ctrl + number key."""
-        assert midi_note_to_key_once_human(note) == (expected_key, Key.ctrl_l)
+        assert midi_note_to_key_once_human(note) == (expected_key, note, Key.ctrl_l)
 
 
 class TestOutOfRange:
@@ -121,24 +121,24 @@ class TestTranspose:
 
     def test_transpose_below_into_range(self):
         """MIDI 36 (C2) should transpose up to C3."""
-        assert midi_note_to_key_once_human(36, transpose=True) == ("q", Key.ctrl_l)
+        assert midi_note_to_key_once_human(36, transpose=True) == ("q", 48, Key.ctrl_l)
 
     def test_transpose_above_into_range(self):
         """MIDI 84 (C6) should transpose down to C5."""
-        assert midi_note_to_key_once_human(84, transpose=True) == ("q", Key.shift)
+        assert midi_note_to_key_once_human(84, transpose=True) == ("q", 72, Key.shift)
 
     def test_transpose_does_not_affect_in_range(self):
         """In-range notes should not change when transpose=True."""
-        assert midi_note_to_key_once_human(60, transpose=True) == ("q", None)
+        assert midi_note_to_key_once_human(60, transpose=True) == ("q", 60, None)
 
     def test_transpose_preserves_accidental(self):
         """MIDI 37 (C#2) should transpose to C#3 with Ctrl."""
-        assert midi_note_to_key_once_human(37, transpose=True) == ("2", Key.ctrl_l)
+        assert midi_note_to_key_once_human(37, transpose=True) == ("2", 49, Key.ctrl_l)
 
     def test_transpose_very_low(self):
         """MIDI 12 (C0) should transpose up into range."""
-        assert midi_note_to_key_once_human(12, transpose=True) == ("q", Key.ctrl_l)
+        assert midi_note_to_key_once_human(12, transpose=True) == ("q", 48, Key.ctrl_l)
 
     def test_transpose_very_high(self):
         """MIDI 96 (C7) should transpose down into range."""
-        assert midi_note_to_key_once_human(96, transpose=True) == ("q", Key.shift)
+        assert midi_note_to_key_once_human(96, transpose=True) == ("q", 72, Key.shift)

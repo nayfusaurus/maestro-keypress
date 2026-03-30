@@ -257,11 +257,11 @@ class Player:
         song_path = str(self.current_song) if self.current_song else "none"
         return f"{song_path}|{self._game_mode.name}|{self._key_layout.name}|{self._wwm_layout.name}|{self._transpose}|{self._sharp_handling}"
 
-    def _resolve_key(self, midi_note: int) -> tuple[str, Key | None] | None:
+    def _resolve_key(self, midi_note: int) -> tuple[str, int, Key | None] | None:
         """Resolve a MIDI note to a key press based on current game mode and layout.
 
         Returns:
-            Tuple of (key, modifier) or None if note can't be played
+            Tuple of (key, effective_midi_note, modifier) or None if note can't be played
         """
         if self._game_mode == GameMode.WHERE_WINDS_MEET:
             if self._wwm_layout == WwmLayout.KEYS_21:
@@ -275,24 +275,25 @@ class Player:
 
         # Heartopia mode - dispatch based on key layout
         if self._key_layout == KeyLayout.KEYS_15_DOUBLE:
-            key = midi_note_to_key_15_double(
+            result = midi_note_to_key_15_double(
                 midi_note, transpose=self._transpose, sharp_handling=self._sharp_handling
             )
         elif self._key_layout == KeyLayout.KEYS_15_TRIPLE:
-            key = midi_note_to_key_15_triple(
+            result = midi_note_to_key_15_triple(
                 midi_note, transpose=self._transpose, sharp_handling=self._sharp_handling
             )
         elif self._key_layout == KeyLayout.DRUMS:
-            key = midi_note_to_key_drums(midi_note, transpose=False)  # Drums never transpose
+            result = midi_note_to_key_drums(midi_note, transpose=False)  # Drums never transpose
         elif self._key_layout == KeyLayout.XYLOPHONE:
-            key = midi_note_to_key_xylophone(
+            result = midi_note_to_key_xylophone(
                 midi_note, transpose=False
             )  # Xylophone never transposes
         else:  # KEYS_22
-            key = midi_note_to_key(midi_note, transpose=self._transpose)
+            result = midi_note_to_key(midi_note, transpose=self._transpose)
 
-        if key is not None:
-            return (key, None)
+        if result is not None:
+            key_char, effective_note = result
+            return (key_char, effective_note, None)
         return None
 
     def _build_events(self) -> list[KeyEvent]:
@@ -316,7 +317,7 @@ class Player:
             result = self._resolve_key(note.midi_note)
             if result is None:
                 continue
-            key, modifier = result
+            key, _effective_note, modifier = result
 
             events.append(
                 KeyEvent(

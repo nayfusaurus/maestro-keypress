@@ -153,7 +153,7 @@ class TestWwmLayout:
         """36-key WWM layout resolves C4 to 'a' (no modifier)."""
         player.game_mode = GameMode.WHERE_WINDS_MEET
         player.wwm_layout = WwmLayout.KEYS_36
-        assert player._resolve_key(60) == ("a", None)
+        assert player._resolve_key(60) == ("a", 60, None)
 
     def test_resolve_key_wwm_36_shift(self, player):
         """36-key WWM layout resolves C#4 to Shift+A."""
@@ -161,7 +161,7 @@ class TestWwmLayout:
 
         player.game_mode = GameMode.WHERE_WINDS_MEET
         player.wwm_layout = WwmLayout.KEYS_36
-        assert player._resolve_key(61) == ("a", Key.shift)
+        assert player._resolve_key(61) == ("a", 61, Key.shift)
 
     def test_resolve_key_wwm_36_ctrl(self, player):
         """36-key WWM layout resolves Eb4 to Ctrl+D."""
@@ -169,13 +169,13 @@ class TestWwmLayout:
 
         player.game_mode = GameMode.WHERE_WINDS_MEET
         player.wwm_layout = WwmLayout.KEYS_36
-        assert player._resolve_key(63) == ("d", Key.ctrl_l)
+        assert player._resolve_key(63) == ("d", 63, Key.ctrl_l)
 
     def test_resolve_key_wwm_21_natural(self, player):
         """21-key WWM layout resolves C4 to 'a' (no modifier)."""
         player.game_mode = GameMode.WHERE_WINDS_MEET
         player.wwm_layout = WwmLayout.KEYS_21
-        assert player._resolve_key(60) == ("a", None)
+        assert player._resolve_key(60) == ("a", 60, None)
 
     def test_resolve_key_wwm_21_skip_sharp(self, player):
         """21-key WWM layout skips sharp notes by default."""
@@ -189,7 +189,7 @@ class TestWwmLayout:
         player.game_mode = GameMode.WHERE_WINDS_MEET
         player.wwm_layout = WwmLayout.KEYS_21
         player.sharp_handling = "snap"
-        assert player._resolve_key(61) == ("a", None)  # C#4 → C4
+        assert player._resolve_key(61) == ("a", 60, None)  # C#4 → C4
 
     def test_cache_invalidated_on_wwm_layout_change(self, player):
         """Changing WWM layout should invalidate cache."""
@@ -209,26 +209,26 @@ class TestOnceHuman:
     def test_resolve_key_once_human_base_octave(self, player):
         """Base octave C4 should map to 'q' with no modifier."""
         player.game_mode = GameMode.ONCE_HUMAN
-        assert player._resolve_key(60) == ("q", None)
+        assert player._resolve_key(60) == ("q", 60, None)
 
     def test_resolve_key_once_human_high_octave(self, player):
         """High octave C5 should map to 'q' with Shift."""
         from pynput.keyboard import Key
 
         player.game_mode = GameMode.ONCE_HUMAN
-        assert player._resolve_key(72) == ("q", Key.shift)
+        assert player._resolve_key(72) == ("q", 72, Key.shift)
 
     def test_resolve_key_once_human_low_octave(self, player):
         """Low octave C3 should map to 'q' with Ctrl."""
         from pynput.keyboard import Key
 
         player.game_mode = GameMode.ONCE_HUMAN
-        assert player._resolve_key(48) == ("q", Key.ctrl_l)
+        assert player._resolve_key(48) == ("q", 48, Key.ctrl_l)
 
     def test_resolve_key_once_human_accidental(self, player):
         """Accidental C#4 should map to '2' with no modifier."""
         player.game_mode = GameMode.ONCE_HUMAN
-        assert player._resolve_key(61) == ("2", None)
+        assert player._resolve_key(61) == ("2", 61, None)
 
     def test_resolve_key_once_human_out_of_range(self, player):
         """Out-of-range notes return None when transpose is off."""
@@ -244,32 +244,32 @@ class TestResolveKey:
         """22-key layout resolves Middle C to 'z'."""
         player.key_layout = KeyLayout.KEYS_22
         result = player._resolve_key(60)
-        assert result == ("z", None)
+        assert result == ("z", 60, None)
 
     def test_resolve_key_heartopia_15_double(self, player):
         """15-key double layout resolves Middle C to 'a'."""
         player.key_layout = KeyLayout.KEYS_15_DOUBLE
         result = player._resolve_key(60)
-        assert result == ("a", None)
+        assert result == ("a", 60, None)
 
     def test_resolve_key_heartopia_15_triple(self, player):
         """15-key triple layout resolves Middle C to 'y'."""
         player.key_layout = KeyLayout.KEYS_15_TRIPLE
         result = player._resolve_key(60)
-        assert result == ("y", None)
+        assert result == ("y", 60, None)
 
     def test_resolve_key_drums(self, player):
         """Drums layout resolves notes 60-67 to y,u,i,o,h,j,k,l."""
         player.key_layout = KeyLayout.DRUMS
         # C4 (60) = 'y'
         result = player._resolve_key(60)
-        assert result == ("y", None)
+        assert result == ("y", 60, None)
         # C#4 (61) = 'u'
         result = player._resolve_key(61)
-        assert result == ("u", None)
+        assert result == ("u", 61, None)
         # G4 (67) = 'l'
         result = player._resolve_key(67)
-        assert result == ("l", None)
+        assert result == ("l", 67, None)
 
     def test_resolve_key_drums_out_of_range(self, player):
         """Drums layout returns None for notes outside 60-67 range."""
@@ -286,13 +286,13 @@ class TestResolveKey:
         player.key_layout = KeyLayout.XYLOPHONE
         # C4 (60) = 'a'
         result = player._resolve_key(60)
-        assert result == ("a", None)
+        assert result == ("a", 60, None)
         # D4 (62) = 's'
         result = player._resolve_key(62)
-        assert result == ("s", None)
+        assert result == ("s", 62, None)
         # C5 (72) = 'k'
         result = player._resolve_key(72)
-        assert result == ("k", None)
+        assert result == ("k", 72, None)
 
     def test_resolve_key_xylophone_out_of_range(self, player):
         """Xylophone layout returns None for sharp notes and out-of-range notes."""
