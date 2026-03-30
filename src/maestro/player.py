@@ -4,6 +4,7 @@ Handles playing MIDI notes via keyboard simulation.
 """
 
 import atexit
+import json
 import sys
 import threading
 import time
@@ -53,6 +54,7 @@ class KeyEvent:
     action: str  # "down" or "up"
     key: str  # Key to press/release
     modifier: Key | None = None
+    midi_note: int = 0  # Effective MIDI note after transpose/snap
 
 
 class Player:
@@ -317,7 +319,7 @@ class Player:
             result = self._resolve_key(note.midi_note)
             if result is None:
                 continue
-            key, _effective_note, modifier = result
+            key, effective_note, modifier = result
 
             events.append(
                 KeyEvent(
@@ -325,6 +327,7 @@ class Player:
                     action="down",
                     key=key,
                     modifier=modifier,
+                    midi_note=effective_note,
                 )
             )
             events.append(
@@ -333,6 +336,7 @@ class Player:
                     action="up",
                     key=key,
                     modifier=modifier,
+                    midi_note=effective_note,
                 )
             )
 
@@ -435,6 +439,55 @@ class Player:
             except Exception:  # nosec B110
                 pass
 
+    def _export_played_notes(self) -> None:
+        """Export played notes to a .played.json file next to the MIDI."""
+        if not self.current_song:
+            return
+
+        json_path = self.current_song.with_suffix('.played.json')
+
+        # Pair down/up events by (key, midi_note) into note spans
+        pending: dict[tuple[str, int], float] = {}
+        notes = []
+        stop_time = (time.time() - self._start_time) * self._speed if self._start_time else 0.0
+
+        for evt in self._events:
+            pair_key = (evt.key, evt.midi_note)
+            if evt.action == "down":
+                pending[pair_key] = evt.time / self._speed
+            elif evt.action == "up" and pair_key in pending:
+                start = pending.pop(pair_key)
+                notes.append({
+                    'midi_note': evt.midi_note,
+                    'start_sec': round(start, 6),
+                    'end_sec': round(evt.time / self._speed, 6),
+                })
+
+        # Close any still-pending notes (interrupted playback)
+        wall_stop = stop_time / self._speed if self._speed else stop_time
+        for (key, midi_note), start in pending.items():
+            notes.append({
+                'midi_note': midi_note,
+                'start_sec': round(start, 6),
+                'end_sec': round(wall_stop, 6),
+            })
+
+        notes.sort(key=lambda n: n['start_sec'])
+
+        data = {
+            'source_midi': self.current_song.name,
+            'speed': self._speed,
+            'transpose': self._transpose,
+            'sharp_handling': self._sharp_handling,
+            'layout': self._key_layout.name,
+            'events': notes,
+        }
+
+        try:
+            json_path.write_text(json.dumps(data, indent=2))
+        except Exception as e:
+            self._logger.error(f"Failed to export played notes: {e}")
+
     def _is_game_window_active(self) -> bool:
         """Check if the game window is currently in focus.
 
@@ -470,51 +523,50 @@ class Player:
         self._events = self._build_events()
         event_index = 0
 
-        while event_index < len(self._events):
-            if self._stop_event.is_set():
-                break
-
-            # Check window focus - pause if game not in foreground
-            if not self._is_game_window_active():
-                pause_start = time.time()
-                while not self._is_game_window_active() and not self._stop_event.is_set():
-                    time.sleep(0.1)  # Check every 100ms
+        try:
+            while event_index < len(self._events):
                 if self._stop_event.is_set():
                     break
-                # Adjust start time to account for pause duration
-                self._start_time += time.time() - pause_start
 
-            event = self._events[event_index]
-            # Scale elapsed time by speed to get song position
-            current_time = (time.time() - self._start_time) * self._speed
+                # Check window focus - pause if game not in foreground
+                if not self._is_game_window_active():
+                    pause_start = time.time()
+                    while not self._is_game_window_active() and not self._stop_event.is_set():
+                        time.sleep(0.1)  # Check every 100ms
+                    if self._stop_event.is_set():
+                        break
+                    # Adjust start time to account for pause duration
+                    self._start_time += time.time() - pause_start
 
-            # Wait until it's time for this event
-            if event.time > current_time:
-                sleep_time = (event.time - current_time) / self._speed
-                while sleep_time > 0 and not self._stop_event.is_set():
-                    time.sleep(min(0.005, sleep_time))
-                    current_time = (time.time() - self._start_time) * self._speed
+                event = self._events[event_index]
+                # Scale elapsed time by speed to get song position
+                current_time = (time.time() - self._start_time) * self._speed
+
+                # Wait until it's time for this event
+                if event.time > current_time:
                     sleep_time = (event.time - current_time) / self._speed
+                    while sleep_time > 0 and not self._stop_event.is_set():
+                        time.sleep(min(0.005, sleep_time))
+                        current_time = (time.time() - self._start_time) * self._speed
+                        sleep_time = (event.time - current_time) / self._speed
 
-                if self._stop_event.is_set():
-                    break
+                    if self._stop_event.is_set():
+                        break
 
-            # Process this event and all events at the same timestamp
-            current_event_time = event.time
-            while (
-                event_index < len(self._events)
-                and self._events[event_index].time <= current_event_time + 0.001
-            ):
-                evt = self._events[event_index]
-                if evt.action == "down":
-                    self._key_down(evt.key, evt.modifier)
-                else:
-                    self._key_up(evt.key, evt.modifier)
-                event_index += 1
-
-        # Clean up: release all held keys
-        self._release_all_keys()
-
-        # Playback finished
-        if not self._stop_event.is_set():
-            self.state = PlaybackState.STOPPED
+                # Process this event and all events at the same timestamp
+                current_event_time = event.time
+                while (
+                    event_index < len(self._events)
+                    and self._events[event_index].time <= current_event_time + 0.001
+                ):
+                    evt = self._events[event_index]
+                    if evt.action == "down":
+                        self._key_down(evt.key, evt.modifier)
+                    else:
+                        self._key_up(evt.key, evt.modifier)
+                    event_index += 1
+        finally:
+            self._release_all_keys()
+            self._export_played_notes()
+            if not self._stop_event.is_set():
+                self.state = PlaybackState.STOPPED

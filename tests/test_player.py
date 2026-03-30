@@ -1,3 +1,4 @@
+import json
 import time
 from unittest.mock import patch
 
@@ -568,3 +569,54 @@ class TestEventCaching:
         player._invalidate_cache()
         assert player._cached_events is None
         assert player._cached_cache_key is None
+
+
+def test_export_played_notes_writes_json(sample_midi, mock_keyboard):
+    """After playback, a .played.json file should exist next to the MIDI."""
+    player = Player()
+    player.load(sample_midi)
+    player.play()
+    time.sleep(0.5)
+    player.stop()
+    if player._playback_thread:
+        player._playback_thread.join(timeout=2.0)
+
+    json_path = sample_midi.with_suffix('.played.json')
+    assert json_path.exists(), f"Expected {json_path} to be created"
+
+    data = json.loads(json_path.read_text())
+    assert data['source_midi'] == sample_midi.name
+    assert isinstance(data['events'], list)
+    if data['events']:
+        evt = data['events'][0]
+        assert 'midi_note' in evt
+        assert 'start_sec' in evt
+        assert 'end_sec' in evt
+
+
+def test_export_played_notes_effective_midi_note(tmp_path, mock_keyboard):
+    """Transposed notes should store the effective MIDI note, not the original."""
+    import mido
+
+    mid = mido.MidiFile()
+    track = mido.MidiTrack()
+    mid.tracks.append(track)
+    track.append(mido.Message("note_on", note=24, velocity=64, time=0))
+    track.append(mido.Message("note_off", note=24, velocity=64, time=480))
+    midi_path = tmp_path / "transpose_test.mid"
+    mid.save(midi_path)
+
+    player = Player()
+    player.transpose = True
+    player.load(midi_path)
+    player.play()
+    time.sleep(0.5)
+    player.stop()
+    if player._playback_thread:
+        player._playback_thread.join(timeout=2.0)
+
+    json_path = midi_path.with_suffix('.played.json')
+    assert json_path.exists()
+    data = json.loads(json_path.read_text())
+    assert len(data['events']) >= 1
+    assert data['events'][0]['midi_note'] == 48
