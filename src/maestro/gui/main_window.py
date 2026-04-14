@@ -208,7 +208,6 @@ class MainWindow(QMainWindow):
         # --- Backend → GUI state updates ---
         self.signals.state_updated.connect(self._on_state_updated)
         self.signals.position_updated.connect(self._on_position_updated)
-        self.signals.current_song_updated.connect(d._now_playing.update_song)
         self.signals.last_key_updated.connect(self._on_last_key_updated)
         self.signals.upcoming_notes_updated.connect(self._on_upcoming_notes_updated)
         self.signals.note_compatibility_result.connect(self._on_note_compatibility_result)
@@ -370,12 +369,28 @@ class MainWindow(QMainWindow):
         self._on_play_click()
 
     def _on_song_select(self, song) -> None:
-        """Handle song selection — request compatibility for valid songs."""
+        """Handle song selection — refresh favorite button, request compat,
+        and update the song info panel when stopped.
+
+        During countdown/playback (`_prev_state != "Stopped"`) the panel is
+        locked to the song that's loaded/playing; the clicked song only
+        updates the selected row for highlighting purposes.
+        """
         if song is None:
+            if self._prev_state == "Stopped":
+                self._dashboard._now_playing.update_metadata(None, "", None, (0, 0))
+            self._update_favorite_button()
             return
+
         status = self._validation_results.get(str(song), "pending")
         if status == "valid":
             self.signals.note_compatibility_requested.emit(song)
+
+        if self._prev_state == "Stopped":
+            info = self._song_info.get(str(song))
+            compat = self._song_compatibility.get(str(song), (0, 0))
+            self._dashboard._now_playing.update_metadata(song, status, info, compat)
+
         self._update_favorite_button()
 
     def _on_favorite_click(self) -> None:
