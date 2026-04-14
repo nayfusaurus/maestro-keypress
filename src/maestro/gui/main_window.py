@@ -280,11 +280,19 @@ class MainWindow(QMainWindow):
         self._dashboard._piano_roll.set_notes(notes, self._current_position, float(self._lookahead))
 
     def _on_note_compatibility_result(self, playable: int, total: int) -> None:
-        """Handle note compatibility result — update the song item."""
+        """Handle note compatibility result — update the song item + panel."""
         song = self._dashboard._song_list.get_selected_song()
-        if song:
-            self._song_compatibility[str(song)] = (playable, total)
-            self._dashboard._song_list.update_song_compatibility(str(song), playable, total)
+        if song is None:
+            return
+        path_str = str(song)
+        self._song_compatibility[path_str] = (playable, total)
+        self._dashboard._song_list.update_song_compatibility(path_str, playable, total)
+
+        if self._prev_state != "Stopped":
+            return
+        status = self._validation_results.get(path_str, "pending")
+        info = self._song_info.get(path_str)
+        self._dashboard._now_playing.update_metadata(song, status, info, (playable, total))
 
     def _on_error(self, message: str) -> None:
         """Display an error message on the dashboard."""
@@ -604,7 +612,17 @@ class MainWindow(QMainWindow):
         self._song_notes[path_str] = notes
         self._dashboard._song_list.on_song_validated(path_str, status, info, notes)
         if status == "valid" and total > 0:
+            self._song_compatibility[path_str] = (playable, total)
             self._dashboard._song_list.update_song_compatibility(path_str, playable, total)
+
+        # Refresh the info panel if the validated song is the one selected
+        # AND we are not mid-countdown / playback.
+        if self._prev_state != "Stopped":
+            return
+        selected = self._dashboard._song_list.get_selected_song()
+        if selected is not None and str(selected) == path_str:
+            compat = self._song_compatibility.get(path_str, (0, 0))
+            self._dashboard._now_playing.update_metadata(selected, status, info, compat)
 
     def _on_validation_finished(self) -> None:
         """Handle validation completion."""
