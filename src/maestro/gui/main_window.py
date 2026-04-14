@@ -75,6 +75,7 @@ class MainWindow(QMainWindow):
         self._validation_results: dict[str, str] = {}
         self._song_info: dict[str, dict] = {}
         self._song_notes: dict[str, list] = {}
+        self._song_compatibility: dict[str, tuple[int, int]] = {}
         self._validation_cache: dict[str, tuple[float, bool]] = {}
         self._last_error: str = ""
         self._prev_state: str = "Stopped"
@@ -283,6 +284,7 @@ class MainWindow(QMainWindow):
         """Handle note compatibility result — update the song item."""
         song = self._dashboard._song_list.get_selected_song()
         if song:
+            self._song_compatibility[str(song)] = (playable, total)
             self._dashboard._song_list.update_song_compatibility(str(song), playable, total)
 
     def _on_error(self, message: str) -> None:
@@ -427,6 +429,7 @@ class MainWindow(QMainWindow):
             self._validation_cache.clear()
             self._song_info.clear()
             self._song_notes.clear()
+            self._song_compatibility.clear()
             self._refresh_songs()
             self.signals.folder_changed.emit(self.songs_folder)
             # Update settings page
