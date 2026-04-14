@@ -4,6 +4,7 @@ Handles playing MIDI notes via keyboard simulation.
 """
 
 import atexit
+import gc
 import json
 import sys
 import threading
@@ -203,6 +204,14 @@ class Player:
         self._note_index = 0
         with self._held_keys_lock:
             self._held_keys.clear()
+
+        # Flush any pending garbage cycles, then disable the cyclic GC for the
+        # duration of playback. Reference counting still frees objects normally;
+        # this only suppresses periodic generational sweeps that could pause
+        # the playback thread for tens of ms and disturb screen recorders.
+        gc.collect()
+        gc.disable()
+
         self._start_time = time.time()
         self.state = PlaybackState.PLAYING
 
@@ -220,6 +229,9 @@ class Player:
 
         if self._playback_thread and self._playback_thread.is_alive():
             self._playback_thread.join(timeout=1.0)
+
+        # Re-enable cyclic GC after playback ends. Idempotent if already enabled.
+        gc.enable()
 
     def get_upcoming_notes(self, lookahead: float) -> list[Note]:
         """Return notes within lookahead seconds from current position.
@@ -523,13 +535,26 @@ class Player:
         self._events = self._build_events()
         event_index = 0
 
+        # Throttle focus checks: GetForegroundWindow is a kernel transition;
+        # calling it per-event on dense songs adds CPU pressure that can starve
+        # screen-recorder encoder threads. 250ms is fast enough that pause
+        # latency on focus loss stays imperceptible.
+        last_focus_check = 0.0
+        focused = True
+        FOCUS_CHECK_INTERVAL = 0.25
+
         try:
             while event_index < len(self._events):
                 if self._stop_event.is_set():
                     break
 
                 # Check window focus - pause if game not in foreground
-                if not self._is_game_window_active():
+                now = time.time()
+                if now - last_focus_check >= FOCUS_CHECK_INTERVAL:
+                    focused = self._is_game_window_active()
+                    last_focus_check = now
+
+                if not focused:
                     pause_start = time.time()
                     while not self._is_game_window_active() and not self._stop_event.is_set():
                         time.sleep(0.1)  # Check every 100ms
@@ -537,16 +562,24 @@ class Player:
                         break
                     # Adjust start time to account for pause duration
                     self._start_time += time.time() - pause_start
+                    focused = True
+                    last_focus_check = time.time()
 
                 event = self._events[event_index]
                 # Scale elapsed time by speed to get song position
                 current_time = (time.time() - self._start_time) * self._speed
 
-                # Wait until it's time for this event
+                # Wait until it's time for this event. Use Event.wait so Stop
+                # is instant without polling, and cap chunks at 20ms to reduce
+                # scheduler wake-ups (~50 Hz instead of ~200 Hz) — the lower
+                # wake rate is much friendlier to screen recorder encoder
+                # threads while still keeping note timing within ~20ms.
                 if event.time > current_time:
                     sleep_time = (event.time - current_time) / self._speed
-                    while sleep_time > 0 and not self._stop_event.is_set():
-                        time.sleep(min(0.005, sleep_time))
+                    while sleep_time > 0:
+                        chunk = min(0.020, sleep_time)
+                        if self._stop_event.wait(timeout=chunk):
+                            break
                         current_time = (time.time() - self._start_time) * self._speed
                         sleep_time = (event.time - current_time) / self._speed
 
@@ -568,5 +601,8 @@ class Player:
         finally:
             self._release_all_keys()
             self._export_played_notes()
+            # Re-enable cyclic GC if the song finished naturally (stop() handles
+            # the explicit-stop case). Idempotent if already enabled.
+            gc.enable()
             if not self._stop_event.is_set():
                 self.state = PlaybackState.STOPPED

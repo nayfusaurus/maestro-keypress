@@ -147,6 +147,17 @@ class Maestro:
         if self.window is None:
             return
 
+        # Skip GUI work when window is minimized or hidden — invisible repaints
+        # still cost CPU/compositor time and can cause periodic glitches in
+        # screen recorders (e.g. Xbox Game Bar) during playback.
+        if self.window.isMinimized() or not self.window.isVisible():
+            # Still need song-finished detection so the window can restore.
+            state_str = self._get_state_string()
+            if self._prev_push_state == "Playing" and state_str == "Stopped":
+                self.window.signals.song_finished.emit()
+            self._prev_push_state = state_str
+            return
+
         s = self.window.signals
 
         # State
