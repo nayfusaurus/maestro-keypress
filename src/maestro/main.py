@@ -74,6 +74,7 @@ class Maestro:
         self._countdown_timer: QTimer | None = None
         self._update_timer: QTimer | None = None
         self._prev_push_state: str = "Stopped"
+        self._exiting: bool = False
 
         # Apply saved settings
         game_mode_str = self._config.get("game_mode", "Heartopia")
@@ -315,6 +316,13 @@ class Maestro:
         """Handle play request from GUI."""
         from PySide6.QtCore import QTimer
 
+        # Ignore play requests that arrive while a countdown is already running
+        # or while the player is active. The player.state check also covers
+        # rapid double-click, and the countdown guard covers the "pre-play"
+        # window where player.state is still STOPPED.
+        if self._countdown > 0 or self.player.state != PlaybackState.STOPPED:
+            return
+
         song_path = Path(song_path) if not isinstance(song_path, Path) else song_path
         self.player.stop()
 
@@ -376,11 +384,15 @@ class Maestro:
         if self.window is None:
             return
         song = self.window._dashboard._song_list.get_selected_song()
-        if song and self.player.state == PlaybackState.STOPPED:
-            self._on_play(song)
-            if self.window._should_auto_minimize():
-                self.window.showMinimized()
-                self.window._auto_minimized = True
+        if song is None:
+            return
+        # _on_play internally guards against countdown / active playback,
+        # so the auto-minimize below only runs if a fresh countdown started.
+        countdown_before = self._countdown
+        self._on_play(song)
+        if self._countdown != countdown_before and self.window._should_auto_minimize():
+            self.window.showMinimized()
+            self.window._auto_minimized = True
 
     def stop(self) -> None:
         """Stop playback."""
@@ -398,11 +410,23 @@ class Maestro:
         """Exit the application."""
         from PySide6.QtWidgets import QApplication
 
+        # Idempotency guard: rapid Ctrl+C or SIGINT+SIGTERM overlap can
+        # otherwise re-enter mid-cleanup (joining listener / stopping workers).
+        if self._exiting:
+            return
+        self._exiting = True
+
         print("\nExiting...")
         self._save_config()
         self.stop()
+        if self.window is not None:
+            self.window.stop_workers()
         if self._listener:
+            # pynput Listener inherits from threading.Thread; stop() is
+            # non-blocking, so join to ensure no late on_press callback
+            # fires against torn-down Qt objects.
             self._listener.stop()
+            self._listener.join(timeout=1.0)
         QApplication.quit()
 
     def start(self) -> None:

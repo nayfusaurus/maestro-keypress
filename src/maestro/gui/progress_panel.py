@@ -130,7 +130,9 @@ class NowPlayingPanel(QWidget):
             self._status_label.setVisible(False)
             return
 
-        self._song_label.setText(song.stem)
+        # Insert zero-width spaces after underscores so Qt's word-wrap
+        # (which follows UAX #14 and doesn't break on '_') has break points.
+        self._song_label.setText(song.stem.replace("_", "_\u200b"))
 
         # Pending (or valid-but-no-info-yet) → show "Validating…"
         if status == "pending" or (status == "valid" and info is None):

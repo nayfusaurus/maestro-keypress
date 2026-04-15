@@ -186,3 +186,125 @@ def test_maestro_on_countdown_delay_change(mock_dependencies, tmp_path):
     mock_dependencies["save_config"].assert_called()
 
 
+def test_play_during_countdown_is_noop(mock_dependencies, tmp_path):
+    """Play hotkey during countdown must not reload song or restart timer."""
+    from unittest.mock import MagicMock
+
+    from maestro.player import PlaybackState
+
+    app = Maestro(songs_folder=tmp_path)
+    mock_dependencies["player"].state = PlaybackState.STOPPED
+
+    song_path = Path("test.mid")
+    mock_window = MagicMock()
+    mock_window._dashboard._song_list.get_selected_song.return_value = song_path
+    app.window = mock_window
+
+    # First play — starts countdown.
+    app.play()
+    assert app._countdown > 0
+    first_timer = app._countdown_timer
+    assert first_timer is not None
+    assert mock_dependencies["player"].load.call_count == 1
+
+    # Second play while countdown is still running — should be a no-op:
+    # same timer instance, same load count.
+    app.play()
+    assert mock_dependencies["player"].load.call_count == 1
+    assert app._countdown_timer is first_timer
+
+
+def test_stop_during_countdown_cancels_timer(mock_dependencies, tmp_path):
+    """Stop hotkey during countdown must cancel it and clear the timer."""
+    from unittest.mock import MagicMock
+
+    from maestro.player import PlaybackState
+
+    app = Maestro(songs_folder=tmp_path)
+    mock_dependencies["player"].state = PlaybackState.STOPPED
+
+    song_path = Path("test.mid")
+    mock_window = MagicMock()
+    mock_window._dashboard._song_list.get_selected_song.return_value = song_path
+    app.window = mock_window
+
+    app.play()
+    assert app._countdown > 0
+    assert app._countdown_timer is not None
+
+    app.stop()
+    assert app._countdown == 0
+    assert app._countdown_timer is None
+    mock_dependencies["player"].stop.assert_called()
+
+
+def test_on_play_blocks_during_countdown(mock_dependencies, tmp_path):
+    """GUI play-click path (_on_play) must also ignore requests mid-countdown."""
+    from maestro.player import PlaybackState
+
+    app = Maestro(songs_folder=tmp_path)
+    mock_dependencies["player"].state = PlaybackState.STOPPED
+
+    song_path = Path("test.mid")
+    # First call starts the countdown.
+    app._on_play(song_path)
+    assert app._countdown > 0
+    first_timer = app._countdown_timer
+    assert mock_dependencies["player"].load.call_count == 1
+
+    # Direct _on_play call (simulating the GUI button via play_requested signal)
+    # must be a no-op while countdown is active.
+    app._on_play(song_path)
+    assert mock_dependencies["player"].load.call_count == 1
+    assert app._countdown_timer is first_timer
+
+
+def test_on_play_blocks_during_active_playback(mock_dependencies, tmp_path):
+    """_on_play must ignore requests while the player is already playing."""
+    from maestro.player import PlaybackState
+
+    app = Maestro(songs_folder=tmp_path)
+    mock_dependencies["player"].state = PlaybackState.PLAYING
+
+    app._on_play(Path("test.mid"))
+    mock_dependencies["player"].load.assert_not_called()
+    assert app._countdown == 0
+
+
+def test_exit_stops_workers_and_joins_listener(mock_dependencies, tmp_path):
+    """_exit must stop window workers and join the pynput listener thread."""
+    from unittest.mock import MagicMock, patch
+
+    app = Maestro(songs_folder=tmp_path)
+    app.window = MagicMock()
+    listener = MagicMock()
+    app._listener = listener
+
+    with patch("PySide6.QtWidgets.QApplication.quit"):
+        app._exit()
+
+    app.window.stop_workers.assert_called_once()
+    listener.stop.assert_called_once()
+    listener.join.assert_called_once()
+
+
+def test_exit_is_idempotent(mock_dependencies, tmp_path):
+    """Repeated _exit calls (e.g. SIGINT then SIGTERM) must not re-run cleanup."""
+    from unittest.mock import MagicMock, patch
+
+    app = Maestro(songs_folder=tmp_path)
+    app.window = MagicMock()
+    listener = MagicMock()
+    app._listener = listener
+
+    with patch("PySide6.QtWidgets.QApplication.quit"):
+        app._exit()
+        app._exit()  # second call from a second signal
+        app._exit()  # third for good measure
+
+    # Each cleanup step called exactly once despite three _exit() calls.
+    app.window.stop_workers.assert_called_once()
+    listener.stop.assert_called_once()
+    listener.join.assert_called_once()
+
+

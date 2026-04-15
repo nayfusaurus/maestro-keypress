@@ -613,6 +613,12 @@ class MainWindow(QMainWindow):
         total: int,
     ) -> None:
         """Handle validation result for a single song."""
+        # Drop results from a stale worker (e.g. folder changed mid-scan):
+        # queued signals can still arrive after requestInterruption+wait.
+        current_paths = {str(s) for s in self._dashboard._song_list.get_songs()}
+        if path_str not in current_paths:
+            return
+
         self._validation_results[path_str] = status
         self._song_info[path_str] = info
         self._song_notes[path_str] = notes
@@ -744,6 +750,14 @@ class MainWindow(QMainWindow):
             event.accept()
         else:
             event.ignore()
+
+    def stop_workers(self) -> None:
+        """Interrupt and join background QThread workers before exit."""
+        for worker in (self._validation_worker, self._update_worker):
+            if worker is not None and worker.isRunning():
+                worker.requestInterruption()
+                worker.quit()
+                worker.wait(1000)
 
     # ── Properties ────────────────────────────────────────────────────
 

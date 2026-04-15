@@ -170,10 +170,17 @@ def load_config() -> dict[str, Any]:
 
 
 def save_config(settings: dict[str, Any]) -> None:
-    """Save settings to JSON file."""
-    config_dir = get_config_dir()
-    config_dir.mkdir(parents=True, exist_ok=True)
+    """Save settings to JSON file.
 
-    config_path = get_config_path()
-    with open(config_path, "w") as f:
-        json.dump(settings, f, indent=2)
+    Swallows OSError (locked file, read-only FS, disk full) and serialization
+    errors with a printed warning rather than crashing the app. load_config
+    follows the same pattern.
+    """
+    try:
+        config_dir = get_config_dir()
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_path = get_config_path()
+        with open(config_path, "w") as f:
+            json.dump(settings, f, indent=2)
+    except (OSError, TypeError, ValueError) as e:
+        print(f"Failed to save config: {e}")

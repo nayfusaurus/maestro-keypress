@@ -77,6 +77,7 @@ def _select_song(window, song: Path) -> None:
 
 
 def test_pending_then_valid_refreshes_panel(window, song_a):
+    window._dashboard._song_list._songs = [song_a]
     window._validation_results[str(song_a)] = "pending"
     _select_song(window, song_a)
     assert window._dashboard._now_playing._status_label.text() == "Validating\u2026"
@@ -104,6 +105,7 @@ def test_compat_result_refreshes_notes_row(window, song_a):
 
 
 def test_other_song_updates_do_not_affect_panel(window, song_a, song_b):
+    window._dashboard._song_list._songs = [song_a, song_b]
     info_a = {"duration": 10.0, "bpm": 100, "note_count": 10}
     window._validation_results[str(song_a)] = "valid"
     window._song_info[str(song_a)] = info_a
@@ -119,13 +121,30 @@ def test_other_song_updates_do_not_affect_panel(window, song_a, song_b):
     assert panel._bpm_value.text() == bpm_before
 
 
+def test_stale_validation_result_is_dropped(window, song_a, song_b):
+    """Validation result for a path not in the current song list is ignored.
+
+    Simulates a stale worker emitting after a folder change: song_b is NOT
+    in the current song list, so its validation result must not leak into
+    _validation_results / _song_info.
+    """
+    window._dashboard._song_list._songs = [song_a]  # only song_a is current
+    info_b = {"duration": 99.0, "bpm": 200, "note_count": 999}
+
+    window._on_song_validated(str(song_b), "valid", info_b, [], 999, 999)
+
+    assert str(song_b) not in window._validation_results
+    assert str(song_b) not in window._song_info
+    assert str(song_b) not in window._song_notes
+
+
 def test_panel_locked_during_playback(window, song_a, song_b):
     info_a = {"duration": 10.0, "bpm": 100, "note_count": 10}
     window._validation_results[str(song_a)] = "valid"
     window._song_info[str(song_a)] = info_a
     _select_song(window, song_a)
     panel = window._dashboard._now_playing
-    assert panel._song_label.text() == song_a.stem
+    assert panel._song_label.text().replace("\u200b", "") == song_a.stem
 
     # Playback starts — state leaves "Stopped".
     window._prev_state = "Playing"
@@ -137,5 +156,5 @@ def test_panel_locked_during_playback(window, song_a, song_b):
     _select_song(window, song_b)
 
     # Panel still shows song A, unchanged.
-    assert panel._song_label.text() == song_a.stem
+    assert panel._song_label.text().replace("\u200b", "") == song_a.stem
     assert panel._bpm_value.text() == "100"

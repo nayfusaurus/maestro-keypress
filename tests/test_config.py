@@ -130,6 +130,37 @@ class TestSaveConfig:
             save_config({"test": "value"})
             assert config_dir.exists()
 
+    def test_save_config_swallows_os_error(self, tmp_path, capsys):
+        """Unwritable config path must not raise — just warn."""
+        config_dir = tmp_path / "maestro"
+        config_path = config_dir / "config.json"
+
+        with (
+            patch("maestro.config.get_config_dir", return_value=config_dir),
+            patch("maestro.config.get_config_path", return_value=config_path),
+            patch("builtins.open", side_effect=OSError("disk full")),
+        ):
+            # Must not raise.
+            save_config({"test": "value"})
+
+        captured = capsys.readouterr()
+        assert "Failed to save config" in captured.out
+
+    def test_save_config_swallows_serialization_error(self, tmp_path, capsys):
+        """Non-JSON-serializable settings must not crash the app."""
+        config_dir = tmp_path / "maestro"
+        config_path = config_dir / "config.json"
+
+        with (
+            patch("maestro.config.get_config_dir", return_value=config_dir),
+            patch("maestro.config.get_config_path", return_value=config_path),
+        ):
+            # Path objects aren't JSON-serializable — would raise TypeError.
+            save_config({"bad": object()})
+
+        captured = capsys.readouterr()
+        assert "Failed to save config" in captured.out
+
 
 class TestSaveAndLoadRoundtrip:
     """Tests for save/load roundtrip."""

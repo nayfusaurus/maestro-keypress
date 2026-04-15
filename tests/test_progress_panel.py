@@ -30,7 +30,7 @@ def test_valid_song_populates_grid(qtbot, song_file):
     panel.show()  # required so isVisible() queries return True
     info = {"duration": 120.0, "bpm": 120, "note_count": 456}
     panel.update_metadata(song_file, "valid", info, (400, 456))
-    assert panel._song_label.text() == song_file.stem
+    assert panel._song_label.text().replace("\u200b", "") == song_file.stem
     assert panel._bpm_value.text() == "120"
     assert panel._notes_value.text() == "456 (400 playable \u00b7 88%)"
     assert panel._size_value.text() == "2.0 KB"
