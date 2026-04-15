@@ -44,3 +44,6 @@ uv.lock
 
 # Worktrees
 .worktrees/
+
+# Claude Code local state (settings, scheduled tasks, worktrees)
+.claude/
