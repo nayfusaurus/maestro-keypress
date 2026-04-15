@@ -54,12 +54,16 @@ def window(qtbot, tmp_path):
     MainWindow takes (songs_folder, config) and internally spins up
     ValidationWorker + UpdateCheckWorker threads; we stub those to keep
     tests fast and deterministic.
+
+    Also bypasses MainWindow.closeEvent (which shows a modal ExitDialog)
+    so pytest-qt teardown doesn't hang.
     """
     with (
         patch("maestro.gui.main_window.ValidationWorker"),
         patch("maestro.gui.main_window.UpdateCheckWorker"),
     ):
         w = MainWindow(songs_folder=tmp_path, config=_BASE_CONFIG)
+    w.closeEvent = lambda event: event.accept()  # type: ignore[method-assign]
     qtbot.addWidget(w)
     w._prev_state = "Stopped"
     return w
