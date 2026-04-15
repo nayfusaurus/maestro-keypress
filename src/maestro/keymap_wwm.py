@@ -108,7 +108,9 @@ def _transpose_to_range(midi_note: int) -> int:
     return midi_note
 
 
-def midi_note_to_key_wwm(midi_note: int, transpose: bool = False) -> tuple[str, int, Key | None] | None:
+def midi_note_to_key_wwm(
+    midi_note: int, transpose: bool = False
+) -> tuple[str, int, Key | None] | None:
     """Convert MIDI note to WWM 36-key layout: key + Shift/Ctrl modifier.
 
     Args:

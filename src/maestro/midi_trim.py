@@ -10,8 +10,10 @@ onto t=0, preserving their pre-trim final state for the post-trim song.
 Writes go through a temp file + ``os.replace`` so a crash mid-write
 leaves the original untouched.
 """
+
 from __future__ import annotations
 
+import contextlib
 import os
 from pathlib import Path
 
@@ -21,7 +23,7 @@ from maestro.logger import setup_logger
 from maestro.parser import get_tempo
 
 SILENCE_THRESHOLD = 0.5  # seconds; files with notes[0].time above this are offenders
-TARGET_LEAD = 0.1         # seconds; first note lands here after trim
+TARGET_LEAD = 0.1  # seconds; first note lands here after trim
 
 
 def _find_first_note_tick(mid: mido.MidiFile) -> int | None:
@@ -58,9 +60,7 @@ def trim_leading_silence(midi_path: Path) -> None:
         return  # no note_on → nothing to trim
 
     tempo = get_tempo(mid)  # µs per beat
-    target_lead_ticks = int(
-        mido.second2tick(TARGET_LEAD, mid.ticks_per_beat, tempo)
-    )
+    target_lead_ticks = int(mido.second2tick(TARGET_LEAD, mid.ticks_per_beat, tempo))
     offset_ticks = first_note_tick - target_lead_ticks
     if offset_ticks <= 0:
         return  # already near target; nothing to trim
@@ -72,10 +72,7 @@ def trim_leading_silence(midi_path: Path) -> None:
         cumulative = 0
         for msg in track:
             cumulative += msg.time
-            if cumulative >= offset_ticks:
-                new_abs = cumulative - offset_ticks
-            else:
-                new_abs = 0
+            new_abs = cumulative - offset_ticks if cumulative >= offset_ticks else 0
             abs_events.append((new_abs, msg))
 
         # Stable sort so clamped events keep their original order.
@@ -98,9 +95,7 @@ def trim_leading_silence(midi_path: Path) -> None:
         os.replace(tmp_path, midi_path)
     except Exception:
         # Clean up the temp on failure so we don't leave litter.
-        try:
+        with contextlib.suppress(OSError):
             tmp_path.unlink(missing_ok=True)
-        except OSError:
-            pass
         logger.exception(f"trim_leading_silence failed for {midi_path}")
         raise

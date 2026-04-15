@@ -467,7 +467,7 @@ class Player:
         if not self.current_song:
             return
 
-        json_path = self.current_song.with_suffix('.played.json')
+        json_path = self.current_song.with_suffix(".played.json")
 
         # Pair down/up events by (key, midi_note) into note spans
         pending: dict[tuple[str, int], float] = {}
@@ -480,30 +480,34 @@ class Player:
                 pending[pair_key] = evt.time / self._speed
             elif evt.action == "up" and pair_key in pending:
                 start = pending.pop(pair_key)
-                notes.append({
-                    'midi_note': evt.midi_note,
-                    'start_sec': round(start, 6),
-                    'end_sec': round(evt.time / self._speed, 6),
-                })
+                notes.append(
+                    {
+                        "midi_note": evt.midi_note,
+                        "start_sec": round(start, 6),
+                        "end_sec": round(evt.time / self._speed, 6),
+                    }
+                )
 
         # Close any still-pending notes (interrupted playback)
         wall_stop = stop_time / self._speed if self._speed else stop_time
-        for (key, midi_note), start in pending.items():
-            notes.append({
-                'midi_note': midi_note,
-                'start_sec': round(start, 6),
-                'end_sec': round(wall_stop, 6),
-            })
+        for (_key, midi_note), start in pending.items():
+            notes.append(
+                {
+                    "midi_note": midi_note,
+                    "start_sec": round(start, 6),
+                    "end_sec": round(wall_stop, 6),
+                }
+            )
 
-        notes.sort(key=lambda n: n['start_sec'])
+        notes.sort(key=lambda n: n["start_sec"])
 
         data = {
-            'source_midi': self.current_song.name,
-            'speed': self._speed,
-            'transpose': self._transpose,
-            'sharp_handling': self._sharp_handling,
-            'layout': self._key_layout.name,
-            'events': notes,
+            "source_midi": self.current_song.name,
+            "speed": self._speed,
+            "transpose": self._transpose,
+            "sharp_handling": self._sharp_handling,
+            "layout": self._key_layout.name,
+            "events": notes,
         }
 
         try:
@@ -552,7 +556,7 @@ class Player:
         # latency on focus loss stays imperceptible.
         last_focus_check = 0.0
         focused = True
-        FOCUS_CHECK_INTERVAL = 0.25
+        focus_check_interval = 0.25
 
         try:
             while event_index < len(self._events):
@@ -561,7 +565,7 @@ class Player:
 
                 # Check window focus - pause if game not in foreground
                 now = time.time()
-                if now - last_focus_check >= FOCUS_CHECK_INTERVAL:
+                if now - last_focus_check >= focus_check_interval:
                     focused = self._is_game_window_active()
                     last_focus_check = now
 

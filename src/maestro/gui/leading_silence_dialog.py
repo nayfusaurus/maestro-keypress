@@ -1,4 +1,5 @@
 """Modal dialog prompting the user to trim leading silence from flagged songs."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
@@ -29,9 +30,7 @@ class LeadingSilenceDialog(QDialog):
         self.setFixedSize(420, 180)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(
-            SPACING["lg"], SPACING["lg"], SPACING["lg"], SPACING["lg"]
-        )
+        layout.setContentsMargins(SPACING["lg"], SPACING["lg"], SPACING["lg"], SPACING["lg"])
         layout.setSpacing(SPACING["md"])
 
         noun = "song" if count == 1 else "songs"

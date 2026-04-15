@@ -173,5 +173,3 @@ class UpdateCheckWorker(QThread):
         """Check for updates and emit the result."""
         result = check_for_updates(self._current_version, self._repo, self._timeout)
         self.update_result.emit(result)
-
-

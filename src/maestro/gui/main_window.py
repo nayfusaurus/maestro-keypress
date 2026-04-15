@@ -16,7 +16,6 @@ from PySide6.QtWidgets import (
 from maestro.game_mode import GameMode
 from maestro.gui.constants import APP_VERSION, GITHUB_REPO
 from maestro.gui.exit_dialog import ExitDialog
-from maestro.gui.leading_silence_dialog import LeadingSilenceDialog
 from maestro.gui.icon_rail import (
     PAGE_DASHBOARD,
     PAGE_INFO,
@@ -24,6 +23,7 @@ from maestro.gui.icon_rail import (
     PAGE_SETTINGS,
     IconRail,
 )
+from maestro.gui.leading_silence_dialog import LeadingSilenceDialog
 from maestro.gui.pages.dashboard import DashboardPage
 from maestro.gui.pages.info_page import InfoPage
 from maestro.gui.pages.log_page import LogPage

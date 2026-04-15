@@ -147,7 +147,8 @@ class NowPlayingPanel(QWidget):
             self._meta_widget.setVisible(False)
             return
 
-        # status == "valid" with info present
+        # status == "valid" with info present (guarded above).
+        assert info is not None  # noqa: S101
         self._status_label.setVisible(False)
         self._meta_widget.setVisible(True)
 
@@ -157,18 +158,14 @@ class NowPlayingPanel(QWidget):
         self._bpm_value.setText(str(bpm))
         if total > 0:
             pct = round(playable / total * 100)
-            self._notes_value.setText(
-                f"{note_count} ({playable} playable \u00b7 {pct}%)"
-            )
+            self._notes_value.setText(f"{note_count} ({playable} playable \u00b7 {pct}%)")
         else:
             self._notes_value.setText(str(note_count))
 
         try:
             st = song.stat()
             self._size_value.setText(_format_size(st.st_size))
-            self._modified_value.setText(
-                datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d")
-            )
+            self._modified_value.setText(datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d"))
         except OSError as e:
             self._logger.warning(f"stat() failed for {song}: {e}")
             self._size_value.setText("\u2014")
