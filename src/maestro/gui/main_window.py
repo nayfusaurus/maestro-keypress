@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 from maestro.game_mode import GameMode
 from maestro.gui.constants import APP_VERSION, GITHUB_REPO
 from maestro.gui.exit_dialog import ExitDialog
+from maestro.gui.leading_silence_dialog import LeadingSilenceDialog
 from maestro.gui.icon_rail import (
     PAGE_DASHBOARD,
     PAGE_INFO,
@@ -31,6 +32,8 @@ from maestro.gui.signals import MaestroSignals
 from maestro.gui.theme import apply_theme
 from maestro.gui.workers import UpdateCheckWorker, ValidationWorker
 from maestro.key_layout import KeyLayout, WwmLayout
+from maestro.logger import setup_logger
+from maestro.midi_trim import SILENCE_THRESHOLD, trim_leading_silence
 
 _PAGE_TITLES = ["Dashboard", "Settings", "About", "Error Log"]
 
@@ -45,6 +48,7 @@ class MainWindow(QMainWindow):
     ) -> None:
         super().__init__()
 
+        self._logger = setup_logger()
         self.signals = MaestroSignals()
 
         self.songs_folder = songs_folder
@@ -78,6 +82,7 @@ class MainWindow(QMainWindow):
         self._song_compatibility: dict[str, tuple[int, int]] = {}
         self._validation_cache: dict[str, tuple[float, bool]] = {}
         self._last_error: str = ""
+        self._silence_dialog_skipped: bool = False
         self._prev_state: str = "Stopped"
         self._flash_count: int = 0
         self._original_title: str = "Maestro - Dashboard"
@@ -453,6 +458,7 @@ class MainWindow(QMainWindow):
             self._song_info.clear()
             self._song_notes.clear()
             self._song_compatibility.clear()
+            self._silence_dialog_skipped = False
             self._refresh_songs()
             self.signals.folder_changed.emit(self.songs_folder)
             # Update settings page
@@ -625,8 +631,51 @@ class MainWindow(QMainWindow):
             self._dashboard._now_playing.update_metadata(selected, status, info, compat)
 
     def _on_validation_finished(self) -> None:
-        """Handle validation completion."""
+        """Handle validation completion — apply filter, then prompt for
+        leading-silence trim if any songs are flagged."""
         self._apply_search_filter()
+        self._maybe_show_silence_dialog()
+
+    def _maybe_show_silence_dialog(self) -> None:
+        """Show the leading-silence dialog if there are offenders and the
+        user hasn't skipped this session."""
+        if self._silence_dialog_skipped:
+            return
+        offenders = self._find_silence_offenders()
+        if not offenders:
+            return
+        dialog = LeadingSilenceDialog(len(offenders), self)
+        if dialog.exec():
+            self._trim_all(offenders)
+        else:
+            self._silence_dialog_skipped = True
+
+    def _find_silence_offenders(self) -> list[Path]:
+        """Return paths whose first note starts later than the threshold."""
+        offenders: list[Path] = []
+        for path_str, notes in self._song_notes.items():
+            if notes and notes[0].time > SILENCE_THRESHOLD:
+                offenders.append(Path(path_str))
+        return offenders
+
+    def _trim_all(self, offenders: list[Path]) -> None:
+        """Trim leading silence from each offender, then refresh the list."""
+        trimmed, failed = 0, 0
+        for song in offenders:
+            try:
+                trim_leading_silence(song)
+                trimmed += 1
+            except (OSError, ValueError) as e:
+                self._logger.error(f"trim failed for {song}: {e}")
+                failed += 1
+            QApplication.processEvents()
+        self._silence_dialog_skipped = True
+        self._refresh_songs()
+
+        msg = f"Trimmed {trimmed} song{'s' if trimmed != 1 else ''}"
+        if failed:
+            msg += f" — {failed} failed (see error log)"
+        self._dashboard._status_label.setText(msg)
 
     # ── Update Checking ───────────────────────────────────────────────
 
