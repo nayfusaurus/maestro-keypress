@@ -265,11 +265,22 @@ class Player:
     def _get_cache_key(self) -> str:
         """Generate a cache key based on current state.
 
+        Includes the file mtime so that a MIDI file replaced on disk at the
+        same path (delete + re-save) produces a different key and forces a
+        rebuild — otherwise the user would hear the previous file's events.
+
         Returns:
             String uniquely identifying the current song + settings combination.
         """
-        song_path = str(self.current_song) if self.current_song else "none"
-        return f"{song_path}|{self._game_mode.name}|{self._key_layout.name}|{self._wwm_layout.name}|{self._transpose}|{self._sharp_handling}"
+        if self.current_song is None:
+            song_key = "none"
+        else:
+            try:
+                mtime = self.current_song.stat().st_mtime
+            except OSError:
+                mtime = 0.0
+            song_key = f"{self.current_song}@{mtime}"
+        return f"{song_key}|{self._game_mode.name}|{self._key_layout.name}|{self._wwm_layout.name}|{self._transpose}|{self._sharp_handling}"
 
     def _resolve_key(self, midi_note: int) -> tuple[str, int, Key | None] | None:
         """Resolve a MIDI note to a key press based on current game mode and layout.

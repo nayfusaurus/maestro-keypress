@@ -139,6 +139,7 @@ class Maestro:
         s.theme_changed.connect(self._on_theme_change)
         s.countdown_delay_changed.connect(self._on_countdown_delay_change)
         s.note_compatibility_requested.connect(self._on_note_compatibility_requested)
+        s.player_cache_invalidate_requested.connect(self.player._invalidate_cache)
 
         # Disclaimer acceptance from info page
         self.window._info.disclaimer_accepted.connect(self._on_disclaimer_accepted)

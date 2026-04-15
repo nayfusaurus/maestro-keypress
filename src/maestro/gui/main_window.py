@@ -559,7 +559,18 @@ class MainWindow(QMainWindow):
     # ── Song Management ───────────────────────────────────────────────
 
     def _refresh_songs(self) -> None:
-        """Refresh the song list from disk."""
+        """Refresh the song list from disk.
+
+        Clears validation/compatibility caches and the player's event cache
+        so that files replaced on disk (delete + re-save at the same path)
+        are fully re-parsed on the next play.
+        """
+        self._validation_cache.clear()
+        self._song_info.clear()
+        self._song_notes.clear()
+        self._song_compatibility.clear()
+        self.signals.player_cache_invalidate_requested.emit()
+
         self._dashboard._song_list.load_songs(self.songs_folder)
 
         for song in self._dashboard._song_list.get_songs():

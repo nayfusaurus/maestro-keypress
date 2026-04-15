@@ -28,6 +28,7 @@ class MaestroSignals(QObject):
     theme_changed = Signal(str)  # "dark" or "light"
     countdown_delay_changed = Signal(int)  # 0-10 seconds
     note_compatibility_requested = Signal(object)  # Path
+    player_cache_invalidate_requested = Signal()  # Refresh-button signal
 
     # --- Maestro -> GUI (state pushes) ---
     state_updated = Signal(str)  # Playback state string

@@ -570,6 +570,39 @@ class TestEventCaching:
         assert player._cached_events is None
         assert player._cached_cache_key is None
 
+    def test_cache_key_includes_mtime(self, player, tmp_path):
+        """File replaced at same path (different mtime) must bust the cache."""
+        import os
+        import time as _time
+
+        import mido
+
+        def _write_note(path, note):
+            mid = mido.MidiFile()
+            track = mido.MidiTrack()
+            mid.tracks.append(track)
+            track.append(mido.Message("note_on", note=note, velocity=64, time=0))
+            track.append(mido.Message("note_off", note=note, velocity=64, time=480))
+            mid.save(path)
+
+        midi_path = tmp_path / "song.mid"
+        _write_note(midi_path, 60)
+
+        player.load(midi_path)
+        events1 = player._build_events()
+        assert player._cached_events is events1
+
+        # Replace the file in-place with different content and a bumped mtime.
+        _write_note(midi_path, 62)
+        new_mtime = midi_path.stat().st_mtime + 5
+        os.utime(midi_path, (new_mtime, new_mtime))
+
+        player.load(midi_path)  # same path — old code path
+        events2 = player._build_events()
+
+        # Cache must have been busted — different events for different file.
+        assert events1 is not events2
+
 
 def test_export_played_notes_writes_json(sample_midi, mock_keyboard):
     """After playback, a .played.json file should exist next to the MIDI."""

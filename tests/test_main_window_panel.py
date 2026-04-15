@@ -121,6 +121,29 @@ def test_other_song_updates_do_not_affect_panel(window, song_a, song_b):
     assert panel._bpm_value.text() == bpm_before
 
 
+def test_refresh_songs_clears_caches_and_invalidates_player(window, song_a):
+    """Refresh must clear validation/info caches and ask the player to
+    invalidate its event cache — otherwise a file replaced in-place on disk
+    at the same path will still play from stale cached events."""
+    window._dashboard._song_list._songs = [song_a]
+    window._validation_cache[str(song_a)] = (123.0, True)
+    window._song_info[str(song_a)] = {"bpm": 100}
+    window._song_notes[str(song_a)] = [MagicMock()]
+    window._song_compatibility[str(song_a)] = (10, 10)
+
+    received = MagicMock()
+    window.signals.player_cache_invalidate_requested.connect(received)
+
+    with patch.object(window, "_start_validation"):
+        window._refresh_songs()
+
+    assert window._validation_cache == {}
+    assert window._song_info == {}
+    assert window._song_notes == {}
+    assert window._song_compatibility == {}
+    received.assert_called_once()
+
+
 def test_stale_validation_result_is_dropped(window, song_a, song_b):
     """Validation result for a path not in the current song list is ignored.
 
