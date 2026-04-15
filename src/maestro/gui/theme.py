@@ -215,6 +215,23 @@ QPushButton[class="ghost"]:hover {{
     background-color: {c["surface2"]};
 }}
 
+QPushButton[class="favorite"] {{
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: {c["subtext"]};
+    font-size: 18pt;
+}}
+
+QPushButton[class="favorite"][state="on"] {{
+    color: {c["yellow"]};
+}}
+
+QPushButton[class="favorite"]:hover {{
+    background-color: {c["surface2"]};
+    color: {c["yellow"]};
+}}
+
 /* ── Combo Box ──────────────────────────────────────────────────────── */
 
 QComboBox {{
