@@ -216,20 +216,24 @@ QPushButton[class="ghost"]:hover {{
 }}
 
 QPushButton[class="favorite"] {{
-    background: transparent;
-    border: none;
-    border-radius: 6px;
-    color: {c["subtext"]};
-    font-size: 18pt;
+    background-color: {c["surface2"]};
+    border: 1px solid {c["surface_hover"]};
+    border-radius: 8px;
+    color: {c["text"]};
+    font-size: 22pt;
+    padding: 0;
 }}
 
 QPushButton[class="favorite"][state="on"] {{
+    background-color: {c["surface1"]};
+    border: 2px solid {c["yellow"]};
     color: {c["yellow"]};
 }}
 
 QPushButton[class="favorite"]:hover {{
-    background-color: {c["surface2"]};
+    background-color: {c["surface_hover"]};
     color: {c["yellow"]};
+    border-color: {c["yellow"]};
 }}
 
 /* ── Combo Box ──────────────────────────────────────────────────────── */

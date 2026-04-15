@@ -31,14 +31,19 @@ class ControlsPanel(QWidget):
         self._stop_btn.clicked.connect(self.stop_clicked)
         layout.addWidget(self._stop_btn, stretch=1)
 
-        # Favorite — always shows the filled star; color communicates state:
-        # muted (subtext) when off, yellow when on. Larger font for visibility.
+        # Favorite — bordered button with filled star; color communicates
+        # state: text-color when off, accent yellow when on.
         self._fav_btn = QPushButton("\u2605")
         self._fav_btn.setProperty("class", "favorite")
         self._fav_btn.setProperty("state", "off")
-        self._fav_btn.setFixedSize(32, 32)
+        self._fav_btn.setFixedSize(40, 40)
         self._fav_btn.setToolTip("Toggle favorite")
         self._fav_btn.clicked.connect(self.favorite_clicked)
+        # Polish once so the [class=...][state=...] selectors apply on first
+        # render; without this the button can briefly inherit base QPushButton
+        # styling before the dynamic-property rules take effect.
+        self._fav_btn.style().unpolish(self._fav_btn)
+        self._fav_btn.style().polish(self._fav_btn)
         layout.addWidget(self._fav_btn)
 
     def set_favorite(self, is_favorite: bool) -> None:
