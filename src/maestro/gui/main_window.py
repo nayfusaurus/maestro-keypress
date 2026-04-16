@@ -535,8 +535,9 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if isinstance(app, QApplication):
             apply_theme(app, dark=dark)
-        # Force repaint of custom-painted widget (reads COLORS dict)
+        # Force repaint of custom-painted widgets (read COLORS dict)
         self._rail.update()
+        self._dashboard._controls.refresh_style()
         self.signals.theme_changed.emit(theme)
 
     def _on_hotkey_change(self, config_key: str, key_name: str) -> None:
