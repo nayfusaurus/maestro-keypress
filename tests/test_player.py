@@ -96,8 +96,11 @@ def test_get_upcoming_notes_empty_when_stopped():
 
 
 def test_duration_includes_last_note_duration(tmp_path, mock_keyboard):
-    """Duration should include the last note's duration, not just its start time."""
+    """Duration should include the last note's duration plus the trailing
+    silence tail (so the song doesn't cut out abruptly at the last note)."""
     import mido
+
+    from maestro.player import TAIL_SILENCE_SECONDS
 
     mid = mido.MidiFile()
     track = mido.MidiTrack()
@@ -112,10 +115,14 @@ def test_duration_includes_last_note_duration(tmp_path, mock_keyboard):
     player = Player()
     player.load(midi_path)
 
-    # Note starts at 0, lasts 0.5 seconds
-    # Duration should be ~0.5, not 0.0
-    assert player.duration >= 0.4  # Allow small float variance
-    assert player.duration <= 0.6
+    expected = 0.5 + TAIL_SILENCE_SECONDS
+    assert expected - 0.1 <= player.duration <= expected + 0.1
+
+
+def test_duration_is_zero_when_no_notes(mock_keyboard):
+    """Empty song reports 0 duration — tail is only added when there's music."""
+    player = Player()
+    assert player.duration == 0.0
 
 
 @pytest.fixture

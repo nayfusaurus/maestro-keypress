@@ -39,6 +39,10 @@ from maestro.parser import Note, parse_midi
 # Game modes that require DirectInput (pydirectinput) instead of pynput
 _DIRECTINPUT_MODES = frozenset({GameMode.WHERE_WINDS_MEET, GameMode.ONCE_HUMAN})
 
+# Fixed silence tail added after the last note so songs never end abruptly.
+# Matches the minimum and maximum — i.e. always exactly this much.
+TAIL_SILENCE_SECONDS = 2.0
+
 
 class PlaybackState(Enum):
     """Player state machine states."""
@@ -167,11 +171,12 @@ class Player:
 
     @property
     def duration(self) -> float:
-        """Total duration of current song in seconds."""
+        """Total duration of current song in seconds, including a fixed
+        trailing-silence tail so songs never end abruptly."""
         if not self._notes:
             return 0.0
         last_note = self._notes[-1]
-        return last_note.time + last_note.duration
+        return last_note.time + last_note.duration + TAIL_SILENCE_SECONDS
 
     @property
     def position(self) -> float:
@@ -615,7 +620,14 @@ class Player:
                     event_index += 1
         finally:
             self._release_all_keys()
+            # Export BEFORE the tail wait — stop() may wipe self._events
+            # and self._start_time, which would leave the export empty.
             self._export_played_notes()
+            # Natural end: hold for the trailing-silence tail so the song
+            # doesn't cut out immediately after the last note releases.
+            # Stop is honoured via _stop_event — skips the wait on manual stop.
+            if not self._stop_event.is_set():
+                self._stop_event.wait(timeout=TAIL_SILENCE_SECONDS / self._speed)
             # Re-enable cyclic GC if the song finished naturally (stop() handles
             # the explicit-stop case). Idempotent if already enabled.
             gc.enable()
