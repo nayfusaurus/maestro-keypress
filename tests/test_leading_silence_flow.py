@@ -106,3 +106,36 @@ def test_trim_all_wires_through_to_refresh_songs(window, tmp_path):
         window._trim_all([offender_path])
     mock_trim.assert_called_once_with(offender_path)
     mock_refresh.assert_called_once()
+
+
+def test_refresh_click_auto_trims_without_dialog(window, tmp_path):
+    """Refresh button triggers auto-trim — no dialog — then validation
+    completes and silently trims any flagged offenders."""
+    _seed_song_notes(window, tmp_path, {"offender.mid": 2.0})
+
+    with patch.object(window, "_refresh_songs") as mock_refresh:
+        window._on_refresh_click()
+    assert window._refresh_auto_trim is True
+    mock_refresh.assert_called_once()
+
+    # Validation finishes -> auto-trim path fires, no dialog shown.
+    with (
+        patch("maestro.gui.main_window.LeadingSilenceDialog") as dialog_cls,
+        patch.object(window, "_trim_all") as mock_trim_all,
+    ):
+        window._on_validation_finished()
+    dialog_cls.assert_not_called()
+    mock_trim_all.assert_called_once()
+    assert window._refresh_auto_trim is False  # flag cleared
+
+
+def test_initial_validation_still_prompts_dialog(window, tmp_path):
+    """Without the refresh flag, validation completion still uses the dialog
+    path (initial-load / folder-change behaviour unchanged)."""
+    _seed_song_notes(window, tmp_path, {"offender.mid": 2.0})
+    assert window._refresh_auto_trim is False
+
+    with patch("maestro.gui.main_window.LeadingSilenceDialog") as dialog_cls:
+        dialog_cls.return_value.exec.return_value = 0
+        window._on_validation_finished()
+    dialog_cls.assert_called_once()

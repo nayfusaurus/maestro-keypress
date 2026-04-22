@@ -89,6 +89,7 @@ class MainWindow(QMainWindow):
         self._auto_minimized: bool = False
         self._validation_worker: ValidationWorker | None = None
         self._update_worker: UpdateCheckWorker | None = None
+        self._refresh_auto_trim: bool = False
 
         self._setup_window(config)
         self._create_ui(config)
@@ -184,7 +185,7 @@ class MainWindow(QMainWindow):
         d._controls.play_clicked.connect(self._on_play_click)
         d._controls.stop_clicked.connect(self._on_stop_click)
         d._controls.favorite_clicked.connect(self._on_favorite_click)
-        d._refresh_btn.clicked.connect(self._refresh_songs)
+        d._refresh_btn.clicked.connect(self._on_refresh_click)
         d._song_list.song_selected.connect(self._on_song_select)
         d._song_list.song_double_clicked.connect(self._on_double_click)
         d._game_combo.currentTextChanged.connect(self._on_game_mode_change)
@@ -648,10 +649,23 @@ class MainWindow(QMainWindow):
             compat = self._song_compatibility.get(path_str, (0, 0))
             self._dashboard._now_playing.update_metadata(selected, status, info, compat)
 
+    def _on_refresh_click(self) -> None:
+        """Refresh button: rescan songs and auto-trim any leading silence
+        found (no dialog prompt, unlike the initial-load flow)."""
+        self._refresh_auto_trim = True
+        self._refresh_songs()
+
     def _on_validation_finished(self) -> None:
-        """Handle validation completion — apply filter, then prompt for
-        leading-silence trim if any songs are flagged."""
+        """Handle validation completion — apply filter, then either
+        auto-trim (refresh button path) or prompt (initial/folder-change path).
+        """
         self._apply_search_filter()
+        if self._refresh_auto_trim:
+            self._refresh_auto_trim = False
+            offenders = self._find_silence_offenders()
+            if offenders:
+                self._trim_all(offenders)
+            return
         self._maybe_show_silence_dialog()
 
     def _maybe_show_silence_dialog(self) -> None:
