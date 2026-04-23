@@ -108,9 +108,9 @@ def test_trim_all_wires_through_to_refresh_songs(window, tmp_path):
     mock_refresh.assert_called_once()
 
 
-def test_refresh_click_auto_trims_without_dialog(window, tmp_path):
-    """Refresh button triggers auto-trim — no dialog — then validation
-    completes and silently trims any flagged offenders."""
+def test_refresh_click_prompts_process_dialog(window, tmp_path):
+    """Refresh button triggers validation, then shows the process-silence
+    dialog. On accept, auto-process runs."""
     _seed_song_notes(window, tmp_path, {"offender.mid": 2.0})
 
     with patch.object(window, "_refresh_songs") as mock_refresh:
@@ -118,15 +118,62 @@ def test_refresh_click_auto_trims_without_dialog(window, tmp_path):
     assert window._refresh_auto_trim is True
     mock_refresh.assert_called_once()
 
-    # Validation finishes -> auto-trim path fires, no dialog shown.
+    # Validation finishes -> dialog shown with include_trailing=True.
     with (
         patch("maestro.gui.main_window.LeadingSilenceDialog") as dialog_cls,
-        patch.object(window, "_trim_all") as mock_trim_all,
+        patch.object(window, "_auto_process_all") as mock_auto,
     ):
+        dialog_cls.return_value.exec.return_value = 1  # Accept
         window._on_validation_finished()
-    dialog_cls.assert_not_called()
-    mock_trim_all.assert_called_once()
-    assert window._refresh_auto_trim is False  # flag cleared
+
+    dialog_cls.assert_called_once()
+    assert dialog_cls.call_args.kwargs.get("include_trailing") is True
+    mock_auto.assert_called_once()
+    assert window._refresh_auto_trim is False
+
+
+def test_refresh_click_skip_does_not_process(window, tmp_path):
+    """If user skips the process-silence dialog, no processing happens."""
+    _seed_song_notes(window, tmp_path, {"offender.mid": 2.0})
+    window._refresh_auto_trim = True
+
+    with (
+        patch("maestro.gui.main_window.LeadingSilenceDialog") as dialog_cls,
+        patch.object(window, "_auto_process_all") as mock_auto,
+    ):
+        dialog_cls.return_value.exec.return_value = 0  # Skip
+        window._on_validation_finished()
+
+    dialog_cls.assert_called_once()
+    mock_auto.assert_not_called()
+
+
+def test_auto_process_normalizes_and_trims(window, tmp_path):
+    """Auto-process runs leading trim for offenders and trailing normalize
+    for every song — then refreshes the list once if anything changed."""
+    _seed_song_notes(window, tmp_path, {
+        "offender.mid": 2.0,
+        "clean.mid": 0.1,
+    })
+    offender_path = tmp_path / "offender.mid"
+    clean_path = tmp_path / "clean.mid"
+    window._dashboard._song_list._songs = [offender_path, clean_path]
+
+    with (
+        patch("maestro.gui.main_window.trim_leading_silence") as mock_trim,
+        patch(
+            "maestro.gui.main_window.normalize_trailing_silence",
+            return_value=True,
+        ) as mock_norm,
+        patch.object(window, "_refresh_songs") as mock_refresh,
+    ):
+        window._auto_process_all()
+
+    # Leading trim runs only for the offender.
+    mock_trim.assert_called_once_with(offender_path)
+    # Trailing normalize runs for every song.
+    assert mock_norm.call_count == 2
+    mock_refresh.assert_called_once()
 
 
 def test_initial_validation_still_prompts_dialog(window, tmp_path):

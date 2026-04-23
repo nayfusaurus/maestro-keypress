@@ -23,22 +23,43 @@ class LeadingSilenceDialog(QDialog):
     ``QDialog.Rejected`` (0). Callers distinguish via ``exec()`` return.
     """
 
-    def __init__(self, count: int, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        count: int,
+        parent: QWidget | None = None,
+        *,
+        include_trailing: bool = False,
+    ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Trim leading silence?")
+        self.setWindowTitle("Process silence?")
         self.setModal(True)
-        self.setFixedSize(420, 180)
+        self.setFixedSize(460, 210 if include_trailing else 180)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(SPACING["lg"], SPACING["lg"], SPACING["lg"], SPACING["lg"])
         layout.setSpacing(SPACING["md"])
 
         noun = "song" if count == 1 else "songs"
-        message = (
-            f"{count} {noun} start with more than 0.5 seconds of silence. "
-            f"Trim them so they start promptly?\n\n"
-            f"The files will be modified in place."
-        )
+        if include_trailing:
+            if count > 0:
+                lead_line = (
+                    f"{count} {noun} start with more than 0.5 seconds of silence — "
+                    f"these will be trimmed.\n\n"
+                )
+            else:
+                lead_line = "No songs need leading-silence trimming.\n\n"
+            message = (
+                f"{lead_line}"
+                f"All songs will also be normalized to end with exactly "
+                f"2 seconds of silence (shorter tails are padded, longer tails trimmed).\n\n"
+                f"Files will be modified in place."
+            )
+        else:
+            message = (
+                f"{count} {noun} start with more than 0.5 seconds of silence. "
+                f"Trim them so they start promptly?\n\n"
+                f"The files will be modified in place."
+            )
         msg_label = QLabel(message)
         msg_label.setWordWrap(True)
         msg_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
@@ -53,7 +74,7 @@ class LeadingSilenceDialog(QDialog):
         self._skip_btn.clicked.connect(self.reject)
         button_row.addWidget(self._skip_btn)
 
-        self._trim_btn = QPushButton("Trim all")
+        self._trim_btn = QPushButton("Process all" if include_trailing else "Trim all")
         self._trim_btn.setProperty("class", "primary")
         self._trim_btn.setDefault(True)
         self._trim_btn.clicked.connect(self.accept)

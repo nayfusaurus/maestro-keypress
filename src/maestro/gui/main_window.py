@@ -33,7 +33,11 @@ from maestro.gui.theme import apply_theme
 from maestro.gui.workers import UpdateCheckWorker, ValidationWorker
 from maestro.key_layout import KeyLayout, WwmLayout
 from maestro.logger import setup_logger
-from maestro.midi_trim import SILENCE_THRESHOLD, trim_leading_silence
+from maestro.midi_trim import (
+    SILENCE_THRESHOLD,
+    normalize_trailing_silence,
+    trim_leading_silence,
+)
 
 _PAGE_TITLES = ["Dashboard", "Settings", "About", "Error Log"]
 
@@ -657,16 +661,59 @@ class MainWindow(QMainWindow):
 
     def _on_validation_finished(self) -> None:
         """Handle validation completion — apply filter, then either
-        auto-trim (refresh button path) or prompt (initial/folder-change path).
+        show the process-silence dialog (refresh button path) or the
+        trim-only dialog (initial/folder-change path).
         """
         self._apply_search_filter()
         if self._refresh_auto_trim:
             self._refresh_auto_trim = False
-            offenders = self._find_silence_offenders()
-            if offenders:
-                self._trim_all(offenders)
+            self._prompt_process_silence()
             return
         self._maybe_show_silence_dialog()
+
+    def _prompt_process_silence(self) -> None:
+        """Refresh path: confirm with the user, then run the full auto-process
+        (leading-trim offenders + trailing-normalize every song)."""
+        offenders = self._find_silence_offenders()
+        dialog = LeadingSilenceDialog(len(offenders), self, include_trailing=True)
+        if dialog.exec():
+            self._auto_process_all()
+
+    def _auto_process_all(self) -> None:
+        """Refresh auto-process: trim leading silence for offenders AND
+        normalize trailing silence for every valid song. Both operations
+        are no-ops when the file is already within target tolerance."""
+        leading_offenders = set(self._find_silence_offenders())
+        songs = list(self._dashboard._song_list.get_songs())
+        trimmed = normalized = failed = 0
+
+        for song in songs:
+            try:
+                if song in leading_offenders:
+                    trim_leading_silence(song)
+                    trimmed += 1
+                if normalize_trailing_silence(song):
+                    normalized += 1
+            except (OSError, ValueError) as e:
+                self._logger.error(f"auto-process failed for {song}: {e}")
+                failed += 1
+            QApplication.processEvents()
+
+        self._silence_dialog_skipped = True
+        if trimmed or normalized:
+            self._refresh_songs()
+
+        parts = []
+        if trimmed:
+            parts.append(f"Trimmed {trimmed} lead")
+        if normalized:
+            parts.append(f"Normalized {normalized} tail")
+        if not parts:
+            parts.append("All songs already normalized")
+        msg = " · ".join(parts)
+        if failed:
+            msg += f" — {failed} failed (see error log)"
+        self._dashboard._status_label.setText(msg)
 
     def _maybe_show_silence_dialog(self) -> None:
         """Show the leading-silence dialog if there are offenders and the
