@@ -580,7 +580,6 @@ class TestEventCaching:
     def test_cache_key_includes_mtime(self, player, tmp_path):
         """File replaced at same path (different mtime) must bust the cache."""
         import os
-        import time as _time
 
         import mido
 

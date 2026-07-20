@@ -14,7 +14,7 @@ def trim_silence(path: str, *, dry_run: bool = False) -> None:
 
     for i, track in enumerate(mid.tracks):
         cumulative = 0
-        for j, msg in enumerate(track):
+        for _j, msg in enumerate(track):
             cumulative += msg.time
             if msg.type == "note_on" and msg.velocity > 0:
                 break
@@ -26,7 +26,7 @@ def trim_silence(path: str, *, dry_run: bool = False) -> None:
 
         # Find total silence before first note and remove it
         silence = 0
-        for k, msg in enumerate(track):
+        for _k, msg in enumerate(track):
             if msg.type == "note_on" and msg.velocity > 0:
                 break
             silence += msg.time

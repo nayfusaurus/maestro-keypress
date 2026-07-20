@@ -8,7 +8,6 @@ import pytest
 
 from maestro.gui.main_window import MainWindow
 
-
 _BASE_CONFIG: dict = {
     "last_songs_folder": "",
     "game_mode": "Heartopia",
