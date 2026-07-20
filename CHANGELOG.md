@@ -4,15 +4,45 @@ All notable changes to Maestro will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.2.0/).
 
+## [2.0.3] - 2026-04-23
+
+### Added
+
+- **Leading silence auto-trim**: Refresh button detects and trims leading silence from MIDI files
+- **Trailing silence tail**: 2s silence appended to the end of playback
+- **Trailing silence normalization**: Refresh normalizes trailing silence (file-level) with confirmation dialog
+
+### Security
+
+- **Dependency updates**: Bumped idna, urllib3, msgpack, pygments, pillow to address Dependabot alerts
+
+## [2.0.2] - 2026-04-16
+
+### Added
+
+- **Leading silence trimming**: Detect and trim leading silence from MIDI files after validation scan, with confirmation dialog (`src/maestro/midi_trim.py`)
+- **CLI utility script**: `scripts/trim_midi_silence.py` for batch silence trimming
+- **Played notes export**: Export played notes as `.played.json` file after each playback session
+- **Song info panel**: Metadata grid showing duration/BPM/note count/compatibility, wired to selection changes and async validation refresh
+- **Favorite button**: Dedicated visible style with explicit font and inline styling
+
+### Changed
+
+- **Keymap refactoring**: All keymaps now return `(key, effective_note)` or `(key, effective_note, modifier)` tuples for richer playback info
+- **Player performance**: Reduced playback CPU jitter to avoid screen-recorder glitches
+- **Version pinning**: Bumped minimum Python to 3.12
+
+### Fixed
+
+- **App audit fixes**: Countdown timing, worker thread safety, word wrap, config edge cases
+- **Event cache busting**: Player event cache invalidated when MIDI file is replaced on disk
+- **Test stability**: Prevent test hang by overriding MainWindow.closeEvent in fixture
+- **CI quality**: Lint, typing, and security-audit findings resolved
+
 ## [2.0.1] - 2026-03-08
 
 ### Added
 
-- **Duplicate import detection**: YouTube imports now check for existing MIDI files with the same video ID and skip with a clear message
-- **Audio length guard**: Reject YouTube videos longer than 15 minutes before downloading to prevent OOM during transcription
-- **Temp file cleanup**: Intermediate WAV files and demucs `separated/` directories are automatically deleted after successful transcription
-- **Filename collision handling**: MIDI output files now include the YouTube video ID (`Title [video_id].mid`) to prevent overwrites
-- **Indeterminate progress**: Progress bar animates during MIDI transcription step instead of showing a stale percentage
 - **ty type checker**: Added to CI workflow alongside ruff and mypy
 
 ### Fixed
@@ -25,7 +55,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.2.0/).
 - **Hotkey rebind**: Restarting pynput listener on hotkey change so new bindings take effect immediately
 - **Play hotkey**: Now uses the GUI-selected song instead of `player.current_song`, matching Play button behavior
 - **Config deepcopy**: `load_config()` uses `copy.deepcopy` to avoid mutating nested default values
-- **Download validation**: `download_audio()` raises early with a clear error if no audio file is produced
 - **Manual stop state**: Setting `_prev_push_state` before `player.stop()` prevents false song-finished emission on manual stop
 
 ## [2.0.0] - 2026-03-02
@@ -34,29 +63,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.2.0/).
 
 - **Once Human game mode**: Single-octave keys (Q-U naturals, 2/3/5/6/7 accidentals) with Shift/Ctrl octave switching for 36 chromatic notes (C3-B5)
 - **WWM layout revamp**: 36-key layout uses Shift (C#/F#/G#) + Ctrl (Eb/Bb) modifiers; 21-key layout is naturals only with skip/snap sharp handling
-- **MIDI post-processing pipeline**: 5-stage cleanup for YouTube transcriptions — velocity filtering, grace note removal, tied note merging, chord simplification, and beat quantization
-- **YouTube import progress**: Real-time progress bar and status updates during download and transcription
 - **Configurable countdown delay**: Customize the pre-playback countdown (1-10 seconds)
-- **Import panel info tooltip**: Circled-i icon with guidance on best video types for transcription
 
 ### Changed
 
 - **Speed slider range**: Changed from 0.25x-1.5x to 0.5x-2.0x
-- **Import panel header**: Renamed to "YouTube to MIDI converter (Experimental)" with info tooltip
 - **Dashboard layout dropdown**: Repopulates dynamically on game mode change (Heartopia/WWM/Once Human)
 - **Once Human layout**: Hidden layout dropdown (single fixed layout, no sharp handling needed)
-- **Removed demucs/isolate UI**: Removed piano isolation toggle from dashboard and demucs section from settings
 
 ### Fixed
 
 - **Exit dialog theme**: Light theme now applies correctly to exit confirmation dialog
-- **Word wrap**: Song name label and import header wrap properly instead of stretching the sidebar
+- **Word wrap**: Song name label wraps properly instead of stretching the sidebar
 - **Theme persistence**: Theme selection persists correctly across app restarts
 - **App icon**: Set before splash screen for correct taskbar icon from launch
 
 ### Infrastructure
 
-- **CI pipeline fixes**: Python 3.11 pinning, TF exclusion, mypy/ruff/pip-audit fixes, ffmpeg binary downloads
+- **CI pipeline fixes**: Python 3.11 pinning, mypy/ruff/pip-audit fixes
 - **Dependencies updated**: bandit, ruff, pyinstaller, and transitive deps bumped to latest safe versions
 
 ### Tests
@@ -69,9 +93,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.2.0/).
 
 - **Multi-page GUI layout**: Icon sidebar navigation with Dashboard, Settings, Info, and Log pages
 - **Dark/Light themes**: Catppuccin Mocha (dark) and Latte (light) with toggle switch in Settings
-- **YouTube-to-MIDI import**: Paste a YouTube URL to download audio and transcribe to MIDI
-  - Tuned basic-pitch parameters for piano accuracy (frequency bounds, lower thresholds)
-  - Leading silence trimmed from transcribed MIDI files
 - **Settings page**: Dedicated page with Library, Appearance, Hotkeys, and Updates cards
 - **Info page**: About section with version, credits, Ko-fi link, and scrollable disclaimer
 - **Log page**: Built-in error log viewer with refresh and open-in-editor buttons

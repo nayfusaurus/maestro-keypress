@@ -12,10 +12,6 @@ Maestro is a Python CLI app that auto-plays MIDI songs on in-game pianos by simu
 - pynput (keyboard simulation + global hotkeys)
 - pydirectinput (DirectInput keyboard simulation for WWM and Once Human)
 - PySide6 (Qt6 GUI with dark/light theme)
-- yt-dlp (YouTube audio download)
-- basic-pitch (audio-to-MIDI transcription, ONNX backend)
-- onnxruntime (ML inference for basic-pitch)
-- opencv-python-headless (Synthesia frame analysis)
 
 ## Architecture
 
@@ -43,22 +39,17 @@ Maestro (main.py) - coordinates everything, Qt event loop on main thread
     │       ├── piano_roll.py - PianoRollWidget (custom paintEvent, accent-colored)
     │       ├── progress_panel.py - NowPlayingPanel (transport-style, thin progress bar)
     │       ├── controls_panel.py - Play/Stop/Favorite (primary/secondary/ghost tiers)
-    │       ├── import_panel.py - ImportPanel (URL input bar for YouTube)
     │       ├── splash.py - SplashScreen (loading screen with progress bar)
-    │       ├── workers.py - ValidationWorker, UpdateCheckWorker, ImportWorker, DemucsDownloadWorker
+    │       ├── workers.py - ValidationWorker, UpdateCheckWorker
     │       ├── constants.py - APP_VERSION, BINDABLE_KEYS, BINDABLE_KEYS_QT
     │       ├── theme.py - Dual theme (dark/light), design tokens, QSS builder
     │       ├── utils.py - get_songs_from_folder(), format_time(), center_dialog(), check_hotkey_conflict()
     │       └── pages/ - Multi-page layout widgets
     │               ├── __init__.py
-    │               ├── dashboard.py - Two-column dashboard (import + game settings + transport | song browser)
-    │               ├── settings_page.py - Library, appearance, hotkeys, demucs, updates settings
+    │       ├── dashboard.py - Two-column dashboard (game settings + transport | song browser)
+    │               ├── settings_page.py - Library, appearance, hotkeys, updates settings
     │               ├── info_page.py - About card + disclaimer card with first-launch accept flow
-    │               └── log_page.py - Built-in error log viewer with auto-refresh
-    ├── importers/ - URL import modules
-    │       ├── __init__.py
-    │       ├── youtube.py - YouTube audio download + MIDI transcription
-    │       └── synthesia.py - Synthesia visual detection (OpenCV)
+    │       └── log_page.py - Built-in error log viewer with auto-refresh
     ├── config.py - settings persistence with validation
     └── logger.py - rotating file logger
 ```
@@ -82,16 +73,13 @@ Maestro (main.py) - coordinates everything, Qt event loop on main thread
 - `src/maestro/gui/toggle_switch.py` - Animated iOS-style toggle switch (40x22px, QPropertyAnimation)
 - `src/maestro/gui/exit_dialog.py` - Modal exit confirmation dialog (320x160)
 - `src/maestro/gui/pages/dashboard.py` - Two-column dashboard: fixed 400px left (import + game settings + transport) + flexible right (song browser)
-- `src/maestro/gui/pages/settings_page.py` - Library, appearance (theme/fullscreen/auto-minimize), hotkeys, demucs, updates
+- `src/maestro/gui/pages/settings_page.py` - Library, appearance (theme/fullscreen/auto-minimize), hotkeys, updates
 - `src/maestro/gui/pages/info_page.py` - About card + disclaimer card with first-launch accept/reject flow
 - `src/maestro/gui/pages/log_page.py` - Built-in error log viewer with auto-refresh on page visit
 - `src/maestro/gui/signals.py` - MaestroSignals with all Signal definitions (GUI↔backend communication)
 - `src/maestro/gui/splash.py` - SplashScreen with progress bar (shown during startup, no maestro imports)
-- `src/maestro/gui/workers.py` - ValidationWorker, UpdateCheckWorker, ImportWorker, DemucsDownloadWorker (QThread)
-- `src/maestro/gui/import_panel.py` - Compact URL input bar for YouTube
+- `src/maestro/gui/workers.py` - ValidationWorker, UpdateCheckWorker (QThread)
 - `src/maestro/gui/theme.py` - Dual theme system (dark/light), design tokens, QSS builder with Catppuccin palettes
-- `src/maestro/importers/youtube.py` - YouTube audio download (yt-dlp) + MIDI transcription (basic-pitch) + piano isolation (demucs)
-- `src/maestro/importers/synthesia.py` - Synthesia visual detection via OpenCV frame analysis
 - `src/maestro/main.py` - Main coordinator with Qt event loop, signal/slot connections, QTimer state pushes
 - `src/maestro/config.py` - JSON config management with validation and settings persistence
 - `src/maestro/logger.py` - Rotating file handler for error logging
@@ -112,7 +100,7 @@ uv sync                 # Install dependencies
 
 ## Testing
 
-312 tests across multiple test files covering all modules. Run with `uv run pytest -v`.
+329 tests across multiple test files covering all modules. Run with `uv run pytest -v`.
 
 ## GUI Features
 
@@ -120,8 +108,8 @@ uv sync                 # Install dependencies
 - **Auto-open**: GUI opens immediately on startup
 - **Icon rail navigation**: 56px vertical icon sidebar with QPainter-drawn icons (home, gear, info, document) + exit action pinned to bottom
 - **Multi-page layout**: QStackedWidget with 4 pages: Dashboard, Settings, Info (About + Disclaimer), Error Log
-- **Dashboard page**: Two-column layout with fixed 400px left (import + game settings + transport) + flexible right (filter + refresh + song list)
-- **Settings page**: Library folder, appearance (dark/light theme, fullscreen, auto-minimize toggles), hotkey remapping, demucs management, update checker
+- **Dashboard page**: Two-column layout with fixed 400px left (game settings + transport) + flexible right (filter + refresh + song list)
+- **Settings page**: Library folder, appearance (dark/light theme, fullscreen, auto-minimize toggles), hotkey remapping, update checker
 - **Info page**: About card (version, description, Ko-fi link) + disclaimer card with first-launch accept/reject flow
 - **Error log page**: Built-in log viewer with auto-refresh on page visit, open-in-editor button
 - **Exit dialog**: Modal confirmation dialog on exit icon click and window close
@@ -150,10 +138,6 @@ uv sync                 # Install dependencies
 - **Multi-line song details**: Song info panel wraps long text across multiple lines
 - **Auto-minimize on play**: Configurable toggle in Settings, window minimizes to taskbar when playback starts (primary monitor only)
 - **Multi-monitor detection**: Skips auto-minimize when app is on secondary screen
-- **Import panel**: Compact URL input bar for importing from YouTube (in Dashboard)
-- **YouTube-to-MIDI**: Audio download via yt-dlp, transcription via basic-pitch, optional piano isolation via demucs
-- **Synthesia detection**: OpenCV-based frame analysis for Synthesia video detection
-- **Demucs management**: Download/remove piano isolation model from Settings page
 - **Update notification badge**: Accent dot on Settings icon when update is available
 - **Button hierarchy**: Primary (accent Play), Secondary (Stop), Ghost (Favorite, Refresh) button tiers
 - **Design token system**: Centralized SPACING, RADIUS, FONT, COLORS tokens in theme.py — no inline styles
@@ -188,12 +172,10 @@ uv sync                 # Install dependencies
 - **First-launch disclaimer flow**: On first launch, Info page is shown with Accept/Reject buttons. All other pages locked via set_disabled_pages() until disclaimer is accepted. Rejection closes the app.
 - **Exit confirmation**: Modal dialog shown on both exit icon click and window close (closeEvent). Prevents accidental exits.
 - **Toggle switches**: 40x22px animated toggle switches (QPropertyAnimation, 150ms InOutQuad) replace checkboxes for boolean settings. Colors from COLORS dict for theme consistency.
-- **Dashboard two-column**: Fixed 400px left column (import card + game settings card + transport card) + flexible right column (filter + refresh + song list).
-- **Settings page sections**: Library, Appearance (theme/fullscreen/auto-minimize), Hotkeys, Piano Isolation, Updates — each in a surface-card.
+- **Dashboard two-column**: Fixed 400px left column (game settings card + transport card) + flexible right column (filter + refresh + song list).
+- **Settings page sections**: Library, Appearance (theme/fullscreen/auto-minimize), Hotkeys, Updates — each in a surface-card.
 - **Built-in error log**: Log page with QTextEdit viewer, auto-refreshes on page visit via showEvent. Replaces File > Open Log menu action.
 - **Update notification badge**: 6px accent dot on Settings icon when update is available, instead of dismissable banner.
-- **ONNX inference backend**: basic-pitch supports TF/TFLite/ONNX/CoreML backends. ONNX Runtime is used for PyInstaller builds (~200MB vs TF's ~1.5GB). TF is excluded from the bundle; basic-pitch auto-detects ONNX at runtime via try/except ImportError.
-- **Demucs optional**: Not bundled in exe (~1GB). Downloaded to ~/.maestro/models/ via Settings.
 - **Window sizing**: 80% of primary screen, minimum 900x600, centered on launch.
 - **Event caching**: Built events are cached and reused when only speed changes, invalidated on layout/transpose/sharp changes.
 - **Incremental validation**: MIDI files are validated incrementally using mtime caching to avoid re-parsing unchanged files.
@@ -230,4 +212,3 @@ uv run pyinstaller Maestro.spec --noconfirm
 
 Build config is in `Maestro.spec`. Output: `dist/Maestro.exe`
 
-**ML Backend:** basic-pitch uses ONNX Runtime for audio-to-MIDI inference (not TensorFlow). TF is excluded from the bundle to keep exe size ~200-250MB. basic-pitch auto-detects the ONNX backend at runtime.

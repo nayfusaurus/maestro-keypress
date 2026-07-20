@@ -27,9 +27,8 @@
 - 🎹 **8 keyboard layouts** - Heartopia (5), Where Winds Meet (2), Once Human (1)
 - ⚡ **Smart MIDI processing** - Auto-validation, transpose, and compatibility checking
 - 🎨 **Modern GUI** - Dark/light themes, icon sidebar navigation, multi-page layout
-- 🎵 **YouTube-to-MIDI** - Import songs directly from YouTube URLs
 - 🎯 **Event-driven playback** - Precise timing with chord support and MIDI duration tracking
-- 🔒 **Production-ready** - 347 tests, type-safe with mypy, security-scanned, pinned dependencies
+- 🔒 **Production-ready** - 329 tests, type-safe with mypy, security-scanned, pinned dependencies
 - 🪟 **Windows executable** - Standalone `.exe` for easy distribution
 
 ---
@@ -83,13 +82,6 @@ uv run maestro
 - **Hotkey remapping** - Press-to-bind configuration with conflict detection
 - **Settings persistence** - All preferences saved between sessions
 
-### 🎵 Import
-
-- **YouTube-to-MIDI** - Paste a YouTube URL to download and transcribe to MIDI
-- **Tuned transcription** - Optimized basic-pitch parameters for in-game piano accuracy
-- **MIDI post-processing** - 5-stage cleanup: velocity filter, grace note removal, tied note merge, chord simplification, beat quantization
-- **Auto-cleanup** - Trims leading silence from transcribed MIDI files
-
 ### 🎮 Game Support
 - **Heartopia** - 5 keyboard layouts (22-key full, 15-key double/triple, drums, xylophone)
 - **Where Winds Meet** - DirectInput support, 36-key (Shift/Ctrl modifiers) and 21-key (naturals only) layouts
@@ -101,7 +93,7 @@ uv run maestro
 - **Type-safe** - Full mypy type checking
 - **Security scanned** - pip-audit checks for vulnerabilities (CI)
 - **Pinned dependencies** - Locked versions for reproducibility
-- **Comprehensive tests** - 347 tests with thorough coverage
+- **Comprehensive tests** - 329 tests with thorough coverage
 
 ---
 
@@ -288,7 +280,7 @@ The exe will be at `dist/Maestro.exe`. You can:
 uv run pytest -v
 ```
 
-**Test Suite:** 347 tests, 1 warning (Windows-only focus detection)
+**Test Suite:** 329 tests, 1 warning (Windows-only focus detection)
 
 ### Code Quality
 
@@ -326,15 +318,10 @@ maestro-keypress/
 │   │   ├── song_list.py      # Rich two-line items with custom delegate
 │   │   ├── piano_roll.py     # Note preview canvas
 │   │   ├── controls_panel.py # Play/Stop/Favorite transport controls
-│   │   ├── import_panel.py   # YouTube URL import bar
-│   │   ├── workers.py        # QThread workers (validation, import, update)
+│   │   ├── workers.py        # QThread workers (validation, update)
 │   │   ├── theme.py          # Catppuccin dark/light themes, design tokens
 │   │   └── constants.py      # Version, bindable keys, disclaimer text
-│   └── importers/            # URL import modules
-│       ├── youtube.py        # yt-dlp download + basic-pitch transcription
-│       ├── midi_cleanup.py   # 5-stage MIDI post-processing pipeline
-│       └── synthesia.py      # OpenCV-based Synthesia detection
-├── tests/                    # Test suite (347 tests)
+├── tests/                    # Test suite (329 tests)
 ├── assets/                   # Icons and images
 ├── pyproject.toml            # Project config with pinned dependencies
 ├── Maestro.spec              # PyInstaller build configuration
@@ -390,8 +377,6 @@ If you find Maestro useful, consider:
 - [mido](https://github.com/mido/mido) - MIDI file parsing
 - [pynput](https://github.com/moses-palmer/pynput) - Keyboard simulation
 - [pydirectinput](https://github.com/learncodebygaming/pydirectinput) - DirectInput support
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) - YouTube audio download
-- [basic-pitch](https://github.com/spotify/basic-pitch) - Audio-to-MIDI transcription (Spotify)
 - [uv](https://github.com/astral-sh/uv) - Fast Python package manager
 - Games: **Heartopia**, **Where Winds Meet**, and **Once Human** for inspiring this project
 
