@@ -22,8 +22,9 @@ PAGE_DASHBOARD = 0
 PAGE_SETTINGS = 1
 PAGE_INFO = 2
 PAGE_LOG = 3
+PAGE_STATS = 4
 
-_ICON_LABELS = ["Dashboard", "Settings", "About", "Error Log", "Exit"]
+_ICON_LABELS = ["Dashboard", "Settings", "About", "Error Log", "Stats", "Exit"]
 
 # ---------------------------------------------------------------------------
 # Sizing constants
@@ -52,7 +53,7 @@ class IconRail(QWidget):
         self._hover: int = -1  # -1 = none, 0..3 = page icons, 4 = exit
         self._disabled_pages: set[int] = set()
         self._badges: set[int] = set()
-        self._page_count = 4  # Dashboard, Settings, Info, Log
+        self._page_count = 5  # Dashboard, Settings, Info, Log, Stats
 
         self.setFixedWidth(_RAIL_WIDTH)
         self.setMouseTracking(True)
@@ -212,6 +213,7 @@ class IconRail(QWidget):
             self._draw_gear_icon,
             self._draw_info_icon,
             self._draw_log_icon,
+            self._draw_stats_icon,
         ][index]
         draw_fn(painter, cx, cy, color)
 
@@ -339,6 +341,23 @@ class IconRail(QWidget):
             # Make the last line shorter for visual interest
             end_x = lx2 if i < 2 else cx + w * 0.1
             p.drawLine(QPointF(lx1, ly), QPointF(end_x, ly))
+
+    def _draw_stats_icon(self, p: QPainter, cx: float, cy: float, color: QColor) -> None:
+        """Draw a bar-chart icon: three vertical bars of ascending height."""
+        pen = QPen(color, 2.5)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        p.setPen(pen)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+
+        s = _ICON_SIZE / 2 - 2
+        bar_w = s * 0.35
+        gap = bar_w * 0.8
+        heights = [s * 0.4, s * 0.7, s * 1.0]
+        start_x = cx - bar_w * 1.5 - gap
+        for h in heights:
+            mid_x = start_x + bar_w / 2
+            p.drawLine(QPointF(mid_x, cy + s), QPointF(mid_x, cy + s - h))
+            start_x += bar_w + gap
 
     def _draw_exit_icon(self, p: QPainter, cx: float, cy: float, color: QColor) -> None:
         """Draw an exit/door icon: door frame with arrow pointing out."""

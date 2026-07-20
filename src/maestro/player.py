@@ -516,6 +516,13 @@ class Player:
         }
 
         try:
+            from maestro.stats import update_stats
+
+            update_stats(self._events, self.current_song.name, stop_time)
+        except Exception:
+            pass
+
+        try:
             json_path.write_text(json.dumps(data, indent=2))
         except Exception as e:
             self._logger.error(f"Failed to export played notes: {e}")

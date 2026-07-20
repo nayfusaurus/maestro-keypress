@@ -21,6 +21,7 @@ from maestro.gui.icon_rail import (
     PAGE_INFO,
     PAGE_LOG,
     PAGE_SETTINGS,
+    PAGE_STATS,
     IconRail,
 )
 from maestro.gui.leading_silence_dialog import LeadingSilenceDialog
@@ -28,6 +29,7 @@ from maestro.gui.pages.dashboard import DashboardPage
 from maestro.gui.pages.info_page import InfoPage
 from maestro.gui.pages.log_page import LogPage
 from maestro.gui.pages.settings_page import SettingsPage
+from maestro.gui.pages.stats_page import StatsPage
 from maestro.gui.signals import MaestroSignals
 from maestro.gui.theme import apply_theme
 from maestro.gui.workers import UpdateCheckWorker, ValidationWorker
@@ -39,7 +41,7 @@ from maestro.midi_trim import (
     trim_leading_silence,
 )
 
-_PAGE_TITLES = ["Dashboard", "Settings", "About", "Error Log"]
+_PAGE_TITLES = ["Dashboard", "Settings", "About", "Error Log", "Stats"]
 
 
 class MainWindow(QMainWindow):
@@ -162,11 +164,13 @@ class MainWindow(QMainWindow):
         self._settings = SettingsPage(config)
         self._info = InfoPage(first_launch=not config.get("disclaimer_accepted", False))
         self._log = LogPage()
+        self._stats = StatsPage()
 
         self._stack.addWidget(self._dashboard)  # index 0
         self._stack.addWidget(self._settings)  # index 1
         self._stack.addWidget(self._info)  # index 2
         self._stack.addWidget(self._log)  # index 3
+        self._stack.addWidget(self._stats)  # index 4
 
         root.addWidget(self._stack, stretch=1)
         self.setCentralWidget(central)
@@ -246,7 +250,7 @@ class MainWindow(QMainWindow):
 
     def _enter_first_launch_mode(self) -> None:
         """Disable all pages except Info until disclaimer is accepted."""
-        self._rail.set_disabled_pages({PAGE_DASHBOARD, PAGE_SETTINGS, PAGE_LOG})
+        self._rail.set_disabled_pages({PAGE_DASHBOARD, PAGE_SETTINGS, PAGE_LOG, PAGE_STATS})
         self._rail.set_active(PAGE_INFO)
         self._stack.setCurrentIndex(PAGE_INFO)
         self.setWindowTitle("Maestro - Welcome")
