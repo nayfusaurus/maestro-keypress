@@ -6,6 +6,8 @@ from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
+    QMessageBox,
+    QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
@@ -13,7 +15,15 @@ from PySide6.QtWidgets import (
 
 from maestro.gui.theme import SPACING
 from maestro.gui.utils import format_time
-from maestro.stats import load_stats, top_chords, top_keys, top_songs
+from maestro.stats import (
+    game_mode_stats,
+    load_stats,
+    reset_stats,
+    top_chords,
+    top_keys,
+    top_notes,
+    top_songs,
+)
 
 
 class StatsPage(QWidget):
@@ -37,9 +47,17 @@ class StatsPage(QWidget):
         layout.setSpacing(SPACING["lg"])
 
         # ── Header ──
+        header_row = QHBoxLayout()
         title = QLabel("STATS")
         title.setProperty("class", "title")
-        layout.addWidget(title)
+        header_row.addWidget(title)
+        header_row.addStretch()
+
+        self._reset_btn = QPushButton("Reset Stats")
+        self._reset_btn.setProperty("class", "ghost")
+        self._reset_btn.clicked.connect(self._on_reset_clicked)
+        header_row.addWidget(self._reset_btn)
+        layout.addLayout(header_row)
 
         # ── Most played songs ──
         layout.addWidget(self._make_section("Most Played Songs"))
@@ -47,6 +65,13 @@ class StatsPage(QWidget):
         self._songs_label.setProperty("class", "caption")
         self._songs_label.setWordWrap(True)
         layout.addWidget(self._songs_label)
+
+        # ── Most played notes ──
+        layout.addWidget(self._make_section("Most Played Notes"))
+        self._notes_label = QLabel()
+        self._notes_label.setProperty("class", "caption")
+        self._notes_label.setWordWrap(True)
+        layout.addWidget(self._notes_label)
 
         # ── Most pressed keys ──
         layout.addWidget(self._make_section("Most Pressed Keys"))
@@ -61,6 +86,13 @@ class StatsPage(QWidget):
         self._chords_label.setProperty("class", "caption")
         self._chords_label.setWordWrap(True)
         layout.addWidget(self._chords_label)
+
+        # ── By game mode ──
+        layout.addWidget(self._make_section("By Game Mode"))
+        self._gamemode_label = QLabel()
+        self._gamemode_label.setProperty("class", "caption")
+        self._gamemode_label.setWordWrap(True)
+        layout.addWidget(self._gamemode_label)
 
         # ── Summary footer ──
         layout.addWidget(self._make_section("Summary"))
@@ -87,6 +119,18 @@ class StatsPage(QWidget):
         label.setProperty("class", "section-heading")
         return label
 
+    def _on_reset_clicked(self) -> None:
+        confirm = QMessageBox.question(
+            self,
+            "Reset Stats",
+            "Clear all playback statistics? This cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirm == QMessageBox.StandardButton.Yes:
+            reset_stats()
+            self._load_and_display()
+
     def _load_and_display(self) -> None:
         stats = load_stats()
 
@@ -100,6 +144,14 @@ class StatsPage(QWidget):
             self._songs_label.setText("\n".join(lines))
         else:
             self._songs_label.setText("No plays yet. Play some songs to collect stats.")
+
+        # Notes
+        notes = top_notes(stats)
+        if notes:
+            text = "  ".join(f"{name}: {count}" for name, count in notes)
+            self._notes_label.setText(text)
+        else:
+            self._notes_label.setText("No notes played yet. Play a song to collect stats.")
 
         # Keys
         keys = top_keys(stats)
@@ -119,6 +171,20 @@ class StatsPage(QWidget):
             self._chords_label.setText("\n".join(lines))
         else:
             self._chords_label.setText("No chords detected yet. Play some songs to collect stats.")
+
+        # Per game mode
+        gm = game_mode_stats(stats)
+        if gm:
+            lines = []
+            for mode, gs in gm.items():
+                t = format_time(gs.get("total_play_time_seconds", 0))
+                lines.append(
+                    f"{mode}: {gs.get('total_plays', 0)} plays, "
+                    f"{gs.get('total_notes_played', 0):,} notes, {t}"
+                )
+            self._gamemode_label.setText("\n".join(lines))
+        else:
+            self._gamemode_label.setText("No data yet. Play some songs to collect stats.")
 
         # Summary
         total_time = format_time(stats.get("total_play_time_seconds", 0))

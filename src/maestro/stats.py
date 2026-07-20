@@ -28,13 +28,24 @@ def _stats_path() -> Path:
     return Path(base) / _STATS_FILENAME
 
 
+def _empty_game_stats() -> dict[str, Any]:
+    """Return a fresh per-game-mode stats sub-dict."""
+    return {
+        "total_plays": 0,
+        "total_notes_played": 0,
+        "total_play_time_seconds": 0.0,
+    }
+
+
 DEFAULT_STATS: dict[str, Any] = {
     "total_plays": 0,
     "total_notes_played": 0,
     "total_play_time_seconds": 0.0,
     "song_plays": {},
     "key_presses": {},
+    "note_frequency": {},
     "chords": {},
+    "by_game": {},
 }
 
 
@@ -75,6 +86,7 @@ def update_stats(
     events: list[Any],
     song_name: str,
     duration: float,
+    game_mode: str = "",
 ) -> None:
     """Increment counters and detect chords from a finished playback.
 
@@ -90,14 +102,25 @@ def update_stats(
     songs[song_name] = songs.get(song_name, 0) + 1
 
     keys: dict[str, int] = stats["key_presses"]
+    notes: dict[str, int] = stats["note_frequency"]
 
     down_events = [e for e in events if e.action == "down"]
     stats["total_notes_played"] += len(down_events)
 
     for evt in down_events:
         keys[evt.key] = keys.get(evt.key, 0) + 1
+        midi = evt.midi_note
+        notes[str(midi)] = notes.get(str(midi), 0) + 1
 
     _detect_chords(down_events, stats["chords"])
+
+    # Per-game-mode breakdown
+    if game_mode and game_mode.strip():
+        by_game: dict[str, dict[str, Any]] = stats["by_game"]
+        gs = by_game.setdefault(game_mode, _empty_game_stats())
+        gs["total_plays"] += 1
+        gs["total_notes_played"] += len(down_events)
+        gs["total_play_time_seconds"] += duration
 
     save_stats(stats)
 
@@ -156,7 +179,25 @@ def top_keys(stats: dict[str, Any], n: int = _TOP_N) -> list[tuple[str, int]]:
     return items[:n]
 
 
+def top_notes(stats: dict[str, Any], n: int = _TOP_N) -> list[tuple[str, int]]:
+    """Return the top *n* most-played musical notes as ``(note_name, count)``."""
+    freq: dict[str, int] = stats.get("note_frequency", {})
+    items = sorted(freq.items(), key=lambda x: x[1], reverse=True)
+    return [(midi_to_name(int(k)), v) for k, v in items[:n]]
+
+
 def top_chords(stats: dict[str, Any], n: int = _TOP_N) -> list[tuple[str, int]]:
     """Return the top *n* most-used chords as ``(note_names, count)``."""
     items = sorted(stats["chords"].items(), key=lambda x: x[1], reverse=True)
     return [(chord_key_to_names(k), v) for k, v in items[:n]]
+
+
+def game_mode_stats(stats: dict[str, Any]) -> dict[str, Any]:
+    """Return the per-game-mode breakdown as ``{mode: {total_plays, ...}}``."""
+    result: dict[str, Any] = stats.get("by_game", {})
+    return result
+
+
+def reset_stats() -> None:
+    """Wipe all stats and write fresh defaults to disk."""
+    save_stats(copy.deepcopy(DEFAULT_STATS))

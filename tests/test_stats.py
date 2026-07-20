@@ -11,11 +11,14 @@ from maestro.stats import (
     _detect_chords,
     _stats_path,
     chord_key_to_names,
+    game_mode_stats,
     load_stats,
     midi_to_name,
+    reset_stats,
     save_stats,
     top_chords,
     top_keys,
+    top_notes,
     top_songs,
     update_stats,
 )
@@ -239,3 +242,70 @@ def test_top_empty() -> None:
     assert top_songs(stats) == []
     assert top_keys(stats) == []
     assert top_chords(stats) == []
+    assert top_notes(stats) == []
+
+
+# ── Note frequency ───────────────────────────────────────────────────
+
+
+def test_update_tracks_note_frequency(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("maestro.stats._stats_path", lambda: tmp_path / "stats.json")
+    events = _make_events((0.0, "a", 60), (1.0, "b", 60), (2.0, "c", 64))
+    update_stats(events, "song", 5.0)
+    stats = load_stats()
+    assert stats["note_frequency"]["60"] == 2
+    assert stats["note_frequency"]["64"] == 1
+
+
+def test_top_notes_returns_ranked_names() -> None:
+    stats = dict(DEFAULT_STATS, note_frequency={"60": 10, "64": 7, "67": 3})
+    result = top_notes(stats, n=2)
+    assert result == [("C4", 10), ("E4", 7)]
+
+
+# ── Per-game-mode ────────────────────────────────────────────────────
+
+
+def test_update_tracks_game_mode(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("maestro.stats._stats_path", lambda: tmp_path / "stats.json")
+    update_stats(_make_events((0.0, "a", 60)), "song", 5.0, game_mode="Heartopia")
+    update_stats(_make_events((0.0, "b", 62)), "song2", 3.0, game_mode="WWM")
+    stats = load_stats()
+    gm = stats["by_game"]
+    assert gm["Heartopia"]["total_plays"] == 1
+    assert gm["Heartopia"]["total_notes_played"] == 1
+    assert gm["WWM"]["total_plays"] == 1
+
+
+def test_update_empty_game_mode_not_tracked(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("maestro.stats._stats_path", lambda: tmp_path / "stats.json")
+    update_stats(_make_events((0.0, "a", 60)), "song", 5.0, game_mode="")
+    stats = load_stats()
+    assert stats["by_game"] == {}
+
+
+def test_game_mode_stats_returns_dict() -> None:
+    stats = dict(DEFAULT_STATS, by_game={"Heartopia": {"total_plays": 3}})
+    result = game_mode_stats(stats)
+    assert result["Heartopia"]["total_plays"] == 3
+
+
+# ── Reset stats ──────────────────────────────────────────────────────
+
+
+def test_reset_stats_clears_all_data(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("maestro.stats._stats_path", lambda: tmp_path / "stats.json")
+    update_stats(_make_events((0.0, "a", 60)), "song", 10.0, game_mode="Heartopia")
+    reset_stats()
+    stats = load_stats()
+    assert stats == DEFAULT_STATS
+
+
+def test_reset_stats_persists(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("maestro.stats._stats_path", lambda: tmp_path / "stats.json")
+    update_stats(_make_events((0.0, "a", 60)), "song", 5.0)
+    reset_stats()
+    loaded = load_stats()
+    assert loaded["total_plays"] == 0
+    assert loaded["song_plays"] == {}
+    assert loaded["by_game"] == {}

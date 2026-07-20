@@ -518,7 +518,7 @@ class Player:
         try:
             from maestro.stats import update_stats
 
-            update_stats(self._events, self.current_song.name, stop_time)
+            update_stats(self._events, self.current_song.name, stop_time, self._game_mode.value)
         except Exception:
             pass
 
