@@ -28,7 +28,8 @@
 - ⚡ **Smart MIDI processing** - Auto-validation, transpose, and compatibility checking
 - 🎨 **Modern GUI** - Dark/light themes, icon sidebar navigation, multi-page layout
 - 🎯 **Event-driven playback** - Precise timing with chord support and MIDI duration tracking
-- 🔒 **Production-ready** - 329 tests, type-safe with mypy, security-scanned, pinned dependencies
+- 📊 **Playback stats** - Track most-played songs, notes, keys, and chords across sessions
+- 🔒 **Production-ready** - 363 tests, type-safe with mypy, security-scanned, pinned dependencies
 - 🪟 **Windows executable** - Standalone `.exe` for easy distribution
 
 ---
@@ -70,7 +71,7 @@ uv run maestro
 - **Stuck key protection** - Ensures all keys are released on exit
 
 ### 🖥️ User Interface
-- **Multi-page layout** - Icon sidebar navigation (Dashboard, Settings, Info, Log)
+- **Multi-page layout** - Icon sidebar navigation (Dashboard, Settings, Info, Log, Stats)
 - **Dark/Light themes** - Catppuccin Mocha (dark) and Latte (light) with toggle switch
 - **MIDI validation** - Real-time scan with color-coded status (green/red/gray)
 - **Song information** - Duration, BPM, note count, and compatibility percentage
@@ -81,6 +82,12 @@ uv run maestro
 - **Piano roll preview** - Optional lookahead panel showing upcoming notes
 - **Hotkey remapping** - Press-to-bind configuration with conflict detection
 - **Settings persistence** - All preferences saved between sessions
+
+### 📊 Statistics
+- **Playback stats page** - See your most-played songs, musical notes, keyboard keys, and chords
+- **Per-game-mode breakdown** - Compare stats across Heartopia, Where Winds Meet, and Once Human
+- **Chord detection** - Automatically detects and ranks chord patterns (notes within 50ms)
+- **Reset stats** - Clear all stats and start fresh with one click
 
 ### 🎮 Game Support
 - **Heartopia** - 5 keyboard layouts (22-key full, 15-key double/triple, drums, xylophone)
@@ -93,7 +100,7 @@ uv run maestro
 - **Type-safe** - Full mypy type checking
 - **Security scanned** - pip-audit checks for vulnerabilities (CI)
 - **Pinned dependencies** - Locked versions for reproducibility
-- **Comprehensive tests** - 329 tests with thorough coverage
+- **Comprehensive tests** - 363 tests with thorough coverage
 
 ---
 
@@ -280,7 +287,7 @@ The exe will be at `dist/Maestro.exe`. You can:
 uv run pytest -v
 ```
 
-**Test Suite:** 329 tests, 1 warning (Windows-only focus detection)
+**Test Suite:** 363 tests, 1 warning (Windows-only focus detection)
 
 ### Code Quality
 
@@ -314,14 +321,14 @@ maestro-keypress/
 │   ├── gui/                  # PySide6 GUI package
 │   │   ├── main_window.py    # MainWindow — icon rail + paged layout
 │   │   ├── signals.py        # MaestroSignals (centralized Signal defs)
-│   │   ├── pages/            # Dashboard, Settings, Info, Log pages
+│   │   ├── pages/            # Dashboard, Settings, Info, Log, Stats pages
 │   │   ├── song_list.py      # Rich two-line items with custom delegate
 │   │   ├── piano_roll.py     # Note preview canvas
 │   │   ├── controls_panel.py # Play/Stop/Favorite transport controls
 │   │   ├── workers.py        # QThread workers (validation, update)
 │   │   ├── theme.py          # Catppuccin dark/light themes, design tokens
 │   │   └── constants.py      # Version, bindable keys, disclaimer text
-├── tests/                    # Test suite (329 tests)
+├── tests/                    # Test suite (363 tests)
 ├── assets/                   # Icons and images
 ├── pyproject.toml            # Project config with pinned dependencies
 ├── Maestro.spec              # PyInstaller build configuration
