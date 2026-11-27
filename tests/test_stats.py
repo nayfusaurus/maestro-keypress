@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
-from pathlib import Path
 
 from maestro.stats import (
     _CHORD_WINDOW,
@@ -49,10 +49,11 @@ def _make_events(
 # ── Path & defaults ──────────────────────────────────────────────────
 
 
-def test_stats_path_is_in_maestro_dir(monkeypatch) -> None:
-    monkeypatch.setattr("maestro.stats.os.name", "posix")
-    monkeypatch.setattr("maestro.stats.Path.home", lambda: Path("/home/user"))
-    assert str(_stats_path()).endswith("/.maestro/stats.json")
+def test_native_stats_path(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    monkeypatch.setattr("maestro.stats.Path.home", lambda: tmp_path)
+    directory = tmp_path if os.name == "nt" else tmp_path / ".maestro"
+    assert _stats_path() == directory / "stats.json"
 
 
 def test_load_stats_returns_defaults_when_no_file(tmp_path, monkeypatch) -> None:
