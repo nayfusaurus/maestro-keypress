@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Where Winds Meet (WWM) piano key mapping.
 
 Maps MIDI note numbers to keyboard keys for WWM's 3-octave piano.

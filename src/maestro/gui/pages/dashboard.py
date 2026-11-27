@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Dashboard page — main view after launch.
 
 Two-column layout: fixed 400px scrollable left column with game settings

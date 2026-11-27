@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Tests for the exit confirmation dialog."""
 
 from maestro.gui.exit_dialog import ExitDialog

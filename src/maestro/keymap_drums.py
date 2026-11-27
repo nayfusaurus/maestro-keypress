@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Drum keymap for Heartopia 8-key Conga/Cajon.
 
 Maps MIDI notes 60-67 (chromatic) to keyboard keys YUIO/HJKL.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Tests for the playback stats module."""
 
 from __future__ import annotations

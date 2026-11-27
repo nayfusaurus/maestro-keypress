@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 from maestro.key_layout import KeyLayout, WwmLayout
 
 

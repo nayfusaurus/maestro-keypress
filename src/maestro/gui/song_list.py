@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Song list widget with custom delegate for rich two-line song items."""
 
 from pathlib import Path

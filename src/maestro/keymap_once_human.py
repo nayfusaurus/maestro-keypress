@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Once Human piano key mapping.
 
 Maps MIDI note numbers to keyboard keys for Once Human's 3-octave piano.

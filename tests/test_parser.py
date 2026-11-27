@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 # tests/test_parser.py
 from pathlib import Path
 

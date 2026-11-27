@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Tests for the Dashboard page."""
 
 from maestro.gui.pages.dashboard import DashboardPage

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Tests for update_checker module."""
 
 from maestro.update_checker import compare_versions, parse_version

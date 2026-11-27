@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Heartopia 15-key triple row piano mapping.
 
 Maps MIDI note numbers to keyboard keys for Heartopia's 15-key piano.

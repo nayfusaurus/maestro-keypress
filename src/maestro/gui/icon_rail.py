@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Icon rail navigation sidebar widget.
 
 A 56px-wide vertical bar with page icons at the top and an exit icon pinned

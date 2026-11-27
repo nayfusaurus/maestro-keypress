@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Playback engine for Maestro.
 
 Handles playing MIDI notes via keyboard simulation.
@@ -70,8 +71,8 @@ class Player:
         self.state = PlaybackState.STOPPED
         self.current_song: Path | None = None
         self._notes: list[Note] = []
-        self._playback_thread: threading.Thread | None = None
         self._duration = 0.0
+        self._playback_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._note_index = 0
         self._start_time: float = 0.0
@@ -191,8 +192,8 @@ class Player:
         if self.current_song != midi_path:
             self._invalidate_cache()
         self._notes = parse_midi(midi_path)
-        self.current_song = midi_path
         self._duration = notes_duration(self._notes) + TAIL_SILENCE_SECONDS if self._notes else 0.0
+        self.current_song = midi_path
         self._note_index = 0
 
     def play(self) -> None:
@@ -224,9 +225,9 @@ class Player:
     def stop(self) -> None:
         """Stop playback completely."""
         self._stop_event.set()
-        self._release_all_keys()
         if self._playback_thread and self._playback_thread.is_alive():
             self._playback_thread.join()
+        self._release_all_keys()
         self.state = PlaybackState.STOPPED
         self._note_index = 0
         self._start_time = 0.0
@@ -405,14 +406,14 @@ class Player:
                     self.keyboard.press(modifier)
                     time.sleep(0.01)
                 self.keyboard.press(key)
-        except Exception as e:
             return True
+        except Exception as e:
             with self._held_keys_lock:
                 self._held_keys.discard(key_id)
             self._logger.error(f"Key down failed for '{key}': {e}")
             self._last_error = f"Key simulation failed: {e}"
-
             return False
+
     def _key_up(self, key: str, modifier: Key | None = None) -> bool:
         """Release a key."""
         key_id = (key, modifier)
@@ -434,11 +435,11 @@ class Player:
                 self.keyboard.release(key)
                 if release_modifier:
                     self.keyboard.release(modifier)
-        except Exception as e:
             return True
+        except Exception as e:
             self._logger.error(f"Key up failed for '{key}': {e}")
-
             return False
+
     def _release_all_keys(self) -> None:
         """Release all currently held keys (safety cleanup)."""
         with self._held_keys_lock:
@@ -585,8 +586,8 @@ class Player:
                         played.append(replace(evt, time=time.monotonic() - active_start))
                     event_index += 1
         finally:
-            self._release_all_keys()
             elapsed = time.monotonic() - active_start
+            self._release_all_keys()
             try:
                 self._export_played_notes(played, elapsed)
                 if not self._stop_event.is_set():

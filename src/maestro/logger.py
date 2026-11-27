@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Logging configuration for Maestro.
 
 Sets up rotating file handler for error logging.

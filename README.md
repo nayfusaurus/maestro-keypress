@@ -6,7 +6,7 @@
 
   [![CI](https://github.com/nayfusaurus/maestro-keypress/workflows/CI/badge.svg)](https://github.com/nayfusaurus/maestro-keypress/actions)
   [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](LICENSE)
   [![GitHub release](https://img.shields.io/github/v/release/nayfusaurus/maestro-keypress)](https://github.com/nayfusaurus/maestro-keypress/releases/latest)
   [![Downloads](https://img.shields.io/github/downloads/nayfusaurus/maestro-keypress/total)](https://github.com/nayfusaurus/maestro-keypress/releases)
   [![Built with Claude](https://img.shields.io/badge/Built%20with-Claude-blueviolet)](https://claude.ai)
@@ -362,7 +362,9 @@ Please ensure all tests pass and code is type-checked before submitting PRs.
 
 ## 📜 License
 
-MIT License - See [LICENSE](LICENSE) for details.
+Copyright © 2026 nayfusaurus. Maestro’s source code is licensed under the
+[Mozilla Public License 2.0](LICENSE). Copies previously released under MIT
+remain available under their original terms.
 
 ---
 

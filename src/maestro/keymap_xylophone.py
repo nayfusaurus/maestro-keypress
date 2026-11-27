@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Xylophone keymap for Heartopia 8-key instrument.
 
 Maps natural notes only (C major scale) to keyboard keys A-K.

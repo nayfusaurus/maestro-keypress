@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 import json
 import time
 from threading import Event
@@ -126,7 +127,6 @@ def test_duration_is_zero_when_no_notes(mock_keyboard):
     assert player.duration == 0.0
 
 
-@pytest.fixture
 def test_sustained_note_sets_duration(player, sample_midi):
     from maestro.parser import get_midi_info
     from maestro.player import TAIL_SILENCE_SECONDS
@@ -160,6 +160,7 @@ def test_stop_exports_only_dispatched_notes(player, tmp_path):
     assert events[0]["end_sec"] == pytest.approx(elapsed, abs=1e-6)
 
 
+@pytest.fixture
 def player():
     """Create a Player with mocked keyboard Controller."""
     with patch("maestro.player.Controller"):

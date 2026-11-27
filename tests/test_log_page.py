@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Tests for the Error Log page."""
 
 from unittest.mock import patch

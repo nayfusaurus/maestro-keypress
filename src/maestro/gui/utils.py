@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Utility functions for the Maestro GUI."""
 
 from pathlib import Path

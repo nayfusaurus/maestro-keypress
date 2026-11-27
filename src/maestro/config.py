@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Configuration management for Maestro.
 
 Handles loading and saving user settings to a JSON file.

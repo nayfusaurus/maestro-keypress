@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """PySide6 GUI package for Maestro."""
 
 from maestro.gui.constants import APP_VERSION, BINDABLE_KEYS, BINDABLE_KEYS_QT

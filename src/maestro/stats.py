@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Playback statistics — track most-played songs, keys, and chords across sessions.
 
 Stats are persisted to ``~/.maestro/stats.json`` and updated after each

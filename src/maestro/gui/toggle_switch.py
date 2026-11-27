@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Animated toggle switch widget for the Maestro GUI.
 
 A custom QWidget that renders as an iOS-style toggle switch with smooth

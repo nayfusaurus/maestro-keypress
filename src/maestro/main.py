@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Main entry point for Maestro.
 
 Coordinates hotkey listening, GUI, and playback.

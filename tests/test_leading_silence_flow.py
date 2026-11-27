@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Integration tests for leading-silence detection and trim flow."""
 from __future__ import annotations
 

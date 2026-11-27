@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Stats page — top songs, keys, and chords across all playback sessions."""
 
 from __future__ import annotations

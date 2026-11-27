@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Lightweight splash screen shown during app startup.
 
 Must NOT import any other maestro modules — it loads before them.

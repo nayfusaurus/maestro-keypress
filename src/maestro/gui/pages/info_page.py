@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Info page with About section and Disclaimer.
 
 Combines the About card (app info, credits, Ko-fi link) and the Disclaimer
@@ -84,6 +85,14 @@ class InfoPage(QWidget):
         credits_label = QLabel("Created by nayfusaurus")
         credits_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         about_layout.addWidget(credits_label)
+
+        source_label = QLabel(
+            '<a href="https://github.com/nayfusaurus/maestro-keypress">'
+            "Maestro source code (MPL 2.0)</a>"
+        )
+        source_label.setOpenExternalLinks(True)
+        source_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        about_layout.addWidget(source_label)
 
         about_layout.addSpacing(SPACING["md"])
 

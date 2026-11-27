@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """MIDI file parser for Maestro.
 
 Parses MIDI files and extracts note events with timing.
@@ -101,11 +102,11 @@ def parse_midi(midi_path: Path) -> list[Note]:
     return sorted(notes, key=lambda n: n.time)
 
 
-def get_tempo(mid: mido.MidiFile) -> int:
 def notes_duration(notes: list[Note]) -> float:
     return max((note.time + note.duration for note in notes), default=0.0)
 
 
+def get_tempo(mid: mido.MidiFile) -> int:
     """Get tempo from MIDI file, default to 120 BPM."""
     for track in mid.tracks:
         for msg in track:
