@@ -125,3 +125,16 @@ def test_trim_leading_still_works(tmp_path):
                 assert cumulative < 200  # ~0.2s worth of ticks
                 return
     pytest.fail("no note_on found")
+
+
+def test_rewrites_enforce_parser_size_limit(tmp_path, monkeypatch):
+    import pytest
+    from maestro.midi_trim import normalize_trailing_silence, trim_leading_silence
+
+    monkeypatch.setattr("maestro.parser.MAX_MIDI_SIZE", 3)
+    song = tmp_path / "oversized.mid"
+    song.write_bytes(b"1234")
+    for rewrite in (trim_leading_silence, normalize_trailing_silence):
+        with pytest.raises(ValueError, match="too large"):
+            rewrite(song)
+        assert song.read_bytes() == b"1234"

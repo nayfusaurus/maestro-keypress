@@ -8,6 +8,8 @@ import copy
 import json
 import os
 import sys
+import tempfile
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -170,18 +172,23 @@ def load_config() -> dict[str, Any]:
     return config
 
 
-def save_config(settings: dict[str, Any]) -> None:
-    """Save settings to JSON file.
-
-    Swallows OSError (locked file, read-only FS, disk full) and serialization
-    errors with a printed warning rather than crashing the app. load_config
-    follows the same pattern.
-    """
+def save_config(settings: dict[str, Any]) -> bool:
+    """Atomically save preferences and report whether they reached disk."""
+    temporary = None
     try:
-        config_dir = get_config_dir()
-        config_dir.mkdir(parents=True, exist_ok=True)
-        config_path = get_config_path()
-        with open(config_path, "w") as f:
-            json.dump(settings, f, indent=2)
-    except (OSError, TypeError, ValueError) as e:
-        print(f"Failed to save config: {e}")
+        path = get_config_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as output:
+            temporary = Path(output.name)
+            json.dump(settings, output, indent=2)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, path)
+        return True
+    except (OSError, TypeError, ValueError) as error:
+        print(f"Failed to save config: {error}")
+        return False
+    finally:
+        if temporary is not None:
+            with suppress(OSError):
+                temporary.unlink(missing_ok=True)

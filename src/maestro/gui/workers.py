@@ -156,3 +156,31 @@ class UpdateCheckWorker(QThread):
         """Check for updates and emit the result."""
         result = check_for_updates(self._current_version, self._repo, self._timeout)
         self.update_result.emit(result)
+
+
+class SilenceWorker(QThread):
+    """Process validated songs one at a time, stopping between files on cancel."""
+
+    def __init__(self, songs: list[Path], leading: set[Path], normalize: bool, parent=None):
+        super().__init__(parent)
+        self.songs = songs
+        self.leading = leading
+        self.normalize = normalize
+        self.trimmed = self.normalized = self.failed = 0
+
+    def run(self) -> None:
+        from maestro.logger import setup_logger
+        from maestro.midi_trim import normalize_trailing_silence, trim_leading_silence
+
+        for song in self.songs:
+            if self.isInterruptionRequested():
+                break
+            try:
+                if song in self.leading:
+                    trim_leading_silence(song)
+                    self.trimmed += 1
+                if self.normalize and normalize_trailing_silence(song):
+                    self.normalized += 1
+            except Exception as error:
+                setup_logger().error("Silence processing failed for %s: %s", song, error)
+                self.failed += 1

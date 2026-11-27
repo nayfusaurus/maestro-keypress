@@ -13,7 +13,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from enum import Enum, auto
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from pynput.keyboard import Controller, Key
 
@@ -40,6 +40,36 @@ from maestro.parser import Note, notes_duration, parse_midi
 
 # Game modes that require DirectInput (pydirectinput) instead of pynput
 _DIRECTINPUT_MODES = frozenset({GameMode.WHERE_WINDS_MEET, GameMode.ONCE_HUMAN})
+
+_GAME_EXECUTABLES = {
+    GameMode.HEARTOPIA: "xdt.exe",
+    GameMode.WHERE_WINDS_MEET: "wwm.exe",
+    GameMode.ONCE_HUMAN: "once_human.exe",
+}
+
+
+def _foreground_window() -> tuple[int, int]:
+    if sys.platform != "win32":
+        raise OSError("Windows process lookup unavailable")
+    import win32gui
+    import win32process
+
+    hwnd = win32gui.GetForegroundWindow()
+    return hwnd, win32process.GetWindowThreadProcessId(hwnd)[1]
+
+
+def _process_name(pid: int) -> str:
+    if sys.platform != "win32":
+        raise OSError("Windows process lookup unavailable")
+    import win32api
+    import win32process
+
+    handle = win32api.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    try:
+        return PureWindowsPath(win32process.GetModuleFileNameEx(handle, 0)).name.lower()
+    finally:
+        handle.Close()
+
 
 # Fixed silence tail added after the last note so songs never end abruptly.
 # Matches the minimum and maximum — i.e. always exactly this much.
@@ -88,7 +118,9 @@ class Player:
         self._wwm_layout = WwmLayout.KEYS_36
         self._sharp_handling: str = "skip"
         self._held_keys: set[tuple[str, Key | None]] = set()
-        self._held_keys_lock = threading.Lock()
+        self._physical_releases: dict[str | Key, Callable[[], object]] = {}
+        self._target_window: tuple[int, int] | None = None
+        self._held_keys_lock = threading.RLock()
         # Event caching to avoid rebuilding on replays
         self._cached_events: list[KeyEvent] | None = None
         self._cached_cache_key: str | None = None
@@ -208,8 +240,8 @@ class Player:
 
         self._stop_event.clear()
         self._note_index = 0
-        with self._held_keys_lock:
-            self._held_keys.clear()
+        self._target_window = None
+        self._release_all_keys()
 
         # Flush any pending garbage cycles, then disable the cyclic GC for the
         # duration of playback. Reference counting still frees objects normally;
@@ -383,93 +415,66 @@ class Player:
             return "shift"
         return "ctrl"
 
-    def _key_down(self, key: str, modifier: Key | None = None) -> bool:
-        """Press a key down and track it."""
-        key_id = (key, modifier)
-        with self._held_keys_lock:
-            if key_id in self._held_keys:
-                return False  # Already held
-            self._held_keys.add(key_id)
-
-        # Update last key for visual feedback
-        if modifier:
-            self._last_key = f"{self._modifier_name(modifier).title()}+{key.upper()}"
+    def _press_physical(self, key: str | Key) -> None:
+        if key in self._physical_releases:
+            return
+        if self._game_mode in _DIRECTINPUT_MODES and pydirectinput is not None:
+            name = key if isinstance(key, str) else self._modifier_name(key)
+            pydirectinput.keyDown(name)
+            self._physical_releases[key] = lambda: pydirectinput.keyUp(name)
         else:
-            self._last_key = key.upper()
+            self.keyboard.press(key)
+            self._physical_releases[key] = lambda: self.keyboard.release(key)
 
-        try:
-            if self._game_mode in _DIRECTINPUT_MODES and pydirectinput is not None:
+    def _release_unused(self) -> bool:
+        """Retain failed releases so stop and exit cleanup can retry them."""
+        used = {part for pair in self._held_keys for part in pair}
+        success = True
+        for key in reversed(list(self._physical_releases)):
+            if key in used:
+                continue
+            try:
+                self._physical_releases[key]()
+                del self._physical_releases[key]
+            except Exception as error:
+                self._logger.error("Key release failed for %s: %s", key, error)
+                self._last_error = "Key release failed"
+                success = False
+        return success
+
+    def _key_down(self, key: str, modifier: Key | None = None) -> bool:
+        with self._held_keys_lock:
+            if (key, modifier) in self._held_keys or not self._is_game_window_active():
+                return False
+            try:
                 if modifier:
-                    pydirectinput.keyDown(self._modifier_name(modifier))
+                    self._press_physical(modifier)
                     time.sleep(0.01)
-                pydirectinput.keyDown(key)
-            else:
-                if modifier:
-                    self.keyboard.press(modifier)
-                    time.sleep(0.01)
-                self.keyboard.press(key)
-            return True
-        except Exception as e:
-            with self._held_keys_lock:
-                self._held_keys.discard(key_id)
-            self._logger.error(f"Key down failed for '{key}': {e}")
-            self._last_error = f"Key simulation failed: {e}"
-            return False
+                    if self._stop_event.is_set() or not self._is_game_window_active():
+                        self._release_unused()
+                        return False
+                self._press_physical(key)
+                self._held_keys.add((key, modifier))
+                prefix = f"{self._modifier_name(modifier).title()}+" if modifier else ""
+                self._last_key = prefix + key.upper()
+                return True
+            except Exception as error:
+                self._last_error = f"Key simulation failed: {error}"
+                self._logger.error("Key down failed for %s: %s", key, error)
+                self._release_unused()
+                return False
 
     def _key_up(self, key: str, modifier: Key | None = None) -> bool:
-        """Release a key."""
-        key_id = (key, modifier)
         with self._held_keys_lock:
-            if key_id not in self._held_keys:
-                return False  # Not held
-            self._held_keys.discard(key_id)
-            # Check if any other keys still use this modifier
-            release_modifier = modifier is not None and not any(
-                m == modifier for _, m in self._held_keys
-            )
-
-        try:
-            if self._game_mode in _DIRECTINPUT_MODES and pydirectinput is not None:
-                pydirectinput.keyUp(key)
-                if release_modifier:
-                    pydirectinput.keyUp(self._modifier_name(modifier))
-            else:
-                self.keyboard.release(key)
-                if release_modifier:
-                    self.keyboard.release(modifier)
-            return True
-        except Exception as e:
-            self._logger.error(f"Key up failed for '{key}': {e}")
-            self._last_error = "Key release failed"
-            return False
+            if (key, modifier) not in self._held_keys:
+                return False
+            self._held_keys.remove((key, modifier))
+            return self._release_unused()
 
     def _release_all_keys(self) -> None:
-        """Release all currently held keys (safety cleanup)."""
         with self._held_keys_lock:
-            held = list(self._held_keys)
             self._held_keys.clear()
-
-        # Collect unique modifiers to release once each
-        modifiers_to_release: set[Key] = set()
-        for key, modifier in held:
-            try:
-                if self._game_mode in _DIRECTINPUT_MODES and pydirectinput is not None:
-                    pydirectinput.keyUp(key)
-                else:
-                    self.keyboard.release(key)
-            except Exception:  # nosec B110
-                pass
-            if modifier:
-                modifiers_to_release.add(modifier)
-
-        for modifier in modifiers_to_release:
-            try:
-                if self._game_mode in _DIRECTINPUT_MODES and pydirectinput is not None:
-                    pydirectinput.keyUp(self._modifier_name(modifier))
-                else:
-                    self.keyboard.release(modifier)
-            except Exception:  # nosec B110
-                pass
+            self._release_unused()
 
     def _export_played_notes(self, played: list[KeyEvent], elapsed: float) -> None:
         """Export played notes to a .played.json file next to the MIDI."""
@@ -531,21 +536,18 @@ class Player:
             self._logger.error(f"Failed to export played notes: {e}")
 
     def _is_game_window_active(self) -> bool:
-        """Check if the game window is currently in focus.
-
-        On Windows, uses win32gui to check the foreground window title.
-        On non-Windows platforms, always returns True (no detection available).
-        """
+        """Bind a Windows playback session to one foreground game process and window."""
         if sys.platform != "win32":
             return True
-
         try:
-            import win32gui
-
-            hwnd = win32gui.GetForegroundWindow()
-            title = win32gui.GetWindowText(hwnd).lower()
-
-            return self._game_mode.value.lower() in title
+            window = _foreground_window()
+            if not all(window):
+                return False
+            if self._target_window is None:
+                if _process_name(window[1]) != _GAME_EXECUTABLES[self._game_mode]:
+                    return False
+                self._target_window = window
+            return window == self._target_window
         except Exception:
             return False
 
@@ -566,6 +568,7 @@ class Player:
             events = self._build_events()
             while event_index < len(events) and not self._stop_event.is_set():
                 if not self._is_game_window_active():
+                    self._release_all_keys()
                     pause_start = time.monotonic()
                     while not self._stop_event.wait(0.1) and not self._is_game_window_active():
                         pass

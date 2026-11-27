@@ -3,13 +3,15 @@
 
 from pathlib import Path
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QSignalBlocker, QTimer
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
     QFileDialog,
     QHBoxLayout,
     QMainWindow,
+    QProgressDialog,
     QStackedWidget,
     QWidget,
 )
@@ -33,14 +35,10 @@ from maestro.gui.pages.settings_page import SettingsPage
 from maestro.gui.pages.stats_page import StatsPage
 from maestro.gui.signals import MaestroSignals
 from maestro.gui.theme import apply_theme
-from maestro.gui.workers import UpdateCheckWorker, ValidationWorker
+from maestro.gui.workers import SilenceWorker, UpdateCheckWorker, ValidationWorker
 from maestro.key_layout import KeyLayout, WwmLayout
 from maestro.logger import setup_logger
-from maestro.midi_trim import (
-    SILENCE_THRESHOLD,
-    normalize_trailing_silence,
-    trim_leading_silence,
-)
+from maestro.midi_trim import SILENCE_THRESHOLD
 
 _PAGE_TITLES = ["Dashboard", "Settings", "About", "Error Log", "Stats"]
 
@@ -695,21 +693,27 @@ class MainWindow(QMainWindow):
         """Refresh auto-process: trim leading silence for offenders AND
         normalize trailing silence for every valid song. Both operations
         are no-ops when the file is already within target tolerance."""
-        leading_offenders = set(self._find_silence_offenders())
-        songs = list(self._dashboard._song_list.get_songs())
-        trimmed = normalized = failed = 0
+        songs = [
+            song
+            for song in self._dashboard._song_list.get_songs()
+            if self._validation_results.get(str(song)) == "valid"
+        ]
+        self._process_silence(songs, set(self._find_silence_offenders()), normalize=True)
 
-        for song in songs:
-            try:
-                if song in leading_offenders:
-                    trim_leading_silence(song)
-                    trimmed += 1
-                if normalize_trailing_silence(song):
-                    normalized += 1
-            except (OSError, ValueError) as e:
-                self._logger.error(f"auto-process failed for {song}: {e}")
-                failed += 1
-            QApplication.processEvents()
+    def _process_silence(self, songs: list[Path], leading: set[Path], normalize: bool) -> None:
+        worker = SilenceWorker(songs, leading, normalize, self)
+        progress = QProgressDialog("Processing MIDI files…", "Cancel", 0, 0, self)
+        progress.setWindowTitle("Maestro")
+        progress.setMinimumDuration(0)
+        progress.canceled.connect(worker.requestInterruption)
+        worker.finished.connect(progress.accept)
+        worker.start()
+        if progress.exec() == QDialog.DialogCode.Rejected:
+            worker.requestInterruption()
+        worker.wait()
+        trimmed, normalized, failed = worker.trimmed, worker.normalized, worker.failed
+        worker.deleteLater()
+        progress.deleteLater()
 
         self._silence_dialog_skipped = True
         if trimmed or normalized:
@@ -745,30 +749,21 @@ class MainWindow(QMainWindow):
         """Return paths whose first note starts later than the threshold."""
         offenders: list[Path] = []
         for path_str, notes in self._song_notes.items():
-            if notes and notes[0].time > SILENCE_THRESHOLD:
+            if (
+                self._validation_results.get(path_str) == "valid"
+                and notes
+                and notes[0].time > SILENCE_THRESHOLD
+            ):
                 offenders.append(Path(path_str))
         return offenders
 
     def _trim_all(self, offenders: list[Path]) -> None:
         """Trim leading silence from each offender, then refresh the list."""
-        trimmed, failed = 0, 0
-        for song in offenders:
-            try:
-                trim_leading_silence(song)
-                trimmed += 1
-            except (OSError, ValueError) as e:
-                self._logger.error(f"trim failed for {song}: {e}")
-                failed += 1
-            QApplication.processEvents()
-        self._silence_dialog_skipped = True
-        self._refresh_songs()
+        self._process_silence(offenders, set(offenders), normalize=False)
 
-        msg = f"Trimmed {trimmed} song{'s' if trimmed != 1 else ''}"
-        if failed:
-            msg += f" — {failed} failed (see error log)"
-        self._dashboard._status_label.setText(msg)
-
-    # ── Update Checking ───────────────────────────────────────────────
+    def set_sharing_checked(self, checked: bool) -> None:
+        with QSignalBlocker(self._settings.sharing_toggle):
+            self._settings.sharing_toggle.setChecked(checked)
 
     def _background_update_check(self) -> None:
         """Check for updates in a background thread."""

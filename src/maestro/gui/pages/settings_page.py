@@ -135,6 +135,7 @@ class SettingsPage(QWidget):
         heading.setProperty("class", "section-heading")
         layout.addWidget(heading)
         toggle = ToggleSwitch(checked=self._config.get("share_usage") is True)
+        self.sharing_toggle = toggle
         toggle.toggled.connect(self.sharing_changed.emit)
         layout.addLayout(self._toggle_row("Share usage statistics", toggle))
         actions = QHBoxLayout()

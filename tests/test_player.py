@@ -5,6 +5,7 @@ from threading import Event
 from unittest.mock import Mock, patch
 
 import pytest
+from maestro.player import _process_name as native_process_name
 
 from maestro.game_mode import GameMode
 from maestro.key_layout import KeyLayout, WwmLayout
@@ -419,6 +420,21 @@ class TestHeldKeys:
         player._key_down("z")
         assert ("z", None) in player._held_keys
 
+    def test_partial_chord_releases_modifier(self, player):
+        from pynput.keyboard import Key
+        player.keyboard.press.side_effect = [None, OSError("input unavailable")]
+        assert not player._key_down("z", Key.shift)
+        player.keyboard.release.assert_called_once_with(Key.shift)
+        assert not player._physical_releases
+
+    def test_cleanup_retries_failed_release(self, player):
+        player._key_down("z")
+        player.keyboard.release.side_effect = [OSError("input unavailable"), None]
+        assert not player._key_up("z")
+        player._release_all_keys()
+        assert not player._physical_releases
+        assert player.keyboard.release.call_count == 2
+
     def test_key_up_removes_from_held(self, player):
         """key_up should remove key from held set."""
         player._key_down("z")
@@ -461,15 +477,21 @@ class TestWindowFocusDetection:
             assert player._is_game_window_active() is True
 
     @pytest.mark.parametrize("mode", list(GameMode))
-    def test_windows_focus_requires_matching_title(self, player, mode):
+    def test_windows_focus_requires_matching_process_and_window(self, player, mode):
+        from maestro.player import _GAME_EXECUTABLES
+
         player.game_mode = mode
-        gui = Mock()
-        with patch("maestro.player.sys.platform", "win32"), patch.dict("sys.modules", win32gui=gui):
-            gui.GetWindowText.return_value = mode.value.upper()
-            assert player._is_game_window_active()
-            gui.GetWindowText.return_value = "Editor"
+        with (
+            patch("maestro.player.sys.platform", "win32"),
+            patch("maestro.player._foreground_window", return_value=(10, 20)) as foreground,
+            patch("maestro.player._process_name", return_value="browser.exe") as process,
+        ):
             assert not player._is_game_window_active()
-            gui.GetForegroundWindow.side_effect = OSError("Window unavailable")
+            process.return_value = _GAME_EXECUTABLES[mode]
+            assert player._is_game_window_active()
+            foreground.return_value = (11, 20)
+            assert not player._is_game_window_active()
+            foreground.side_effect = OSError("Window unavailable")
             assert not player._is_game_window_active()
 
     def test_focus_lost_during_rest(self, player, tmp_path):
@@ -698,3 +720,14 @@ def test_export_played_notes_effective_midi_note(tmp_path, mock_keyboard):
     data = json.loads(json_path.read_text())
     assert len(data['events']) >= 1
     assert data['events'][0]['midi_note'] == 48
+
+
+def test_windows_process_name_lookup():
+    import os
+    import sys
+    from pathlib import Path
+
+    if sys.platform != "win32":
+        pytest.skip("Windows process API")
+    # The process lookup used by playback must also work with limited query rights.
+    assert native_process_name(os.getpid()) == Path(sys.executable).name.lower()

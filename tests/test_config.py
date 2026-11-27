@@ -139,7 +139,7 @@ class TestSaveConfig:
         with (
             patch("maestro.config.get_config_dir", return_value=config_dir),
             patch("maestro.config.get_config_path", return_value=config_path),
-            patch("builtins.open", side_effect=OSError("disk full")),
+            patch("maestro.config.os.replace", side_effect=OSError("disk full")),
         ):
             # Must not raise.
             save_config({"test": "value"})
@@ -454,3 +454,12 @@ class TestValidateConfig:
         validated, warnings = validate_config(config)
         assert validated["wwm_key_layout"] == "21-key (Naturals)"
         assert len(warnings) == 0
+
+
+def test_failed_atomic_write_preserves_previous_settings(tmp_path, monkeypatch):
+    path = tmp_path / "config.json"
+    monkeypatch.setattr("maestro.config.get_config_path", lambda: path)
+    assert save_config({"share_usage": False})
+    assert not save_config({"invalid": object()})
+    assert json.loads(path.read_text()) == {"share_usage": False}
+    assert list(tmp_path.iterdir()) == [path]

@@ -7,10 +7,18 @@ with refresh and open-in-editor capabilities.
 
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QFont, QHideEvent, QShowEvent, QTextCursor
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QTextEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 from maestro.gui.theme import SPACING
-from maestro.logger import get_log_path, open_log_file
+from maestro.logger import clear_all_logs, get_log_path, open_log_file
 
 
 class LogPage(QWidget):
@@ -40,6 +48,10 @@ class LogPage(QWidget):
 
         header.addStretch()
 
+        clear = QPushButton("Clear all logs")
+        clear.clicked.connect(self._clear_logs)
+        header.addWidget(clear)
+
         self._open_btn = QPushButton("Open in Editor")
         self._open_btn.setProperty("class", "ghost")
         self._open_btn.clicked.connect(open_log_file)
@@ -62,6 +74,19 @@ class LogPage(QWidget):
         self._log_viewer.setFont(mono_font)
 
         layout.addWidget(self._log_viewer)
+
+    def _clear_logs(self) -> None:
+        if (
+            QMessageBox.question(self, "Clear all logs", "Clear Maestro logs from all downloads?")
+            != QMessageBox.StandardButton.Yes
+        ):
+            return
+        try:
+            clear_all_logs()
+        except OSError as error:
+            QMessageBox.warning(self, "Could not clear all logs", str(error))
+        self._stamp = None
+        self.load_log()
 
     def load_log(self) -> None:
         """Read the log file from disk and display its contents."""
