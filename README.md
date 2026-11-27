@@ -43,7 +43,7 @@ If you find Maestro useful, consider:
 - 🎯 **Event-driven playback** - Precise timing with chord support and MIDI duration tracking
 - 📊 **Playback stats** - Track most-played songs, notes, keys, and chords across sessions
 - **Optional usage reporting** - Review the fields at first launch and change sharing in Settings → Privacy & usage. [Reporting and hosting details](cloudflare/README.md)
-- 🔒 **Production-ready** - Windows and Linux tests, type-checked with mypy, security-scanned, pinned dependencies
+- 🔒 **Production-ready** - Windows tests, type-checked with mypy, security-scanned, pinned dependencies
 - 🪟 **Windows executable** - Standalone `.exe` for easy distribution
 
 ---
