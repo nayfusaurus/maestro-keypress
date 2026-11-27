@@ -107,6 +107,20 @@ QWidget {{
     color: {c["text"]};
 }}
 
+QDialog#privacyDialog {{
+    background-color: {c["base"]};
+}}
+
+QDialog#privacyDialog QTextBrowser {{
+    background-color: {c["surface0"]};
+    color: {c["text"]};
+    selection-background-color: {c["accent"]};
+    selection-color: {c["base"]};
+    border: 1px solid {c["surface2"]};
+    border-radius: 8px;
+    padding: 8px;
+}}
+
 /* ── Labels ─────────────────────────────────────────────────────────── */
 
 QLabel {{

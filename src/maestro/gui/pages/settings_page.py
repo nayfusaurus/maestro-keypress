@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from maestro.gui.constants import BINDABLE_KEYS_QT, DISCLAIMER_TEXT
-from maestro.gui.privacy import DISCLOSURE, show_example
+from maestro.gui.privacy import DISCLOSURE, show_example, show_privacy_text
 from maestro.gui.theme import SPACING
 from maestro.gui.toggle_switch import ToggleSwitch
 from maestro.gui.utils import check_hotkey_conflict
@@ -139,13 +139,11 @@ class SettingsPage(QWidget):
         layout.addLayout(self._toggle_row("Share usage statistics", toggle))
         actions = QHBoxLayout()
         details = QPushButton("Data shared")
-        details.clicked.connect(
-            lambda: QMessageBox.information(self, "Usage statistics", DISCLOSURE)
-        )
+        details.clicked.connect(lambda: show_privacy_text(self, "Usage statistics", DISCLOSURE))
         example = QPushButton("Example")
         example.clicked.connect(lambda: show_example(self))
         terms = QPushButton("Terms")
-        terms.clicked.connect(lambda: QMessageBox.information(self, "Usage terms", DISCLAIMER_TEXT))
+        terms.clicked.connect(lambda: show_privacy_text(self, "Usage terms", DISCLAIMER_TEXT))
         for button in (details, example, terms):
             actions.addWidget(button)
         actions.addStretch()

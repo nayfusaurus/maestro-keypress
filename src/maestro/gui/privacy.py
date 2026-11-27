@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MPL-2.0
 """Shared privacy disclosure and versioned first-run consent."""
 
+from math import ceil
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -8,8 +10,8 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QHBoxLayout,
     QLabel,
-    QMessageBox,
     QPushButton,
+    QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
@@ -26,8 +28,40 @@ DISCLOSURE = (
 )
 
 
+def show_privacy_text(parent: QWidget, title: str, text: str) -> None:
+    dialog = QDialog(parent)
+    dialog.setObjectName("privacyDialog")
+    dialog.setWindowTitle(title)
+    layout = QVBoxLayout(dialog)
+    layout.setContentsMargins(20, 18, 20, 18)
+    layout.setSpacing(14)
+    heading = QLabel(title)
+    heading.setProperty("class", "title")
+    layout.addWidget(heading)
+    body = QTextBrowser()
+    body.setAccessibleName(title)
+    body.setPlainText(text)
+    layout.addWidget(body)
+    buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+    buttons.rejected.connect(dialog.reject)
+    layout.addWidget(buttons)
+    available = parent.screen().availableGeometry()
+    width = min(540, available.width() - 32)
+    body.ensurePolished()
+    body.document().setDefaultFont(body.font())
+    body.document().setTextWidth(width - 100)
+    height = (
+        ceil(body.document().size().height())
+        + heading.sizeHint().height()
+        + buttons.sizeHint().height()
+        + 90
+    )
+    dialog.resize(width, min(max(270, height), available.height() - 80))
+    dialog.exec()
+
+
 def show_example(parent: QWidget) -> None:
-    QMessageBox.information(
+    show_privacy_text(
         parent,
         "Example usage report",
         "Installation: random ID • UTC day: 2026-11-27 • Maestro: 2.1.0\n"
@@ -71,9 +105,7 @@ class WelcomeDialog(QDialog):
         terms_row.addStretch()
         read_terms = QPushButton("Read usage terms")
         read_terms.setFlat(True)
-        read_terms.clicked.connect(
-            lambda: QMessageBox.information(self, "Usage terms", DISCLAIMER_TEXT)
-        )
+        read_terms.clicked.connect(lambda: show_privacy_text(self, "Usage terms", DISCLAIMER_TEXT))
         terms_row.addWidget(read_terms)
         layout.addLayout(terms_row)
         layout.addSpacing(8)
