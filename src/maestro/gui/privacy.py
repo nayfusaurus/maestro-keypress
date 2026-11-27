@@ -56,8 +56,9 @@ def show_privacy_text(parent: QWidget, title: str, text: str) -> None:
         + buttons.sizeHint().height()
         + 90
     )
-    dialog.resize(width, min(max(270, height), available.height() - 80))
+    dialog.resize(width, min(max(300, height + 42), available.height() - 80))
     dialog.exec()
+    dialog.deleteLater()
 
 
 def show_example(parent: QWidget) -> None:
