@@ -117,44 +117,26 @@ class ValidationWorker(QThread):
 
             # Check cache
             cached_entry = self._validation_cache.get(song_str)
-            if cached_entry is not None:
-                cached_mtime, cached_is_valid = cached_entry
-                if cached_mtime == current_mtime:
-                    if cached_is_valid:
-                        # Reuse existing info/notes from the shared dicts
-                        info = self._song_info.get(song_str, empty_info.copy())
-                        notes = self._song_notes.get(song_str, [])
-                        try:
-                            playable, total = self._compute_compatibility(notes)
-                        except Exception:
-                            playable, total = 0, 0
-                        self.song_validated.emit(song_str, "valid", info, notes, playable, total)
-                    else:
-                        self.song_validated.emit(song_str, "invalid", empty_info.copy(), [], 0, 0)
-                    continue
-
-            # File changed or not in cache — validate it
+            if cached_entry == (current_mtime, False):
+                self.song_validated.emit(song_str, "invalid", empty_info.copy(), [], 0, 0)
+                continue
             try:
-                notes = parse_midi(song)
-                info = get_midi_info(song, notes=notes)
-
-                # For drums layout, check if song has notes in drum range (60-67)
-                if self._key_layout == KeyLayout.DRUMS:
-                    has_drum_notes = any(60 <= note.midi_note <= 67 for note in notes)
-                    if not has_drum_notes:
-                        self._validation_cache[song_str] = (current_mtime, False)
-                        self.song_validated.emit(song_str, "invalid", empty_info.copy(), [], 0, 0)
-                        continue
-
-                self._validation_cache[song_str] = (current_mtime, True)
-                try:
-                    playable, total = self._compute_compatibility(notes)
-                except Exception:
-                    playable, total = 0, 0
-                self.song_validated.emit(song_str, "valid", info, notes, playable, total)
+                if cached_entry == (current_mtime, True) and song_str in self._song_notes:
+                    notes = self._song_notes[song_str]
+                    info = self._song_info[song_str]
+                else:
+                    notes = parse_midi(song)
+                    info = get_midi_info(song, notes=notes)
             except Exception:
                 self._validation_cache[song_str] = (current_mtime, False)
                 self.song_validated.emit(song_str, "invalid", empty_info.copy(), [], 0, 0)
+                continue
+
+            self._validation_cache[song_str] = (current_mtime, True)
+            playable, total = self._compute_compatibility(notes)
+            drums = self._game_mode == "Heartopia" and self._key_layout == KeyLayout.DRUMS
+            status = "invalid" if drums and not playable else "valid"
+            self.song_validated.emit(song_str, status, info, notes, playable, total)
 
         self.validation_finished.emit()
 
