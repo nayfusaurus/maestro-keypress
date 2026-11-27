@@ -60,6 +60,10 @@ class Maestro:
         self.logger = setup_logger()
         self._config = load_config()
         self.metrics = UsageMetrics(get_config_dir(), endpoint())
+        # Opt-out deletes the identity store even if config.json cannot be replaced.
+        # Only an explicit sharing choice may create a new installation identity.
+        if self._config.get("share_usage") is True and not self.metrics.path.is_file():
+            self._config["share_usage"] = False
 
         # Use provided folder, or config folder, or default
         if songs_folder:
@@ -539,15 +543,9 @@ class Maestro:
         from maestro.gui.theme import apply_theme
 
         apply_theme(app, dark=self._config.get("theme", "dark") == "dark")
-        from maestro.gui.privacy import CONSENT_VERSION, review_choices
+        from maestro.gui.privacy import review_choices
 
         splash.hide()
-        returning = (
-            self._config.get("privacy_version") == CONSENT_VERSION
-            and self._config.get("disclaimer_accepted") is True
-        )
-        if returning and not self.metrics.path.is_file():
-            self._config["share_usage"] = False
         if not review_choices(self._config):
             splash.close()
             return

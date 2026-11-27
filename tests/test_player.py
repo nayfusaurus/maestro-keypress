@@ -494,6 +494,20 @@ class TestWindowFocusDetection:
             foreground.side_effect = OSError("Window unavailable")
             assert not player._is_game_window_active()
 
+    def test_focus_loss_releases_held_key_before_wait(self, player):
+        assert player._key_down("z")
+        def stop_during_pause(timeout):
+            player.keyboard.release.assert_called_once_with("z")
+            player._stop_event.set()
+            return True
+
+        with (
+            patch.object(player, "_build_events", return_value=[object()]),
+            patch.object(player, "_is_game_window_active", return_value=False),
+            patch.object(player._stop_event, "wait", side_effect=stop_during_pause),
+        ):
+            player._playback_loop()
+
     def test_focus_lost_during_rest(self, player, tmp_path):
         player.current_song = tmp_path / "focus.mid"
         player._notes = [Note(60, 1.0, 0.5)]

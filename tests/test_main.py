@@ -309,3 +309,21 @@ def test_exit_is_idempotent(mock_dependencies, tmp_path):
     listener.join.assert_called_once()
 
 
+
+
+def test_failed_opt_out_save_stays_off_after_restart(tmp_path, mock_dependencies, monkeypatch):
+    from importlib import import_module
+    monkeypatch.setattr(import_module("maestro.main"), "get_config_dir", lambda: tmp_path)
+    load = mock_dependencies["load_config"]
+    previous = dict(load.return_value, share_usage=True)
+    load.side_effect = lambda: previous.copy()
+    app = Maestro(tmp_path)
+    app.metrics.configure(True)
+    mock_dependencies["save_config"].return_value = False
+    with patch("PySide6.QtWidgets.QMessageBox.warning") as warning:
+        app._set_sharing(False)
+    warning.assert_called_once()
+    assert not app.metrics.enabled
+    assert not app.metrics.path.exists()
+    restarted = Maestro(tmp_path)
+    assert restarted._config["share_usage"] is False
