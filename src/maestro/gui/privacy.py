@@ -91,9 +91,7 @@ class WelcomeDialog(QDialog):
         layout.addStretch()
         layout.addSpacing(8)
         buttons = QDialogButtonBox()
-        self.proceed = buttons.addButton(
-            "Continue", QDialogButtonBox.ButtonRole.AcceptRole
-        )
+        self.proceed = buttons.addButton("Continue", QDialogButtonBox.ButtonRole.AcceptRole)
         self.proceed.setObjectName("continueButton")
         self.proceed.setProperty("class", "primary")
         buttons.addButton("Exit", QDialogButtonBox.ButtonRole.RejectRole)
