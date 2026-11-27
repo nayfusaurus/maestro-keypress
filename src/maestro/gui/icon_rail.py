@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 
 from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QPen
+from PySide6.QtGui import QColor, QHelpEvent, QMouseEvent, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QToolTip, QWidget
 
 from maestro.gui.theme import COLORS
@@ -151,10 +151,10 @@ class IconRail(QWidget):
 
     def event(self, ev: QEvent) -> bool:
         """Handle QEvent.ToolTip to show icon labels."""
-        if ev.type() == QEvent.Type.ToolTip:
-            idx = self._hit_test(ev.pos().y())  # type: ignore[attr-defined]
+        if ev.type() == QEvent.Type.ToolTip and isinstance(ev, QHelpEvent):
+            idx = self._hit_test(ev.pos().y())
             if 0 <= idx < len(_ICON_LABELS):
-                QToolTip.showText(ev.globalPos(), _ICON_LABELS[idx], self)  # type: ignore[attr-defined]
+                QToolTip.showText(ev.globalPos(), _ICON_LABELS[idx], self)
             else:
                 QToolTip.hideText()
             return True

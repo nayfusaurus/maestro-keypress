@@ -72,7 +72,7 @@ The exe will be at `dist/Maestro.exe`. You can:
 uv run pytest -v
 ```
 
-CI runs the Python test suite on Windows and Ubuntu.
+CI runs the Python test suite on Windows.
 
 ### Code Quality
 
