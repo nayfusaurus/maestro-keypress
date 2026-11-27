@@ -1,6 +1,7 @@
 import json
 import time
-from unittest.mock import patch
+from threading import Event
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -126,6 +127,39 @@ def test_duration_is_zero_when_no_notes(mock_keyboard):
 
 
 @pytest.fixture
+def test_sustained_note_sets_duration(player, sample_midi):
+    from maestro.parser import get_midi_info
+    from maestro.player import TAIL_SILENCE_SECONDS
+
+    notes = [Note(60, 0, 10), Note(64, 5, 1)]
+    with patch("maestro.player.parse_midi", return_value=notes):
+        player.load(sample_midi)
+    assert player.duration == 10 + TAIL_SILENCE_SECONDS
+    assert get_midi_info(sample_midi, notes)["duration"] == 10
+
+
+def test_stop_exports_only_dispatched_notes(player, tmp_path):
+    player.current_song = tmp_path / "partial.mid"
+    player._notes = [Note(60, 0, 30), Note(64, 31, 1)]
+    pressed = Event()
+    player.keyboard.press.side_effect = lambda key: pressed.set()
+    with patch("maestro.stats.update_stats") as stats, patch.object(
+        player, "_is_game_window_active", return_value=True
+    ):
+        player.play()
+        try:
+            assert pressed.wait(2)
+        finally:
+            player.stop()
+    events = json.loads((tmp_path / "partial.played.json").read_text())["events"]
+    assert len(events) == 1
+    assert events[0]["midi_note"] == 60
+    assert 0 <= events[0]["start_sec"] <= events[0]["end_sec"] < 30
+    played, _, elapsed, _ = stats.call_args.args
+    assert [(evt.midi_note, evt.action) for evt in played] == [(60, "down")]
+    assert events[0]["end_sec"] == pytest.approx(elapsed, abs=1e-6)
+
+
 def player():
     """Create a Player with mocked keyboard Controller."""
     with patch("maestro.player.Controller"):
@@ -425,39 +459,43 @@ class TestWindowFocusDetection:
             mock_sys.platform = "linux"
             assert player._is_game_window_active() is True
 
-    def test_is_game_window_active_exception_returns_true(self, player):
-        """If win32gui fails, should return True (don't block playback)."""
-        with patch("maestro.player.sys") as mock_sys:
-            mock_sys.platform = "win32"
-            # win32gui import will fail on non-Windows
-            with patch.dict("sys.modules", {"win32gui": None}):
-                assert player._is_game_window_active() is True
+    @pytest.mark.parametrize("mode", list(GameMode))
+    def test_windows_focus_requires_matching_title(self, player, mode):
+        player.game_mode = mode
+        gui = Mock()
+        with patch("maestro.player.sys.platform", "win32"), patch.dict("sys.modules", win32gui=gui):
+            gui.GetWindowText.return_value = mode.value.upper()
+            assert player._is_game_window_active()
+            gui.GetWindowText.return_value = "Editor"
+            assert not player._is_game_window_active()
+            gui.GetForegroundWindow.side_effect = OSError("Window unavailable")
+            assert not player._is_game_window_active()
 
-    def test_focus_loss_pauses_timeline(self, player):
-        """When game loses focus, start_time should be adjusted to freeze timeline."""
-        # Setup: give the player some notes and simulate playback
-        player._notes = [Note(midi_note=60, time=0.0, duration=0.5)]
-        player._start_time = time.time()
+    def test_focus_lost_during_rest(self, player, tmp_path):
+        player.current_song = tmp_path / "focus.mid"
+        player._notes = [Note(60, 1.0, 0.5)]
+        player._start_time = 100.0
+        player.state = PlaybackState.PLAYING
+        now = 100.0
+        presses = []
 
-        # Simulate: window inactive for 0.2s, then active again
-        call_count = 0
+        def wait(timeout):
+            nonlocal now
+            now += timeout
+            return False
 
-        def mock_focus():
-            nonlocal call_count
-            call_count += 1
-            return call_count > 2
+        player.keyboard.press.side_effect = lambda key: presses.append(now)
+        with (
+            patch("maestro.player.time") as clock,
+            patch.object(player, "_is_game_window_active", side_effect=lambda: not 100.5 <= now < 102),
+            patch.object(player._stop_event, "wait", side_effect=wait),
+            patch("maestro.stats.update_stats"),
+        ):
+            clock.time.side_effect = clock.monotonic.side_effect = lambda: now
+            player._playback_loop()
 
-        original_start = player._start_time
-        with patch.object(player, "_is_game_window_active", side_effect=mock_focus):
-            # Simulate the focus-loss block from _playback_loop
-            if not player._is_game_window_active():
-                pause_start = time.time()
-                while not player._is_game_window_active() and not player._stop_event.is_set():
-                    time.sleep(0.05)
-                player._start_time += time.time() - pause_start
-
-        # start_time should have been pushed forward (pause compensation)
-        assert player._start_time > original_start
+        assert len(presses) == 1
+        assert presses[0] >= 102.4
 
 
 class TestEventCaching:

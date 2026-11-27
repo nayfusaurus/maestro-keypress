@@ -102,6 +102,10 @@ def parse_midi(midi_path: Path) -> list[Note]:
 
 
 def get_tempo(mid: mido.MidiFile) -> int:
+def notes_duration(notes: list[Note]) -> float:
+    return max((note.time + note.duration for note in notes), default=0.0)
+
+
     """Get tempo from MIDI file, default to 120 BPM."""
     for track in mid.tracks:
         for msg in track:
@@ -135,15 +139,8 @@ def get_midi_info(midi_path: Path, notes: list[Note] | None = None) -> dict:
     except Exception:
         bpm = 120
 
-    # Calculate duration
-    if notes:
-        last_note = notes[-1]
-        duration = last_note.time + last_note.duration
-    else:
-        duration = 0.0
-
     return {
-        "duration": duration,
+        "duration": notes_duration(notes),
         "bpm": bpm,
         "note_count": len(notes),
     }
