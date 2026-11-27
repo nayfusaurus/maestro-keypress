@@ -22,6 +22,22 @@ def reset_logger():
 class TestGetLogPath:
     """Tests for get_log_path function."""
 
+    def test_packaged_copy_starts_fresh_and_relaunch_keeps_log(self, tmp_path, monkeypatch):
+        first = tmp_path / "first.exe"
+        second = tmp_path / "second.exe"
+        first.write_bytes(b"same build")
+        second.write_bytes(first.read_bytes())
+        monkeypatch.setattr(maestro.logger, "get_config_dir", lambda: tmp_path)
+        monkeypatch.setattr(maestro.logger.sys, "frozen", True, raising=False)
+        monkeypatch.setattr(maestro.logger.sys, "executable", str(first))
+        original = get_log_path()
+        original.parent.mkdir(parents=True)
+        original.write_text("first copy")
+        assert get_log_path().read_text() == "first copy"
+        monkeypatch.setattr(maestro.logger.sys, "executable", str(second))
+        assert get_log_path() != original
+        assert not get_log_path().exists()
+
     def test_get_log_path_in_config_dir(self):
         """Log path should be maestro.log inside config directory."""
         with patch("maestro.logger.get_config_dir", return_value=Path("/test/config")):

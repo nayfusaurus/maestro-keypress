@@ -5,7 +5,8 @@ Displays the application log file in a read-only monospace text viewer
 with refresh and open-in-editor capabilities.
 """
 
-from PySide6.QtGui import QFont, QShowEvent, QTextCursor
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QFont, QHideEvent, QShowEvent, QTextCursor
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QTextEdit, QVBoxLayout, QWidget
 
 from maestro.gui.theme import SPACING
@@ -17,6 +18,10 @@ class LogPage(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._stamp: tuple[int, int, int] | None = None
+        self._timer = QTimer(self)
+        self._timer.setInterval(1500)
+        self._timer.timeout.connect(self.load_log)
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -61,11 +66,25 @@ class LogPage(QWidget):
     def load_log(self) -> None:
         """Read the log file from disk and display its contents."""
         log_path = get_log_path()
-        if log_path.exists() and log_path.stat().st_size > 0:
+        try:
+            stat = log_path.stat()
+            stamp = (stat.st_ino, stat.st_mtime_ns, stat.st_size)
+            if stamp == self._stamp:
+                return
             text = log_path.read_text(encoding="utf-8", errors="replace")
-            self._log_viewer.setPlainText(text)
-        else:
-            self._log_viewer.setPlainText("No log entries")
+        except FileNotFoundError:
+            stamp = None
+            text = ""
+        except OSError:
+            return
+        self._stamp = stamp
+        bar = self._log_viewer.verticalScrollBar()
+        position = bar.value()
+        follow = position == bar.maximum()
+        self._log_viewer.setPlainText(text or "No log entries")
+        if not follow:
+            bar.setValue(position)
+            return
 
         # Auto-scroll to bottom
         cursor = self._log_viewer.textCursor()
@@ -76,3 +95,8 @@ class LogPage(QWidget):
         """Auto-load log contents when the page becomes visible."""
         super().showEvent(event)
         self.load_log()
+        self._timer.start()
+
+    def hideEvent(self, event: QHideEvent) -> None:
+        self._timer.stop()
+        super().hideEvent(event)
