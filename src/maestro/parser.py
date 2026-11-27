@@ -98,15 +98,13 @@ def parse_midi(midi_path: Path) -> list[Note]:
                     duration=0.0,  # Will be updated on note_off
                 )
             )
-        elif msg.type == "note_off" or (msg.type == "note_on" and msg.velocity == 0):
-            # Note ended
-            if msg.note in active_notes:
-                start_time, idx = active_notes.pop(msg.note)
-                notes[idx] = Note(
-                    midi_note=notes[idx].midi_note,
-                    time=notes[idx].time,
-                    duration=current_time - start_time,
-                )
+        elif msg.type in ("note_off", "note_on") and msg.note in active_notes:
+            start_time, idx = active_notes.pop(msg.note)
+            notes[idx] = Note(
+                midi_note=notes[idx].midi_note,
+                time=notes[idx].time,
+                duration=current_time - start_time,
+            )
 
     return sorted(notes, key=lambda n: n.time)
 

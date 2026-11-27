@@ -601,7 +601,7 @@ class Player:
                     outcomes = []
                     if played:
                         outcomes.append("started")
-                    if self._last_error:
+                    if self.last_error:
                         outcomes.append("input_failure")
                     if self._stop_event.is_set():
                         outcomes.append("stopped")

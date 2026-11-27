@@ -11,13 +11,13 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "idna>=3.15",
+    "idna>=3.20",
     "mido==1.3.3",
     "pydirectinput==1.0.4",
-    "pynput==1.8.1",
+    "pynput==1.8.2",
     "pywin32; sys_platform == 'win32'",
-    "PySide6>=6.6.0,<7.0.0",
-    "requests>=2.33.0",
+    "PySide6>=6.12.0,<7.0.0",
+    "requests>=2.34.2",
     "urllib3>=2.8.0",
 ]
 
@@ -25,23 +25,23 @@ dependencies = [
 maestro = "maestro:main"
 
 [build-system]
-requires = ["uv_build>=0.9.26,<0.10.0"]
+requires = ["uv_build>=0.13.10,<0.14.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
     "bandit==1.9.4",
-    "msgpack>=1.2.3",
-    "mypy==1.19.1",
+    "msgpack>=1.2.4",
+    "mypy==2.4.1",
     "pillow>=13.0.0",
-    "pip-audit>=2.10.0",
-    "pygments>=2.20.0",
-    "pyinstaller==6.19.0",
-    "pytest==9.0.3",
-    "pytest-qt>=4.4.0",
-    "ruff==0.15.4",
-    "ty>=0.0.21",
-    "types-requests>=2.32.4.20260107",
+    "pip-audit>=2.10.1",
+    "pygments>=2.21.0",
+    "pyinstaller==6.22.3",
+    "pytest==9.2.0",
+    "pytest-qt>=4.5.0",
+    "ruff==0.17.6",
+    "ty>=0.0.112",
+    "types-requests>=2.33.0.20261030",
 ]
 
 [tool.pytest.ini_options]
