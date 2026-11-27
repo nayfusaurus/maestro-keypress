@@ -47,3 +47,6 @@ uv.lock
 
 # Claude Code local state (settings, scheduled tasks, worktrees)
 .claude/
+cloudflare/wrangler.toml
+cloudflare/.wrangler/
+cloudflare/node_modules/

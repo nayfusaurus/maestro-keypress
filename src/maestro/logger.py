@@ -4,6 +4,7 @@
 Sets up rotating file handler for error logging.
 """
 
+import hashlib
 import logging
 import os
 import subprocess  # nosec B404
@@ -17,7 +18,20 @@ _logger: logging.Logger | None = None
 
 
 def get_log_path() -> Path:
-    """Return path to log file."""
+    """Keep each downloaded executable's rotating logs separate across launches."""
+    if getattr(sys, "frozen", False):
+        executable = Path(sys.executable)
+        stat = executable.stat()
+        # Windows preserves the creation time on launch and the file ID on rename.
+        identity = (
+            stat.st_dev,
+            stat.st_ino,
+            getattr(stat, "st_birthtime_ns", 0),
+            stat.st_size,
+            stat.st_mtime_ns,
+        )
+        key = hashlib.sha256(str(identity).encode("ascii")).hexdigest()[:24]
+        return get_config_dir() / "logs" / key / "maestro.log"
     return get_config_dir() / "maestro.log"
 
 
@@ -45,6 +59,7 @@ def setup_logger() -> logging.Logger:
         log_path,
         maxBytes=1_000_000,
         backupCount=3,
+        encoding="utf-8",
     )
     handler.setLevel(logging.DEBUG)
 

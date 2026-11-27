@@ -4,11 +4,13 @@
   <h3>🎹 Automated MIDI Piano Player for Games</h3>
   <p><em>Turn any MIDI file into beautiful in-game piano performances</em></p>
 
-  [![CI](https://github.com/nayfusaurus/maestro-keypress/workflows/CI/badge.svg)](https://github.com/nayfusaurus/maestro-keypress/actions)
-  [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+  [![CI](https://github.com/nayfusaurus/maestro-keypress/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/nayfusaurus/maestro-keypress/actions/workflows/ci.yml)
+  [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
   [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](LICENSE)
   [![GitHub release](https://img.shields.io/github/v/release/nayfusaurus/maestro-keypress)](https://github.com/nayfusaurus/maestro-keypress/releases/latest)
   [![Downloads](https://img.shields.io/github/downloads/nayfusaurus/maestro-keypress/total)](https://github.com/nayfusaurus/maestro-keypress/releases)
+  [![Windows desktop](https://img.shields.io/badge/platform-Windows-0078D4)](#-quick-start)
+  [![Lint and format with Ruff](https://img.shields.io/badge/lint%20and%20format-Ruff-6042A6)](.github/workflows/ci.yml)
   [![Built with Claude](https://img.shields.io/badge/Built%20with-Claude-blueviolet)](https://claude.ai)
 
   <p>
@@ -21,6 +23,17 @@
 
 ---
 
+## 💖 Support
+
+If you find Maestro useful, consider:
+
+- ⭐ **Star this repo** on GitHub
+- 💰 **[Support on Ko-fi](https://ko-fi.com/nayfusaurus)** - Buy me a coffee!
+- 🐛 **Report bugs** to help improve the project
+- 📢 **Share** with friends who play these games
+
+---
+
 ## ✨ Highlights
 
 - 🎮 **Multi-game support** - Works with Heartopia, Where Winds Meet, and Once Human
@@ -29,7 +42,8 @@
 - 🎨 **Modern GUI** - Dark/light themes, icon sidebar navigation, multi-page layout
 - 🎯 **Event-driven playback** - Precise timing with chord support and MIDI duration tracking
 - 📊 **Playback stats** - Track most-played songs, notes, keys, and chords across sessions
-- 🔒 **Production-ready** - 363 tests, type-safe with mypy, security-scanned, pinned dependencies
+- **Optional usage reporting** - Review the fields at first launch and change sharing in Settings → Privacy & usage. [Reporting and hosting details](cloudflare/README.md)
+- 🔒 **Production-ready** - Windows and Linux tests, type-checked with mypy, security-scanned, pinned dependencies
 - 🪟 **Windows executable** - Standalone `.exe` for easy distribution
 
 ---
@@ -45,16 +59,7 @@
 
 The window auto-minimizes and plays your song after a 3-second countdown.
 
-### For Developers
-
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
-
-```bash
-git clone https://github.com/nayfusaurus/maestro-keypress.git
-cd maestro-keypress
-uv sync
-uv run maestro
-```
+For setup, Windows builds, testing, and acknowledgments, see the [contributor guide](CONTRIBUTING.md).
 
 ---
 
@@ -100,7 +105,7 @@ uv run maestro
 - **Type-safe** - Full mypy type checking
 - **Security scanned** - pip-audit checks for vulnerabilities (CI)
 - **Pinned dependencies** - Locked versions for reproducibility
-- **Comprehensive tests** - 363 tests with thorough coverage
+- **Comprehensive tests** - Automated playback and interface tests
 
 ---
 
@@ -228,166 +233,11 @@ Default hotkeys (can be remapped in Settings):
 
 ---
 
-## 🏗️ Building for Windows
-
-The app requires **native Windows** to capture global hotkeys (WSL won't work).
-
-### Prerequisites
-
-1. Install [uv](https://docs.astral.sh/uv/):
-
-   ```powershell
-   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-   ```
-
-2. Open PowerShell or Command Prompt in the project directory
-
-### Option 1: Using build.bat (Recommended)
-
-Simply double-click `build.bat` or run:
-
-```powershell
-.\build.bat
-```
-
-This automatically installs dependencies and builds the exe.
-
-### Option 2: Manual Build
-
-```powershell
-# Install dependencies
-uv sync
-uv add pyinstaller --dev
-
-# Build the exe
-uv run pyinstaller Maestro.spec --noconfirm
-```
-
-### Output
-
-The exe will be at `dist/Maestro.exe`. You can:
-
-- Run it directly by double-clicking
-- Move it anywhere - it's fully standalone
-- Create a desktop shortcut
-
-### Troubleshooting
-
-- **"Python not found"**: Reinstall Python with "Add to PATH" checked
-- **Build fails**: Ensure you're using Windows Python, not WSL
-- **Hotkeys don't work**: Run as administrator if needed
-
----
-
-## 🧪 Development
-
-### Running Tests
-
-```bash
-uv run pytest -v
-```
-
-**Test Suite:** 363 tests, 1 warning (Windows-only focus detection)
-
-### Code Quality
-
-This project uses:
-
-- **ruff** - Fast Python linter
-- **mypy** - Static type checking
-- **pip-audit** - Security vulnerability scanning
-
-Enforced in CI on every commit.
-
-### Project Structure
-
-```text
-maestro-keypress/
-├── src/maestro/
-│   ├── main.py               # App coordinator, Qt event loop, signal wiring
-│   ├── player.py             # Event-driven playback engine with caching
-│   ├── parser.py             # MIDI parsing with multi-tempo support
-│   ├── keymap.py             # Heartopia 22-key mapping (C3-C6)
-│   ├── keymap_15_double.py   # Heartopia 15-key double row
-│   ├── keymap_15_triple.py   # Heartopia 15-key triple row
-│   ├── keymap_drums.py       # Heartopia 8-key drums
-│   ├── keymap_xylophone.py   # Heartopia 8-key xylophone
-│   ├── keymap_wwm.py         # Where Winds Meet mapping (36-key Shift/Ctrl, 21-key naturals)
-│   ├── keymap_once_human.py  # Once Human mapping (Shift/Ctrl octave switching)
-│   ├── key_layout.py         # KeyLayout, WwmLayout enums
-│   ├── game_mode.py          # GameMode enum (3 games)
-│   ├── config.py             # JSON settings persistence with validation
-│   ├── logger.py             # Rotating file logger
-│   ├── gui/                  # PySide6 GUI package
-│   │   ├── main_window.py    # MainWindow — icon rail + paged layout
-│   │   ├── signals.py        # MaestroSignals (centralized Signal defs)
-│   │   ├── pages/            # Dashboard, Settings, Info, Log, Stats pages
-│   │   ├── song_list.py      # Rich two-line items with custom delegate
-│   │   ├── piano_roll.py     # Note preview canvas
-│   │   ├── controls_panel.py # Play/Stop/Favorite transport controls
-│   │   ├── workers.py        # QThread workers (validation, update)
-│   │   ├── theme.py          # Catppuccin dark/light themes, design tokens
-│   │   └── constants.py      # Version, bindable keys, disclaimer text
-├── tests/                    # Test suite (363 tests)
-├── assets/                   # Icons and images
-├── pyproject.toml            # Project config with pinned dependencies
-├── Maestro.spec              # PyInstaller build configuration
-└── .github/workflows/        # CI with ruff, mypy, pip-audit
-```
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Here's how you can help:
-
-1. **Report bugs** - [Open an issue](https://github.com/nayfusaurus/maestro-keypress/issues/new)
-2. **Suggest features** - Share your ideas in issues
-3. **Submit PRs** - Fork, create a branch, and submit a pull request
-4. **Add game support** - Create new keymap modules for other games
-5. **Improve docs** - Fix typos, clarify instructions, add examples
-
-### Development Setup
-
-```bash
-git clone https://github.com/nayfusaurus/maestro-keypress.git
-cd maestro-keypress
-uv sync
-uv run pytest -v  # Run tests
-```
-
-Please ensure all tests pass and code is type-checked before submitting PRs.
-
----
-
 ## 📜 License
 
 Copyright © 2026 nayfusaurus. Maestro’s source code is licensed under the
 [Mozilla Public License 2.0](LICENSE). Copies previously released under MIT
 remain available under their original terms.
-
----
-
-## 💖 Support
-
-If you find Maestro useful, consider:
-
-- ⭐ **Star this repo** on GitHub
-- 💰 **[Support on Ko-fi](https://ko-fi.com/nayfusaurus)** - Buy me a coffee!
-- 🐛 **Report bugs** to help improve the project
-- 📢 **Share** with friends who play these games
-
----
-
-## 🙏 Acknowledgments
-
-- Built with [Claude](https://claude.ai) (Anthropic)
-- [PySide6](https://doc.qt.io/qtforpython-6/) - Qt6 GUI framework
-- [mido](https://github.com/mido/mido) - MIDI file parsing
-- [pynput](https://github.com/moses-palmer/pynput) - Keyboard simulation
-- [pydirectinput](https://github.com/learncodebygaming/pydirectinput) - DirectInput support
-- [uv](https://github.com/astral-sh/uv) - Fast Python package manager
-- Games: **Heartopia**, **Where Winds Meet**, and **Once Human** for inspiring this project
 
 ---
 

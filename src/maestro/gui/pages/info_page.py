@@ -6,19 +6,21 @@ card (scrollable text, optional first-launch accept/reject flow) into a
 single vertically-stacked page widget.
 """
 
-import webbrowser
+from urllib.parse import urlencode
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QUrl, Signal
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPushButton,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
-from maestro.gui.constants import APP_VERSION, DISCLAIMER_TEXT, KOFI_URL
+from maestro.gui.constants import APP_VERSION, DISCLAIMER_TEXT, GITHUB_REPO, KOFI_URL
 from maestro.gui.theme import SPACING
 
 
@@ -41,86 +43,89 @@ class InfoPage(QWidget):
 
     def __init__(self, first_launch: bool = False, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._first_launch = first_launch
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(12)
 
-        outer = QHBoxLayout(self)
-        outer.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
-
-        # Center the container horizontally using stretches, allow vertical fill
-        outer.addStretch()
-        container = QWidget()
-        container.setMaximumWidth(560)
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(SPACING["lg"])
-
-        # --- About card ---
-        about_card = QWidget()
-        about_card.setProperty("class", "surface-card")
-        about_layout = QVBoxLayout(about_card)
-        about_layout.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
-        about_layout.setSpacing(SPACING["sm"])
-
-        # Title
-        title_label = QLabel("Maestro")
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_label.setProperty("class", "title")
-        about_layout.addWidget(title_label)
-
-        # Version
+        about = QWidget()
+        about.setProperty("class", "surface-card")
+        about_layout = QVBoxLayout(about)
+        about_layout.setContentsMargins(16, 12, 16, 12)
+        header = QHBoxLayout()
+        logo = QLabel()
+        icon = self.windowIcon()
+        if not icon.isNull():
+            logo.setPixmap(icon.pixmap(48, 48))
+            header.addWidget(logo)
+        title = QLabel("Maestro")
+        title.setProperty("class", "title")
+        header.addWidget(title)
         self._version_label = QLabel(f"v{APP_VERSION}")
-        self._version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._version_label.setProperty("class", "caption")
-        about_layout.addWidget(self._version_label)
-
-        # Description
-        desc_label = QLabel("MIDI Piano Player for Games")
-        desc_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        desc_label.setProperty("class", "caption")
-        about_layout.addWidget(desc_label)
-
-        about_layout.addSpacing(SPACING["xs"])
-
-        # Credits
-        credits_label = QLabel("Created by nayfusaurus")
-        credits_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        about_layout.addWidget(credits_label)
-
-        source_label = QLabel(
-            '<a href="https://github.com/nayfusaurus/maestro-keypress">'
-            "Maestro source code (MPL 2.0)</a>"
+        header.addWidget(self._version_label)
+        header.addStretch()
+        about_layout.addLayout(header)
+        description = QLabel(
+            "Play MIDI files in games with keyboard instruments. Created by nayfusaurus."
         )
-        source_label.setOpenExternalLinks(True)
-        source_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        about_layout.addWidget(source_label)
+        description.setWordWrap(True)
+        about_layout.addWidget(description)
 
-        about_layout.addSpacing(SPACING["md"])
+        links = QHBoxLayout()
+        source = QPushButton("Source code · MPL 2.0")
+        source.clicked.connect(lambda: self._open_link(f"https://github.com/{GITHUB_REPO}"))
+        support = QPushButton("Support on Ko-fi")
+        support.clicked.connect(lambda: self._open_link(KOFI_URL))
+        links.addWidget(source)
+        links.addWidget(support)
+        links.addStretch()
+        about_layout.addLayout(links)
+        layout.addWidget(about)
 
-        # Ko-fi button
-        kofi_btn = QPushButton("Support on Ko-fi")
-        kofi_btn.setProperty("class", "primary")
-        kofi_btn.clicked.connect(lambda: webbrowser.open(KOFI_URL))
-        about_layout.addWidget(kofi_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        feedback = QWidget()
+        feedback.setProperty("class", "surface-card")
+        feedback_layout = QVBoxLayout(feedback)
+        heading = QLabel("Feedback")
+        heading.setProperty("class", "section-heading")
+        feedback_layout.addWidget(heading)
+        note = QLabel(
+            "Opens a public GitHub issue form in your browser. Sign in to submit. "
+            "Leave out personal details and credentials."
+        )
+        note.setWordWrap(True)
+        note.setProperty("class", "caption")
+        feedback_layout.addWidget(note)
+        actions = QHBoxLayout()
+        bug = QPushButton("Report a bug")
+        bug.clicked.connect(
+            lambda: self._open_feedback(
+                "Bug",
+                "### What happened?\n\n"
+                "### Steps to reproduce\n\n### Expected result\n\n"
+                f"### Maestro version\n{APP_VERSION}",
+            )
+        )
+        suggestion = QPushButton("Suggest a feature")
+        suggestion.clicked.connect(
+            lambda: self._open_feedback(
+                "Suggestion", "### What would you like to do?\n\n### How would this help?\n"
+            )
+        )
+        actions.addWidget(bug)
+        actions.addWidget(suggestion)
+        actions.addStretch()
+        feedback_layout.addLayout(actions)
+        layout.addWidget(feedback)
 
-        layout.addWidget(about_card)
-
-        # --- Disclaimer card ---
         disclaimer_card = QWidget()
         disclaimer_card.setProperty("class", "surface-card")
         disclaimer_layout = QVBoxLayout(disclaimer_card)
-        disclaimer_layout.setContentsMargins(
-            SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"]
-        )
-        disclaimer_layout.setSpacing(SPACING["md"])
-
-        # Section heading
-        heading_label = QLabel("Disclaimer")
+        heading_label = QLabel("Usage disclaimer")
         heading_label.setProperty("class", "section-heading")
         disclaimer_layout.addWidget(heading_label)
-
-        # Scrollable disclaimer text
         self._disclaimer_text = QTextEdit()
         self._disclaimer_text.setPlainText(DISCLAIMER_TEXT)
+        self._disclaimer_text.setAccessibleName("Usage disclaimer")
         self._disclaimer_text.setReadOnly(True)
         disclaimer_layout.addWidget(self._disclaimer_text, stretch=1)
 
@@ -148,9 +153,6 @@ class InfoPage(QWidget):
 
         layout.addWidget(disclaimer_card, stretch=1)
 
-        outer.addWidget(container)
-        outer.addStretch()
-
         # Show/hide first-launch elements
         if not first_launch:
             self._prompt_label.hide()
@@ -161,6 +163,15 @@ class InfoPage(QWidget):
     # ------------------------------------------------------------------
     # Slots
     # ------------------------------------------------------------------
+
+    def _open_link(self, address: str) -> None:
+        if not QDesktopServices.openUrl(QUrl(address)):
+            QMessageBox.warning(self, "Browser unavailable", "Maestro could not open your browser.")
+
+    def _open_feedback(self, category: str, prompts: str) -> None:
+        # Only fixed prompts enter the URL. Users write and submit their report on GitHub.
+        query = urlencode({"title": f"[{category}] ", "body": prompts})
+        self._open_link(f"https://github.com/{GITHUB_REPO}/issues/new?{query}")
 
     def _on_accept(self) -> None:
         """Handle accept button click."""

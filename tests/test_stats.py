@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from datetime import date
 
 from maestro.stats import (
     _CHORD_WINDOW,
@@ -94,6 +95,24 @@ def test_update_increments_total_plays(tmp_path, monkeypatch) -> None:
     update_stats(_make_events((0.0, "a", 60)), "test_song", 10.0)
     stats = load_stats()
     assert stats["total_plays"] == 1
+
+
+def test_recap_upgrades_legacy_history_and_tracks_the_densest_passage(tmp_path, monkeypatch):
+    path = tmp_path / "stats.json"
+    path.write_text('{"total_plays": 12}')
+    monkeypatch.setattr("maestro.stats._stats_path", lambda: path)
+    notes = _make_events(*[(t, "a", 60) for t in (0, 5, 5, 6, 9.9, 10)])
+    update_stats(notes, "Record.mid", 11)
+    update_stats(_make_events((0, "b", 64)), "Later.mid", 3)
+    stats = load_stats()
+    assert stats["total_plays"] == 14
+    assert stats["daily_plays"] == {date.today().isoformat(): 2}
+    assert stats["peak_passage"] == {
+        "song": "Record.mid", "start": 5, "count": 4, "bins": [2, 1, 0, 0, 1]
+    }
+    reset_stats()
+    assert load_stats()["peak_passage"] == {}
+    assert load_stats()["daily_plays"] == {}
 
 
 def test_update_increments_song_plays(tmp_path, monkeypatch) -> None:

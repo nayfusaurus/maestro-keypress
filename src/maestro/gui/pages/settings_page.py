@@ -1,14 +1,10 @@
 # SPDX-License-Identifier: MPL-2.0
-"""Settings page with Library, Appearance, Hotkeys, Demucs, and Updates cards.
-
-A scrollable page containing five surface-card sections for all user-facing
-settings.  Each card groups related options with toggle switches, hotkey
-binding, and action buttons.
-"""
+"""Responsive settings for playback, library, updates and privacy."""
 
 from PySide6.QtCore import Qt, QUrl, Signal
-from PySide6.QtGui import QDesktopServices, QKeyEvent
+from PySide6.QtGui import QDesktopServices, QKeyEvent, QResizeEvent
 from PySide6.QtWidgets import (
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -20,7 +16,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from maestro.gui.constants import BINDABLE_KEYS_QT
+from maestro.gui.constants import BINDABLE_KEYS_QT, DISCLAIMER_TEXT
+from maestro.gui.privacy import DISCLOSURE, show_example
 from maestro.gui.theme import SPACING
 from maestro.gui.toggle_switch import ToggleSwitch
 from maestro.gui.utils import check_hotkey_conflict
@@ -56,6 +53,7 @@ class SettingsPage(QWidget):
     fullscreen_changed = Signal(bool)
     auto_minimize_changed = Signal(bool)
     check_updates_changed = Signal(bool)
+    sharing_changed = Signal(bool)
     countdown_delay_changed = Signal(int)
     check_now_requested = Signal()
 
@@ -80,50 +78,87 @@ class SettingsPage(QWidget):
     # ------------------------------------------------------------------
 
     def _setup_ui(self) -> None:
-        """Build the scrollable page layout with five cards."""
-        # Outer layout holds the scroll area
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
-
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(scroll.Shape.NoFrame)
-
-        # Inner content widget with max width to prevent horizontal stretching
         content = QWidget()
-        content.setMaximumWidth(680)
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
-        layout.setSpacing(SPACING["lg"])
-
-        layout.addWidget(self._build_library_card())
-        layout.addWidget(self._build_appearance_card())
-        layout.addWidget(self._build_hotkeys_card())
-        layout.addWidget(self._build_updates_card())
+        layout.setContentsMargins(16, 12, 16, 12)
+        title = QLabel("Settings")
+        title.setProperty("class", "title")
+        layout.addWidget(title)
+        self._grid = QGridLayout()
+        self._grid.setSpacing(10)
+        layout.addLayout(self._grid)
         layout.addStretch()
-
-        # Center the content in the scroll area
-        scroll_content = QWidget()
-        scroll_layout = QHBoxLayout(scroll_content)
-        scroll_layout.setContentsMargins(0, 0, 0, 0)
-        scroll_layout.addStretch()
-        scroll_layout.addWidget(content)
-        scroll_layout.addStretch()
-        scroll.setWidget(scroll_content)
+        self._cards = [
+            self._build_appearance_card(),
+            self._build_hotkeys_card(),
+            self._build_library_card(),
+            self._build_updates_card(),
+            self._build_privacy_card(),
+        ]
+        self._columns = 0
+        self._arrange_cards(self.width())
+        scroll.setWidget(content)
         outer.addWidget(scroll)
+
+    def _arrange_cards(self, width: int) -> None:
+        columns = 3 if width >= 1080 else 2 if width >= 640 else 1
+        if columns == self._columns:
+            return
+        for item in self._cards:
+            self._grid.removeWidget(item)
+        for col in range(3):
+            self._grid.setColumnStretch(col, int(col < columns))
+        for index, item in enumerate(self._cards):
+            row, col = divmod(index, columns)
+            span = columns - col if index == len(self._cards) - 1 else 1
+            self._grid.addWidget(item, row, col, 1, span)
+        self._columns = columns
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._arrange_cards(event.size().width())
 
     # ------------------------------------------------------------------
     # Card builders
     # ------------------------------------------------------------------
+
+    def _build_privacy_card(self) -> QWidget:
+        card = QWidget()
+        card.setProperty("class", "surface-card")
+        layout = QVBoxLayout(card)
+        heading = QLabel("Privacy & usage")
+        heading.setProperty("class", "section-heading")
+        layout.addWidget(heading)
+        toggle = ToggleSwitch(checked=self._config.get("share_usage") is True)
+        toggle.toggled.connect(self.sharing_changed.emit)
+        layout.addLayout(self._toggle_row("Share usage statistics", toggle))
+        actions = QHBoxLayout()
+        details = QPushButton("Data shared")
+        details.clicked.connect(
+            lambda: QMessageBox.information(self, "Usage statistics", DISCLOSURE)
+        )
+        example = QPushButton("Example")
+        example.clicked.connect(lambda: show_example(self))
+        terms = QPushButton("Terms")
+        terms.clicked.connect(lambda: QMessageBox.information(self, "Usage terms", DISCLAIMER_TEXT))
+        for button in (details, example, terms):
+            actions.addWidget(button)
+        actions.addStretch()
+        layout.addLayout(actions)
+        return card
 
     def _build_library_card(self) -> QWidget:
         """Build the Library card with folder path and browse button."""
         card = QWidget()
         card.setProperty("class", "surface-card")
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
-        lay.setSpacing(SPACING["sm"])
+        lay.setContentsMargins(12, 8, 12, 8)
+        lay.setSpacing(4)
 
         heading = QLabel("Library")
         heading.setProperty("class", "section-heading")
@@ -149,8 +184,8 @@ class SettingsPage(QWidget):
         card = QWidget()
         card.setProperty("class", "surface-card")
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
-        lay.setSpacing(SPACING["sm"])
+        lay.setContentsMargins(12, 8, 12, 8)
+        lay.setSpacing(4)
 
         heading = QLabel("Appearance")
         heading.setProperty("class", "section-heading")
@@ -191,8 +226,8 @@ class SettingsPage(QWidget):
         card = QWidget()
         card.setProperty("class", "surface-card")
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
-        lay.setSpacing(SPACING["sm"])
+        lay.setContentsMargins(12, 8, 12, 8)
+        lay.setSpacing(4)
 
         heading = QLabel("Hotkeys")
         heading.setProperty("class", "section-heading")
@@ -226,8 +261,8 @@ class SettingsPage(QWidget):
         card = QWidget()
         card.setProperty("class", "surface-card")
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(SPACING["xl"], SPACING["xl"], SPACING["xl"], SPACING["xl"])
-        lay.setSpacing(SPACING["sm"])
+        lay.setContentsMargins(12, 8, 12, 8)
+        lay.setSpacing(4)
 
         heading = QLabel("Updates")
         heading.setProperty("class", "section-heading")
@@ -241,7 +276,9 @@ class SettingsPage(QWidget):
         lay.addLayout(self._toggle_row("Check on launch", self._update_toggle))
 
         self._update_status = QLabel("")
+        self._update_status.setWordWrap(True)
         self._update_status.setProperty("class", "caption")
+        self._update_status.hide()
         lay.addWidget(self._update_status)
 
         self._update_progress = QProgressBar()
@@ -306,7 +343,7 @@ class SettingsPage(QWidget):
         row.setSpacing(SPACING["sm"])
 
         action_label = QLabel(action_text)
-        action_label.setFixedWidth(90)
+        action_label.setFixedWidth(action_label.fontMetrics().horizontalAdvance("Emergency") + 8)
         row.addWidget(action_label)
 
         badge_label.setProperty("class", "key-badge")
@@ -334,6 +371,7 @@ class SettingsPage(QWidget):
     def set_update_status(self, text: str) -> None:
         """Update the update check status text."""
         self._update_status.setText(text)
+        self._update_status.setVisible(bool(text))
 
     def set_release_url(self, url: str | None) -> None:
         """Set the release URL and show/hide the View Release button."""
