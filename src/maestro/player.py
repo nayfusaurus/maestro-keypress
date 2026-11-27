@@ -10,6 +10,7 @@ import json
 import sys
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from enum import Enum, auto
 from pathlib import Path
@@ -81,6 +82,7 @@ class Player:
         self._speed: float = 1.0  # 1.0 = normal, 0.5 = half speed, 2.0 = double
         self._logger = setup_logger()
         self._last_error: str = ""
+        self.on_session_end: Callable[[tuple[str, ...]], None] | None = None
         self._transpose: bool = False
         self._key_layout = KeyLayout.KEYS_22
         self._wwm_layout = WwmLayout.KEYS_36
@@ -438,6 +440,7 @@ class Player:
             return True
         except Exception as e:
             self._logger.error(f"Key up failed for '{key}': {e}")
+            self._last_error = "Key release failed"
             return False
 
     def _release_all_keys(self) -> None:
@@ -556,6 +559,8 @@ class Player:
         played: list[KeyEvent] = []
         active_start = time.monotonic()
         event_index = 0
+        self._last_error = ""
+        report = self.on_session_end
 
         try:
             events = self._build_events()
@@ -589,6 +594,18 @@ class Player:
             elapsed = time.monotonic() - active_start
             self._release_all_keys()
             try:
+                if report:
+                    outcomes = []
+                    if played:
+                        outcomes.append("started")
+                    if self._last_error:
+                        outcomes.append("input_failure")
+                    if self._stop_event.is_set():
+                        outcomes.append("stopped")
+                    elif played:
+                        outcomes.append("completed")
+                    if outcomes:
+                        report(tuple(outcomes))
                 self._export_played_notes(played, elapsed)
                 if not self._stop_event.is_set():
                     self._stop_event.wait(timeout=TAIL_SILENCE_SECONDS / self._speed)

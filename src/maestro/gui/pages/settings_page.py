@@ -20,7 +20,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from maestro.gui.constants import BINDABLE_KEYS_QT
+from maestro.gui.constants import BINDABLE_KEYS_QT, DISCLAIMER_TEXT
+from maestro.gui.privacy import DISCLOSURE, show_example
 from maestro.gui.theme import SPACING
 from maestro.gui.toggle_switch import ToggleSwitch
 from maestro.gui.utils import check_hotkey_conflict
@@ -56,6 +57,7 @@ class SettingsPage(QWidget):
     fullscreen_changed = Signal(bool)
     auto_minimize_changed = Signal(bool)
     check_updates_changed = Signal(bool)
+    sharing_changed = Signal(bool)
     countdown_delay_changed = Signal(int)
     check_now_requested = Signal()
 
@@ -101,6 +103,7 @@ class SettingsPage(QWidget):
         layout.addWidget(self._build_appearance_card())
         layout.addWidget(self._build_hotkeys_card())
         layout.addWidget(self._build_updates_card())
+        layout.addWidget(self._build_privacy_card())
         layout.addStretch()
 
         # Center the content in the scroll area
@@ -116,6 +119,27 @@ class SettingsPage(QWidget):
     # ------------------------------------------------------------------
     # Card builders
     # ------------------------------------------------------------------
+
+    def _build_privacy_card(self) -> QWidget:
+        card = QWidget()
+        card.setProperty("class", "surface-card")
+        layout = QVBoxLayout(card)
+        heading = QLabel("Privacy & usage")
+        heading.setProperty("class", "section-heading")
+        layout.addWidget(heading)
+        toggle = ToggleSwitch(checked=self._config.get("share_usage") is True)
+        toggle.toggled.connect(self.sharing_changed.emit)
+        layout.addLayout(self._toggle_row("Share usage statistics", toggle))
+        disclosure = QLabel(DISCLOSURE)
+        disclosure.setWordWrap(True)
+        layout.addWidget(disclosure)
+        example = QPushButton("View an example report")
+        example.clicked.connect(lambda: show_example(self))
+        layout.addWidget(example)
+        terms = QPushButton("Read usage terms")
+        terms.clicked.connect(lambda: QMessageBox.information(self, "Usage terms", DISCLAIMER_TEXT))
+        layout.addWidget(terms)
+        return card
 
     def _build_library_card(self) -> QWidget:
         """Build the Library card with folder path and browse button."""

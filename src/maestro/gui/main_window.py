@@ -642,6 +642,13 @@ class MainWindow(QMainWindow):
             return
 
         self._validation_results[path_str] = status
+        if not playable:
+            issue = (
+                "unreadable"
+                if status == "invalid" and not notes and not info.get("bpm")
+                else "zero"
+            )
+            self.signals.validation_issue.emit(issue)
         self._song_info[path_str] = info
         self._song_notes[path_str] = notes
         self._dashboard._song_list.on_song_validated(path_str, status, info, notes)

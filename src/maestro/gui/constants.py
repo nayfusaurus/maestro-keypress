@@ -4,7 +4,7 @@
 from PySide6.QtCore import Qt
 
 # App info
-APP_VERSION = "2.0.3"
+APP_VERSION = "2.1.0"
 GITHUB_REPO = "nayfusaurus/maestro-keypress"
 KOFI_URL = "https://ko-fi.com/nayfusaurus"
 

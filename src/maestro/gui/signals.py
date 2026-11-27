@@ -30,6 +30,7 @@ class MaestroSignals(QObject):
     countdown_delay_changed = Signal(int)  # 0-10 seconds
     note_compatibility_requested = Signal(object)  # Path
     player_cache_invalidate_requested = Signal()  # Refresh-button signal
+    validation_issue = Signal(str)
 
     # --- Maestro -> GUI (state pushes) ---
     state_updated = Signal(str)  # Playback state string

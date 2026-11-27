@@ -18,10 +18,11 @@ if TYPE_CHECKING:
 
 from pynput import keyboard
 
-from maestro.config import load_config, save_config
+from maestro.config import get_config_dir, load_config, save_config
 from maestro.game_mode import GameMode
 from maestro.key_layout import KeyLayout, WwmLayout
 from maestro.logger import setup_logger
+from maestro.metrics import UsageMetrics, endpoint, environment
 from maestro.parser import parse_midi
 from maestro.player import PlaybackState, Player
 
@@ -58,6 +59,7 @@ class Maestro:
         """Initialize Maestro."""
         self.logger = setup_logger()
         self._config = load_config()
+        self.metrics = UsageMetrics(get_config_dir(), endpoint())
 
         # Use provided folder, or config folder, or default
         if songs_folder:
@@ -141,6 +143,8 @@ class Maestro:
         s.countdown_delay_changed.connect(self._on_countdown_delay_change)
         s.note_compatibility_requested.connect(self._on_note_compatibility_requested)
         s.player_cache_invalidate_requested.connect(self.player._invalidate_cache)
+        self.window._settings.sharing_changed.connect(self._set_sharing)
+        s.validation_issue.connect(self._record_validation)
 
         # Disclaimer acceptance from info page
         self.window._info.disclaimer_accepted.connect(self._on_disclaimer_accepted)
@@ -314,6 +318,41 @@ class Maestro:
 
         return (playable, total)
 
+    def _metrics_group(self) -> tuple[str, str]:
+        mode = self.player.game_mode
+        if mode == GameMode.HEARTOPIA:
+            layout = self.player.key_layout.name
+        elif mode == GameMode.WHERE_WINDS_MEET:
+            layout = self.player.wwm_layout.name
+        else:
+            layout = "DEFAULT"
+        return mode.name, layout
+
+    def _set_sharing(self, enabled: bool) -> None:
+        self._config["share_usage"] = enabled
+        self._save_config()
+        self._configure_metrics(enabled)
+        self._sample_metrics()
+
+    def _configure_metrics(self, enabled: bool) -> None:
+        import sqlite3
+
+        try:
+            self.metrics.configure(enabled)
+        except (OSError, sqlite3.Error) as error:
+            self.metrics.enabled = False
+            self.logger.warning("Usage storage unavailable: %s", error)
+
+    def _sample_metrics(self) -> None:
+        if self.window and self.metrics.enabled:
+            self.metrics.context = environment(self.window.width(), self.window.height())
+            self.metrics.record()
+            self.metrics.flush()
+
+    def _record_validation(self, issue: str) -> None:
+        if self.metrics.enabled:
+            self.metrics.record(*self._metrics_group(), (issue,))
+
     def _on_play(self, song_path) -> None:
         """Handle play request from GUI."""
         from PySide6.QtCore import QTimer
@@ -327,6 +366,14 @@ class Maestro:
 
         song_path = Path(song_path) if not isinstance(song_path, Path) else song_path
         self.player.stop()
+        self.player.on_session_end = None
+        if self.metrics.enabled:
+            game, layout = self._metrics_group()
+            generation = self.metrics.generation
+            self.metrics.record(game, layout, ("attempt",))
+            self.player.on_session_end = lambda outcomes: self.metrics.record(
+                game, layout, outcomes, generation=generation
+            )
 
         # Track recently played
         recently = self._config.get("recently_played", [])
@@ -398,6 +445,8 @@ class Maestro:
 
     def stop(self) -> None:
         """Stop playback."""
+        if self._countdown > 0 and self.player.on_session_end:
+            self.player.on_session_end(("stopped",))
         self._countdown = 0
         if self._countdown_timer:
             self._countdown_timer.stop()
@@ -474,6 +523,15 @@ class Maestro:
         from maestro.gui.theme import apply_theme
 
         apply_theme(app, dark=self._config.get("theme", "dark") == "dark")
+        from maestro.gui.privacy import review_choices
+
+        splash.hide()
+        if not review_choices(self._config):
+            splash.close()
+            return
+        self._save_config()
+        splash.show()
+        self._configure_metrics(self._config.get("share_usage") is True)
 
         # Stage 2: Load GUI modules
         splash.set_progress(50, "Loading interface...")
@@ -497,6 +555,10 @@ class Maestro:
         splash.set_progress(100, "Ready")
         app.processEvents()
         self.window.show()
+        self._sample_metrics()
+        self._metrics_timer = QTimer()
+        self._metrics_timer.timeout.connect(self._sample_metrics)
+        self._metrics_timer.start(15 * 60 * 1000)
         splash.close()
         splash.deleteLater()
 

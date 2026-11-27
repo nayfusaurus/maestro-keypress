@@ -29,6 +29,7 @@
 - 🎨 **Modern GUI** - Dark/light themes, icon sidebar navigation, multi-page layout
 - 🎯 **Event-driven playback** - Precise timing with chord support and MIDI duration tracking
 - 📊 **Playback stats** - Track most-played songs, notes, keys, and chords across sessions
+- **Optional usage reporting** - Review the fields at first launch and change sharing in Settings → Privacy & usage. [Reporting and hosting details](cloudflare/README.md)
 - 🔒 **Production-ready** - 363 tests, type-safe with mypy, security-scanned, pinned dependencies
 - 🪟 **Windows executable** - Standalone `.exe` for easy distribution
 

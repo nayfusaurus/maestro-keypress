@@ -4,6 +4,14 @@ All notable changes to Maestro will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.2.0/).
 
+## [2.1.0] - Unreleased
+
+- Review the usage terms and choose whether to share usage statistics on first launch
+  after installing or upgrading. Change this choice in Settings → Privacy & usage.
+- Added Windows CI, fixed game-specific drum validation, and corrected focus checks,
+  playback exports, and the duration of overlapping MIDI notes.
+- Updated vulnerable dependencies and licensed Maestro source under MPL 2.0.
+
 ## [2.0.3] - 2026-04-23
 
 ### Added

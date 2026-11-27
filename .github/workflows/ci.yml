@@ -9,6 +9,16 @@ on:
   workflow_dispatch:
 
 jobs:
+  reporting:
+    name: Metrics Worker tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: node --test cloudflare/worker.test.mjs
+
   security:
     name: Security Check (Bandit)
     runs-on: ubuntu-latest
@@ -116,7 +126,13 @@ jobs:
         run: uv sync
 
       - name: Build exe
-        run: uv run pyinstaller Maestro.spec --noconfirm
+        env:
+          MAESTRO_METRICS_URL: ${{ vars.MAESTRO_METRICS_URL }}
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag" -and !$env:MAESTRO_METRICS_URL) {
+            throw "Set the repository variable MAESTRO_METRICS_URL before publishing this release."
+          }
+          uv run pyinstaller Maestro.spec --noconfirm
 
       - name: Prepare release files
         run: |
