@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Tests for the IconRail navigation widget."""
 
 from maestro.gui.icon_rail import IconRail

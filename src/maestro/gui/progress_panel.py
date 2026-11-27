@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Now Playing panel with song metadata, progress bar, and time display."""
 
 from datetime import datetime

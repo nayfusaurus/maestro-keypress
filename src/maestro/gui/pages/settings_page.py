@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Settings page with Library, Appearance, Hotkeys, Demucs, and Updates cards.
 
 A scrollable page containing five surface-card sections for all user-facing

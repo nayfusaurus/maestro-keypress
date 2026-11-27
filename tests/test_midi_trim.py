@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Tests for midi_trim (leading trim + trailing normalization)."""
 from __future__ import annotations
 

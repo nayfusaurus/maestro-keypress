@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Main application window — thin shell around IconRail + QStackedWidget pages."""
 
 from pathlib import Path

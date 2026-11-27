@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Check for new releases on GitHub."""
 
 from typing import NamedTuple

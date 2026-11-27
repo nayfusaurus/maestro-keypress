@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Tests for Where Winds Meet (WWM) keymap."""
 
 import pytest

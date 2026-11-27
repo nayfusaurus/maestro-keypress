@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Piano roll preview widget showing upcoming notes."""
 
 from PySide6.QtGui import QColor, QPainter, QPen

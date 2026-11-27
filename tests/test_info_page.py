@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Tests for the Info page (About + Disclaimer)."""
 
 from maestro.gui.constants import APP_VERSION, DISCLAIMER_TEXT

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Tests for Heartopia 8-key drum keymap."""
 
 from maestro.keymap_drums import midi_note_to_key

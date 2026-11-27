@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Signal definitions for GUI-backend communication."""
 
 from PySide6.QtCore import QObject, Signal

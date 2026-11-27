@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Integration tests for the song info panel wiring on MainWindow."""
 from __future__ import annotations
 

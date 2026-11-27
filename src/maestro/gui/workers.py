@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Background worker threads for MIDI validation and update checking."""
 
 from pathlib import Path

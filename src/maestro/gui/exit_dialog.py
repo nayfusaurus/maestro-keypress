@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Exit confirmation dialog."""
 
 from PySide6.QtCore import Qt

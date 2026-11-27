@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Heartopia piano key mapping.
 
 Maps MIDI note numbers to keyboard keys for Heartopia's 3-octave piano.

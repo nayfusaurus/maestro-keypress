@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Playback control buttons panel."""
 
 from PySide6.QtCore import Signal

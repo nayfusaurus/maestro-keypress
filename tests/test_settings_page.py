@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Tests for the Settings page."""
 
 from maestro.gui.pages.settings_page import SettingsPage

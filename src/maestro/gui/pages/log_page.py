@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Error Log page with built-in log viewer.
 
 Displays the application log file in a read-only monospace text viewer

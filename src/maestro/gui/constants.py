@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Constants for the Maestro GUI."""
 
 from PySide6.QtCore import Qt

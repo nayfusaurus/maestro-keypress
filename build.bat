@@ -1,4 +1,5 @@
 @echo off
+rem SPDX-License-Identifier: MPL-2.0
 setlocal
 
 :: Change to the directory where this script is located

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Tests for Heartopia 15-key double row keymap."""
 
 import pytest

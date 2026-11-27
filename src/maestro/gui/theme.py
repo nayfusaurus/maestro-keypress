@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Theme system for the Maestro GUI.
 
 Supports dark (Catppuccin Mocha) and light (Catppuccin Latte) themes with

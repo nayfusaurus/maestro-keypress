@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Playback engine for Maestro.
 
 Handles playing MIDI notes via keyboard simulation.
@@ -9,7 +10,7 @@ import json
 import sys
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum, auto
 from pathlib import Path
 
@@ -34,7 +35,7 @@ from maestro.keymap_once_human import midi_note_to_key_once_human
 from maestro.keymap_wwm import midi_note_to_key_wwm, midi_note_to_key_wwm_21
 from maestro.keymap_xylophone import midi_note_to_key as midi_note_to_key_xylophone
 from maestro.logger import setup_logger
-from maestro.parser import Note, parse_midi
+from maestro.parser import Note, notes_duration, parse_midi
 
 # Game modes that require DirectInput (pydirectinput) instead of pynput
 _DIRECTINPUT_MODES = frozenset({GameMode.WHERE_WINDS_MEET, GameMode.ONCE_HUMAN})
@@ -70,6 +71,7 @@ class Player:
         self.state = PlaybackState.STOPPED
         self.current_song: Path | None = None
         self._notes: list[Note] = []
+        self._duration = 0.0
         self._playback_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._note_index = 0
@@ -85,7 +87,6 @@ class Player:
         self._sharp_handling: str = "skip"
         self._held_keys: set[tuple[str, Key | None]] = set()
         self._held_keys_lock = threading.Lock()
-        self._events: list[KeyEvent] = []
         # Event caching to avoid rebuilding on replays
         self._cached_events: list[KeyEvent] | None = None
         self._cached_cache_key: str | None = None
@@ -173,10 +174,7 @@ class Player:
     def duration(self) -> float:
         """Total duration of current song in seconds, including a fixed
         trailing-silence tail so songs never end abruptly."""
-        if not self._notes:
-            return 0.0
-        last_note = self._notes[-1]
-        return last_note.time + last_note.duration + TAIL_SILENCE_SECONDS
+        return self._duration
 
     @property
     def position(self) -> float:
@@ -194,6 +192,7 @@ class Player:
         if self.current_song != midi_path:
             self._invalidate_cache()
         self._notes = parse_midi(midi_path)
+        self._duration = notes_duration(self._notes) + TAIL_SILENCE_SECONDS if self._notes else 0.0
         self.current_song = midi_path
         self._note_index = 0
 
@@ -226,14 +225,12 @@ class Player:
     def stop(self) -> None:
         """Stop playback completely."""
         self._stop_event.set()
+        if self._playback_thread and self._playback_thread.is_alive():
+            self._playback_thread.join()
         self._release_all_keys()
         self.state = PlaybackState.STOPPED
         self._note_index = 0
         self._start_time = 0.0
-        self._events = []
-
-        if self._playback_thread and self._playback_thread.is_alive():
-            self._playback_thread.join(timeout=1.0)
 
         # Re-enable cyclic GC after playback ends. Idempotent if already enabled.
         gc.enable()
@@ -384,12 +381,12 @@ class Player:
             return "shift"
         return "ctrl"
 
-    def _key_down(self, key: str, modifier: Key | None = None) -> None:
+    def _key_down(self, key: str, modifier: Key | None = None) -> bool:
         """Press a key down and track it."""
         key_id = (key, modifier)
         with self._held_keys_lock:
             if key_id in self._held_keys:
-                return  # Already held
+                return False  # Already held
             self._held_keys.add(key_id)
 
         # Update last key for visual feedback
@@ -409,18 +406,20 @@ class Player:
                     self.keyboard.press(modifier)
                     time.sleep(0.01)
                 self.keyboard.press(key)
+            return True
         except Exception as e:
             with self._held_keys_lock:
                 self._held_keys.discard(key_id)
             self._logger.error(f"Key down failed for '{key}': {e}")
             self._last_error = f"Key simulation failed: {e}"
+            return False
 
-    def _key_up(self, key: str, modifier: Key | None = None) -> None:
+    def _key_up(self, key: str, modifier: Key | None = None) -> bool:
         """Release a key."""
         key_id = (key, modifier)
         with self._held_keys_lock:
             if key_id not in self._held_keys:
-                return  # Not held
+                return False  # Not held
             self._held_keys.discard(key_id)
             # Check if any other keys still use this modifier
             release_modifier = modifier is not None and not any(
@@ -436,8 +435,10 @@ class Player:
                 self.keyboard.release(key)
                 if release_modifier:
                     self.keyboard.release(modifier)
+            return True
         except Exception as e:
             self._logger.error(f"Key up failed for '{key}': {e}")
+            return False
 
     def _release_all_keys(self) -> None:
         """Release all currently held keys (safety cleanup)."""
@@ -467,40 +468,38 @@ class Player:
             except Exception:  # nosec B110
                 pass
 
-    def _export_played_notes(self) -> None:
+    def _export_played_notes(self, played: list[KeyEvent], elapsed: float) -> None:
         """Export played notes to a .played.json file next to the MIDI."""
         if not self.current_song:
             return
 
         json_path = self.current_song.with_suffix(".played.json")
 
-        # Pair down/up events by (key, midi_note) into note spans
-        pending: dict[tuple[str, int], float] = {}
+        # Match releases to the physical key and modifier that were pressed.
+        pending: dict[tuple[str, Key | None], KeyEvent] = {}
         notes = []
-        stop_time = (time.time() - self._start_time) * self._speed if self._start_time else 0.0
 
-        for evt in self._events:
-            pair_key = (evt.key, evt.midi_note)
+        for evt in played:
+            pair_key = (evt.key, evt.modifier)
             if evt.action == "down":
-                pending[pair_key] = evt.time / self._speed
+                pending[pair_key] = evt
             elif evt.action == "up" and pair_key in pending:
                 start = pending.pop(pair_key)
                 notes.append(
                     {
-                        "midi_note": evt.midi_note,
-                        "start_sec": round(start, 6),
-                        "end_sec": round(evt.time / self._speed, 6),
+                        "midi_note": start.midi_note,
+                        "start_sec": round(start.time, 6),
+                        "end_sec": round(evt.time, 6),
                     }
                 )
 
         # Close any still-pending notes (interrupted playback)
-        wall_stop = stop_time / self._speed if self._speed else stop_time
-        for (_key, midi_note), start in pending.items():
+        for start in pending.values():
             notes.append(
                 {
-                    "midi_note": midi_note,
-                    "start_sec": round(start, 6),
-                    "end_sec": round(wall_stop, 6),
+                    "midi_note": start.midi_note,
+                    "start_sec": round(start.time, 6),
+                    "end_sec": round(elapsed, 6),
                 }
             )
 
@@ -518,7 +517,8 @@ class Player:
         try:
             from maestro.stats import update_stats
 
-            update_stats(self._events, self.current_song.name, stop_time, self._game_mode.value)
+            if played:
+                update_stats(played, self.current_song.name, elapsed, self._game_mode.value)
         except Exception:
             pass
 
@@ -542,15 +542,9 @@ class Player:
             hwnd = win32gui.GetForegroundWindow()
             title = win32gui.GetWindowText(hwnd).lower()
 
-            if self._game_mode == GameMode.HEARTOPIA:
-                return "heartopia" in title
-            elif self._game_mode == GameMode.WHERE_WINDS_MEET:
-                return "where winds meet" in title
-            elif self._game_mode == GameMode.ONCE_HUMAN:
-                return "once human" in title
-            return True
+            return self._game_mode.value.lower() in title
         except Exception:
-            return True  # If detection fails, don't block playback
+            return False
 
     def _playback_loop(self) -> None:
         """Main playback loop running in separate thread.
@@ -559,84 +553,45 @@ class Player:
         Events at the same timestamp are processed simultaneously (chords).
         Automatically pauses when the game window loses focus.
         """
-        self._events = self._build_events()
+        played: list[KeyEvent] = []
+        active_start = time.monotonic()
         event_index = 0
 
-        # Throttle focus checks: GetForegroundWindow is a kernel transition;
-        # calling it per-event on dense songs adds CPU pressure that can starve
-        # screen-recorder encoder threads. 250ms is fast enough that pause
-        # latency on focus loss stays imperceptible.
-        last_focus_check = 0.0
-        focused = True
-        focus_check_interval = 0.25
-
         try:
-            while event_index < len(self._events):
-                if self._stop_event.is_set():
-                    break
+            events = self._build_events()
+            while event_index < len(events) and not self._stop_event.is_set():
+                if not self._is_game_window_active():
+                    pause_start = time.monotonic()
+                    while not self._stop_event.wait(0.1) and not self._is_game_window_active():
+                        pass
+                    paused = time.monotonic() - pause_start
+                    self._start_time += paused
+                    active_start += paused
+                    continue
 
-                # Check window focus - pause if game not in foreground
-                now = time.time()
-                if now - last_focus_check >= focus_check_interval:
-                    focused = self._is_game_window_active()
-                    last_focus_check = now
+                event_time = events[event_index].time
+                delay = (event_time - self.position) / self._speed
+                if delay > 0:
+                    # Returning to the focus check after every wait also catches
+                    # window changes during rests before the next chord is sent.
+                    self._stop_event.wait(min(delay, 0.1))
+                    continue
 
-                if not focused:
-                    pause_start = time.time()
-                    while not self._is_game_window_active() and not self._stop_event.is_set():
-                        time.sleep(0.1)  # Check every 100ms
+                while event_index < len(events) and events[event_index].time <= event_time + 0.001:
                     if self._stop_event.is_set():
                         break
-                    # Adjust start time to account for pause duration
-                    self._start_time += time.time() - pause_start
-                    focused = True
-                    last_focus_check = time.time()
-
-                event = self._events[event_index]
-                # Scale elapsed time by speed to get song position
-                current_time = (time.time() - self._start_time) * self._speed
-
-                # Wait until it's time for this event. Use Event.wait so Stop
-                # is instant without polling, and cap chunks at 20ms to reduce
-                # scheduler wake-ups (~50 Hz instead of ~200 Hz) — the lower
-                # wake rate is much friendlier to screen recorder encoder
-                # threads while still keeping note timing within ~20ms.
-                if event.time > current_time:
-                    sleep_time = (event.time - current_time) / self._speed
-                    while sleep_time > 0:
-                        chunk = min(0.020, sleep_time)
-                        if self._stop_event.wait(timeout=chunk):
-                            break
-                        current_time = (time.time() - self._start_time) * self._speed
-                        sleep_time = (event.time - current_time) / self._speed
-
-                    if self._stop_event.is_set():
-                        break
-
-                # Process this event and all events at the same timestamp
-                current_event_time = event.time
-                while (
-                    event_index < len(self._events)
-                    and self._events[event_index].time <= current_event_time + 0.001
-                ):
-                    evt = self._events[event_index]
-                    if evt.action == "down":
-                        self._key_down(evt.key, evt.modifier)
-                    else:
-                        self._key_up(evt.key, evt.modifier)
+                    evt = events[event_index]
+                    dispatch = self._key_down if evt.action == "down" else self._key_up
+                    if dispatch(evt.key, evt.modifier):
+                        played.append(replace(evt, time=time.monotonic() - active_start))
                     event_index += 1
         finally:
+            elapsed = time.monotonic() - active_start
             self._release_all_keys()
-            # Export BEFORE the tail wait — stop() may wipe self._events
-            # and self._start_time, which would leave the export empty.
-            self._export_played_notes()
-            # Natural end: hold for the trailing-silence tail so the song
-            # doesn't cut out immediately after the last note releases.
-            # Stop is honoured via _stop_event — skips the wait on manual stop.
-            if not self._stop_event.is_set():
-                self._stop_event.wait(timeout=TAIL_SILENCE_SECONDS / self._speed)
-            # Re-enable cyclic GC if the song finished naturally (stop() handles
-            # the explicit-stop case). Idempotent if already enabled.
-            gc.enable()
-            if not self._stop_event.is_set():
+            try:
+                self._export_played_notes(played, elapsed)
+                if not self._stop_event.is_set():
+                    self._stop_event.wait(timeout=TAIL_SILENCE_SECONDS / self._speed)
+            finally:
+                gc.enable()
                 self.state = PlaybackState.STOPPED

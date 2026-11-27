@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Shared pytest configuration.
 
 Sets QT_QPA_PLATFORM=offscreen before any Qt imports to avoid

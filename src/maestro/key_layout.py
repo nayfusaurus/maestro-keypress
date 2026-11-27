@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Key layout selection for Heartopia and Where Winds Meet instruments."""
 
 from enum import Enum

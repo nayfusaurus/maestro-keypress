@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Modal dialog prompting the user to trim leading silence from flagged songs."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 """Trim leading silence from MIDI files.
 
 The validation flow in MainWindow flags files whose first note-on event
