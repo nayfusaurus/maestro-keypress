@@ -11,13 +11,16 @@ import copy
 import json
 import os
 import tempfile
+from datetime import date
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 _STATS_FILENAME = "stats.json"
 
 _CHORD_WINDOW = 0.05  # seconds — notes within this window are grouped as a chord
 _TOP_N = 10  # how many entries to show in each category
+_write_lock = Lock()
 
 
 def _stats_path() -> Path:
@@ -47,6 +50,8 @@ DEFAULT_STATS: dict[str, Any] = {
     "note_frequency": {},
     "chords": {},
     "by_game": {},
+    "daily_plays": {},
+    "peak_passage": {},
 }
 
 
@@ -94,6 +99,11 @@ def update_stats(
     ``events`` is a list of ``KeyEvent`` objects with attributes
     ``time``, ``action``, ``key``, and ``midi_note``.
     """
+    with _write_lock:
+        _record_play(events, song_name, duration, game_mode)
+
+
+def _record_play(events: list[Any], song_name: str, duration: float, game_mode: str) -> None:
     stats = load_stats()
 
     stats["total_plays"] += 1
@@ -107,6 +117,10 @@ def update_stats(
 
     down_events = [e for e in events if e.action == "down"]
     stats["total_notes_played"] += len(down_events)
+    day = date.today().isoformat()
+    daily = stats["daily_plays"]
+    daily[day] = daily.get(day, 0) + 1
+    _update_peak(stats, down_events, song_name)
 
     for evt in down_events:
         keys[evt.key] = keys.get(evt.key, 0) + 1
@@ -124,6 +138,28 @@ def update_stats(
         gs["total_play_time_seconds"] += duration
 
     save_stats(stats)
+
+
+def _update_peak(stats: dict[str, Any], events: list[Any], song: str) -> None:
+    """Keep the earliest winning half-open five-second window and its five bins."""
+    times = sorted(evt.time for evt in events)
+    best = stats["peak_passage"].get("count", 0)
+    left = 0
+    winner = None
+    for right, timestamp in enumerate(times):
+        while timestamp - times[left] >= 5:
+            left += 1
+        count = right - left + 1
+        if count > best:
+            best = count
+            winner = (left, right + 1)
+    if winner:
+        first, end = winner
+        start = times[first]
+        bins = [0] * 5
+        for timestamp in times[first:end]:
+            bins[int(timestamp - start)] += 1
+        stats["peak_passage"] = {"song": song, "start": start, "count": best, "bins": bins}
 
 
 def _detect_chords(events: list[Any], chords: dict[str, int]) -> None:
@@ -201,4 +237,5 @@ def game_mode_stats(stats: dict[str, Any]) -> dict[str, Any]:
 
 def reset_stats() -> None:
     """Wipe all stats and write fresh defaults to disk."""
-    save_stats(copy.deepcopy(DEFAULT_STATS))
+    with _write_lock:
+        save_stats(copy.deepcopy(DEFAULT_STATS))
