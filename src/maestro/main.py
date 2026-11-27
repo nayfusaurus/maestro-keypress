@@ -60,6 +60,10 @@ class Maestro:
         self.logger = setup_logger()
         self._config = load_config()
         self.metrics = UsageMetrics(get_config_dir(), endpoint())
+        # Opt-out deletes the identity store even if config.json cannot be replaced.
+        # Only an explicit sharing choice may create a new installation identity.
+        if self._config.get("share_usage") is True and not self.metrics.path.is_file():
+            self._config["share_usage"] = False
 
         # Use provided folder, or config folder, or default
         if songs_folder:
@@ -112,12 +116,12 @@ class Maestro:
         key_name = self._config.get(config_key, default)
         return KEY_NAME_MAP.get(key_name)
 
-    def _save_config(self) -> None:
+    def _save_config(self) -> bool:
         """Save current settings to config."""
         self._config["last_songs_folder"] = str(self.songs_folder)
         self._config["game_mode"] = self.player.game_mode.value
         self._config["speed"] = self.player.speed
-        save_config(self._config)
+        return save_config(self._config)
 
     def _connect_signals(self) -> None:
         """Wire GUI signals to Maestro slots."""
@@ -330,9 +334,25 @@ class Maestro:
 
     def _set_sharing(self, enabled: bool) -> None:
         self._config["share_usage"] = enabled
-        self._save_config()
-        self._configure_metrics(enabled)
-        self._sample_metrics()
+        if not enabled:
+            self._configure_metrics(False)
+        if not self._save_config():
+            self._config["share_usage"] = False
+            self._configure_metrics(False)
+            from PySide6.QtWidgets import QMessageBox
+
+            QMessageBox.warning(
+                self.window,
+                "Could not save privacy settings",
+                "Usage sharing is off for this session. Maestro could not save your choice. "
+                "Check write access to the settings folder and try again.",
+            )
+            if self.window:
+                self.window.set_sharing_checked(False)
+            return
+        if enabled:
+            self._configure_metrics(True)
+            self._sample_metrics()
 
     def _configure_metrics(self, enabled: bool) -> None:
         import sqlite3
@@ -529,9 +549,8 @@ class Maestro:
         if not review_choices(self._config):
             splash.close()
             return
-        self._save_config()
+        self._set_sharing(self._config.get("share_usage") is True)
         splash.show()
-        self._configure_metrics(self._config.get("share_usage") is True)
 
         # Stage 2: Load GUI modules
         splash.set_progress(50, "Loading interface...")

@@ -21,7 +21,7 @@ from pathlib import Path
 import mido
 
 from maestro.logger import setup_logger
-from maestro.parser import get_tempo
+from maestro.parser import get_tempo, read_midi
 
 SILENCE_THRESHOLD = 0.5  # seconds; files with notes[0].time above this are offenders
 TARGET_LEAD = 0.1  # seconds; first note lands here after trim
@@ -80,7 +80,7 @@ def trim_leading_silence(midi_path: Path) -> None:
         OSError: On I/O failure (permission, disk full, etc.).
         ValueError: On malformed MIDI (propagated from ``mido``).
     """
-    mid = mido.MidiFile(midi_path)
+    mid = read_midi(midi_path)
 
     first_note_tick = _find_first_note_tick(mid)
     if first_note_tick is None:
@@ -146,7 +146,7 @@ def normalize_trailing_silence(midi_path: Path) -> bool:
     Returns:
         True if the file was modified, False if it was already within tolerance.
     """
-    mid = mido.MidiFile(midi_path)
+    mid = read_midi(midi_path)
 
     last_note_off = _find_last_note_off_tick(mid)
     if last_note_off == 0:

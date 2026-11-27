@@ -5,6 +5,7 @@ Parses MIDI files and extracts note events with timing.
 """
 
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 
 import mido
@@ -23,19 +24,7 @@ class Note:
     duration: float  # Duration in seconds
 
 
-def parse_midi(midi_path: Path) -> list[Note]:
-    """Parse a MIDI file and extract notes with timing.
-
-    Args:
-        midi_path: Path to the MIDI file
-
-    Returns:
-        List of Note objects sorted by time
-
-    Raises:
-        ValueError: If file is not a valid MIDI file
-        FileNotFoundError: If file doesn't exist
-    """
+def read_midi(midi_path: Path) -> mido.MidiFile:
     logger = setup_logger()
 
     if not midi_path.exists():
@@ -50,10 +39,30 @@ def parse_midi(midi_path: Path) -> list[Note]:
         )
 
     try:
-        mid = mido.MidiFile(midi_path)
+        with midi_path.open("rb") as source:
+            contents = source.read(MAX_MIDI_SIZE + 1)
+        if len(contents) > MAX_MIDI_SIZE:
+            raise ValueError("MIDI file too large")
+        return mido.MidiFile(file=BytesIO(contents))
     except Exception as e:
         logger.error(f"Invalid MIDI file '{midi_path}': {e}")
         raise ValueError(f"Invalid MIDI file: {e}") from e
+
+
+def parse_midi(midi_path: Path) -> list[Note]:
+    """Parse a MIDI file and extract notes with timing.
+
+    Args:
+        midi_path: Path to the MIDI file
+
+    Returns:
+        List of Note objects sorted by time
+
+    Raises:
+        ValueError: If file is not a valid MIDI file
+        FileNotFoundError: If file doesn't exist
+    """
+    mid = read_midi(midi_path)
 
     notes: list[Note] = []
     # Track note_on events to calculate duration
@@ -134,7 +143,7 @@ def get_midi_info(midi_path: Path, notes: list[Note] | None = None) -> dict:
 
     # Get tempo for BPM
     try:
-        mid = mido.MidiFile(midi_path)
+        mid = read_midi(midi_path)
         tempo = get_tempo(mid)
         bpm = round(mido.tempo2bpm(tempo))
     except Exception:

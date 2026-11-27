@@ -57,6 +57,7 @@ def _seed_song_notes(window, tmp_path: Path, first_note_times: dict[str, float])
         p.write_bytes(b"x" * 128)
         notes = [Note(midi_note=60, time=t, duration=0.5)]
         window._song_notes[str(p)] = notes
+        window._validation_results[str(p)] = "valid"
 
 
 def test_dialog_shown_when_offenders_exist(window, tmp_path):
@@ -100,7 +101,7 @@ def test_trim_all_wires_through_to_refresh_songs(window, tmp_path):
     _seed_song_notes(window, tmp_path, {"offender.mid": 2.0})
     offender_path = tmp_path / "offender.mid"
     with (
-        patch("maestro.gui.main_window.trim_leading_silence") as mock_trim,
+        patch("maestro.midi_trim.trim_leading_silence") as mock_trim,
         patch.object(window, "_refresh_songs") as mock_refresh,
     ):
         window._trim_all([offender_path])
@@ -157,12 +158,12 @@ def test_auto_process_normalizes_and_trims(window, tmp_path):
     })
     offender_path = tmp_path / "offender.mid"
     clean_path = tmp_path / "clean.mid"
-    window._dashboard._song_list._songs = [offender_path, clean_path]
+    window._dashboard._song_list._songs = [offender_path, clean_path, tmp_path / "invalid.mid"]
 
     with (
-        patch("maestro.gui.main_window.trim_leading_silence") as mock_trim,
+        patch("maestro.midi_trim.trim_leading_silence") as mock_trim,
         patch(
-            "maestro.gui.main_window.normalize_trailing_silence",
+            "maestro.midi_trim.normalize_trailing_silence",
             return_value=True,
         ) as mock_norm,
         patch.object(window, "_refresh_songs") as mock_refresh,

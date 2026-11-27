@@ -133,3 +133,21 @@ class TestOpenLogFile:
         ):
             open_log_file()
             mock_run.assert_called_once_with(["xdg-open", str(log_path)])
+
+
+def test_prune_and_clear_all_logs(tmp_path, monkeypatch):
+    monkeypatch.setattr(maestro.logger, "get_config_dir", lambda: tmp_path)
+    for i in range(5):
+        directory = tmp_path / "logs" / f"{i:024x}"
+        directory.mkdir(parents=True)
+        (directory / "maestro.log").write_text("old")
+    active = directory / "maestro.log"
+    monkeypatch.setattr(maestro.logger, "get_log_path", lambda: active)
+    maestro.logger._prune_old_logs(active)
+    assert len(list((tmp_path / "logs").iterdir())) == 3
+    other = active.parent / "unrelated.txt"
+    other.write_text("keep")
+    maestro.logger.clear_all_logs()
+    assert active.read_text() == ""
+    assert other.read_text() == "keep"
+    assert list((tmp_path / "logs").iterdir()) == [active.parent]

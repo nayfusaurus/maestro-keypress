@@ -7,6 +7,8 @@ Sets up rotating file handler for error logging.
 import hashlib
 import logging
 import os
+import re
+import stat
 import subprocess  # nosec B404
 import sys
 from logging.handlers import RotatingFileHandler
@@ -35,6 +37,55 @@ def get_log_path() -> Path:
     return get_config_dir() / "maestro.log"
 
 
+def _log_directories() -> list[Path]:
+    root = get_config_dir() / "logs"
+    if not root.exists() or _linked(root):
+        return []
+    return [
+        p
+        for p in root.iterdir()
+        if re.fullmatch(r"[0-9a-f]{24}", p.name) and not _linked(p) and p.is_dir()
+    ]
+
+
+def _linked(path: Path) -> bool:
+    info = path.lstat()
+    return stat.S_ISLNK(info.st_mode) or bool(
+        getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+    )
+
+
+def _clear_directory(directory: Path, active: Path, remove_directory: bool) -> None:
+    for name in ("maestro.log", "maestro.log.1", "maestro.log.2", "maestro.log.3"):
+        path = directory / name
+        if not path.exists() or _linked(path) or not path.is_file():
+            continue
+        if path == active:
+            path.write_bytes(b"")
+        else:
+            path.unlink()
+    if remove_directory and not any(directory.iterdir()):
+        directory.rmdir()
+
+
+def clear_all_logs() -> None:
+    """Remove Maestro log history while keeping the active writer usable."""
+    active = get_log_path()
+    for directory in _log_directories():
+        _clear_directory(directory, active, directory != active.parent)
+    _clear_directory(get_config_dir(), active, False)
+
+
+def _prune_old_logs(active: Path) -> None:
+    previous = sorted(
+        (d for d in _log_directories() if d != active.parent),
+        key=lambda d: d.stat().st_mtime_ns,
+        reverse=True,
+    )
+    for directory in previous[2:]:
+        _clear_directory(directory, active, True)
+
+
 def setup_logger() -> logging.Logger:
     """Set up and return the maestro logger.
 
@@ -53,6 +104,12 @@ def setup_logger() -> logging.Logger:
     # Ensure log directory exists
     log_path = get_log_path()
     log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if getattr(sys, "frozen", False):
+        try:
+            _prune_old_logs(log_path)
+        except OSError as error:
+            _logger.warning("Could not prune previous log files: %s", error)
 
     # Rotating file handler: 1MB max, keep 3 backups
     handler = RotatingFileHandler(
